@@ -2,12 +2,13 @@ package com.tomasronis.rhentiapp.data.auth.models
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import com.tomasronis.rhentiapp.BuildConfig
 
 @JsonClass(generateAdapter = true)
 data class LoginRequest(
     val email: String,
     val password: String,
-    @Json(name = "white_label") val whiteLabel: String = "rhenti_mobile"
+    @Json(name = "white_label") val whiteLabel: String = BuildConfig.WHITE_LABEL
 )
 
 @JsonClass(generateAdapter = true)
@@ -15,7 +16,7 @@ data class SSOLoginRequest(
     val email: String,
     val token: String,
     val provider: String, // "google" or "microsoft"
-    @Json(name = "white_label") val whiteLabel: String = "rhenti_mobile"
+    @Json(name = "white_label") val whiteLabel: String = BuildConfig.WHITE_LABEL
 )
 
 @JsonClass(generateAdapter = true)
@@ -27,7 +28,7 @@ data class RegistrationRequest(
     val password: String,
     val confirmPassword: String,
     val role: String = "owner",
-    @Json(name = "white_label") val whiteLabel: String = "rhenti_mobile"
+    @Json(name = "white_label") val whiteLabel: String = BuildConfig.WHITE_LABEL
 )
 
 @JsonClass(generateAdapter = true)
@@ -38,10 +39,10 @@ data class ForgotPasswordRequest(
 @JsonClass(generateAdapter = true)
 data class LoginResponse(
     val token: String,
-    @Json(name = "user_id") val userId: String,
+    val userId: String,  // API returns camelCase
     @Json(name = "super_account_id") val superAccountId: String,
-    @Json(name = "white_label") val whiteLabel: String,
-    val user: User
+    val whiteLabel: String,  // API returns camelCase
+    val profile: User  // API returns user data in "profile" field
 )
 
 @JsonClass(generateAdapter = true)
@@ -52,8 +53,8 @@ data class User(
     val lastName: String?,
     val phone: String?,
     val profilePhotoUri: String?,
-    val createdAt: Long?,
-    val updatedAt: Long?
+    val createdAt: String?,  // API returns ISO 8601 string, not Unix timestamp
+    val updatedAt: String?   // API returns ISO 8601 string, not Unix timestamp
 )
 
 enum class SSOProvider(val value: String) {

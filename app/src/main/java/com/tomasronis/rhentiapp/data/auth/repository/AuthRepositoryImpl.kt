@@ -182,14 +182,14 @@ class AuthRepositoryImpl @Inject constructor(
 
         // Cache user data
         val cachedUser = CachedUser(
-            id = response.user.id,
-            email = response.user.email,
-            firstName = response.user.firstName,
-            lastName = response.user.lastName,
-            phone = response.user.phone,
-            profilePhotoUri = response.user.profilePhotoUri,
-            createdAt = response.user.createdAt ?: System.currentTimeMillis(),
-            updatedAt = response.user.updatedAt ?: System.currentTimeMillis()
+            id = response.profile.id,
+            email = response.profile.email,
+            firstName = response.profile.firstName,
+            lastName = response.profile.lastName,
+            phone = response.profile.phone,
+            profilePhotoUri = response.profile.profilePhotoUri,
+            createdAt = parseIsoDateToTimestamp(response.profile.createdAt),
+            updatedAt = parseIsoDateToTimestamp(response.profile.updatedAt)
         )
         userDao.insertUser(cachedUser)
 
@@ -212,8 +212,8 @@ class AuthRepositoryImpl @Inject constructor(
                 lastName = it.lastName,
                 phone = it.phone,
                 profilePhotoUri = it.profilePhotoUri,
-                createdAt = it.createdAt,
-                updatedAt = it.updatedAt
+                createdAt = timestampToIsoDate(it.createdAt),
+                updatedAt = timestampToIsoDate(it.updatedAt)
             )
         }
     }
@@ -250,14 +250,31 @@ class AuthRepositoryImpl @Inject constructor(
                             lastName = it.lastName,
                             phone = it.phone,
                             profilePhotoUri = it.profilePhotoUri,
-                            createdAt = it.createdAt,
-                            updatedAt = it.updatedAt
+                            createdAt = timestampToIsoDate(it.createdAt),
+                            updatedAt = timestampToIsoDate(it.updatedAt)
                         )
                     }
                 }.collect { emit(it) }
             } else {
                 emit(null)
             }
+        }
+    }
+
+    private fun parseIsoDateToTimestamp(isoDate: String?): Long {
+        if (isoDate == null) return System.currentTimeMillis()
+        return try {
+            java.time.Instant.parse(isoDate).toEpochMilli()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
+        }
+    }
+
+    private fun timestampToIsoDate(timestamp: Long): String {
+        return try {
+            java.time.Instant.ofEpochMilli(timestamp).toString()
+        } catch (e: Exception) {
+            java.time.Instant.now().toString()
         }
     }
 }

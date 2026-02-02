@@ -22,35 +22,32 @@ class AuthInterceptor @Inject constructor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
-
-        // Don't add auth headers to login/register endpoints
-        val url = originalRequest.url.toString()
-        if (url.contains("/login") ||
-            url.contains("/register") ||
-            url.contains("/forgot")
-        ) {
-            return chain.proceed(originalRequest)
-        }
-
         val requestBuilder = originalRequest.newBuilder()
 
-        // Add Authorization header if token exists
+        val url = originalRequest.url.toString()
+        val isAuthEndpoint = url.contains("/login") ||
+                           url.contains("/register") ||
+                           url.contains("/forgot")
+
         runBlocking {
-            tokenManager.getAuthToken()?.let { token ->
-                requestBuilder.addHeader("Authorization", "Bearer $token")
+            // Add Authorization header only for authenticated endpoints
+            if (!isAuthEndpoint) {
+                tokenManager.getAuthToken()?.let { token ->
+                    requestBuilder.addHeader("Authorization", "Bearer $token")
+                }
+
+                // Add user ID header for authenticated endpoints
+                tokenManager.getUserId()?.let { userId ->
+                    requestBuilder.addHeader("x-user-id", userId)
+                }
             }
 
-            // Add white-label header
+            // ALWAYS add x-white-label header (for all requests including login)
             tokenManager.getWhiteLabel()?.let { whiteLabel ->
                 requestBuilder.addHeader("x-white-label", whiteLabel)
             } ?: run {
-                // Default white label
-                requestBuilder.addHeader("x-white-label", "rhenti_mobile")
-            }
-
-            // Add user ID header
-            tokenManager.getUserId()?.let { userId ->
-                requestBuilder.addHeader("x-user-id", userId)
+                // Default white label from BuildConfig
+                requestBuilder.addHeader("x-white-label", com.tomasronis.rhentiapp.BuildConfig.WHITE_LABEL)
             }
         }
 

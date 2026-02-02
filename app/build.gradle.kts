@@ -22,8 +22,12 @@ android {
         // Build config fields for API endpoints
         buildConfigField("String", "API_BASE_URL_PROD", "\"https://api.rhenti.com\"")
         buildConfigField("String", "API_BASE_URL_UAT", "\"https://uatapi.rhenti.com\"")
+        buildConfigField("String", "API_BASE_URL_DEMO", "\"https://demo.rhenti.com\"")
         buildConfigField("String", "API_IMAGE_URL_PROD", "\"https://upploader.rhenti.com/images/\"")
         buildConfigField("String", "API_IMAGE_URL_UAT", "\"https://uatimgs.rhenti.com/images/\"")
+
+        // White Label Configuration
+        buildConfigField("String", "WHITE_LABEL", "\"rhenti_mobile\"")
 
         // Google OAuth Configuration (placeholder - user must replace with actual client ID)
         manifestPlaceholders["googleClientId"] = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
@@ -32,7 +36,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "ENVIRONMENT", "\"UAT\"")
+            buildConfigField("String", "ENVIRONMENT", "\"PRODUCTION\"")
             isMinifyEnabled = false
         }
         release {
