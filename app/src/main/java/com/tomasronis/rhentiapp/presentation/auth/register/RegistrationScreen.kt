@@ -37,6 +37,7 @@ fun RegistrationScreen(
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -45,6 +46,8 @@ fun RegistrationScreen(
     val isFormValid = firstName.isNotBlank() &&
             lastName.isNotBlank() &&
             email.isNotBlank() &&
+            phone.isNotBlank() &&
+            phone.length >= 10 &&
             password.isNotBlank() &&
             confirmPassword.isNotBlank() &&
             password == confirmPassword &&
@@ -169,6 +172,31 @@ fun RegistrationScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Phone field
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("Phone Number") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !uiState.isLoading,
+                isError = phone.isNotBlank() && phone.length < 10,
+                supportingText = {
+                    if (phone.isNotBlank() && phone.length < 10) {
+                        Text("Phone number must be at least 10 digits")
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Password field
             OutlinedTextField(
                 value = password,
@@ -223,6 +251,7 @@ fun RegistrationScreen(
                                     firstName = firstName,
                                     lastName = lastName,
                                     email = email,
+                                    phone = phone,
                                     password = password,
                                     confirmPassword = confirmPassword
                                 )

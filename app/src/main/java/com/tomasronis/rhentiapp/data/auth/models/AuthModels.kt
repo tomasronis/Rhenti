@@ -23,6 +23,7 @@ data class RegistrationRequest(
     val firstName: String,
     val lastName: String,
     val email: String,
+    val phone: String,
     val password: String,
     val confirmPassword: String,
     val role: String = "owner",

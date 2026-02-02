@@ -8,54 +8,80 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = DarkPrimary,
-    primaryContainer = DarkPrimaryVariant,
-    secondary = DarkSecondary,
-    background = DarkBackground,
-    surface = DarkSurface,
-    error = DarkError,
-    onPrimary = OnPrimary,
-    onSecondary = OnSecondary,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    onError = OnError
+private val RhentiLightColorScheme = lightColorScheme(
+    primary = LightPrimary,
+    onPrimary = LightOnPrimary,
+    primaryContainer = LightPrimaryContainer,
+    onPrimaryContainer = LightOnPrimaryContainer,
+    secondary = LightSecondary,
+    onSecondary = LightOnSecondary,
+    secondaryContainer = LightSecondaryContainer,
+    onSecondaryContainer = LightOnSecondaryContainer,
+    tertiary = LightTertiary,
+    onTertiary = LightOnTertiary,
+    tertiaryContainer = LightTertiaryContainer,
+    onTertiaryContainer = LightOnTertiaryContainer,
+    error = LightError,
+    onError = LightOnError,
+    errorContainer = LightErrorContainer,
+    onErrorContainer = LightOnErrorContainer,
+    background = LightBackground,
+    onBackground = LightOnBackground,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
+    surfaceVariant = LightSurfaceVariant,
+    onSurfaceVariant = LightOnSurfaceVariant,
+    outline = LightOutline,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Primary,
-    primaryContainer = PrimaryVariant,
-    secondary = Secondary,
-    secondaryContainer = SecondaryVariant,
-    background = Background,
-    surface = Surface,
-    error = Error,
-    onPrimary = OnPrimary,
-    onSecondary = OnSecondary,
-    onBackground = OnBackground,
-    onSurface = OnSurface,
-    onError = OnError
+private val RhentiDarkColorScheme = darkColorScheme(
+    primary = DarkPrimary,
+    onPrimary = DarkOnPrimary,
+    primaryContainer = DarkPrimaryContainer,
+    onPrimaryContainer = DarkOnPrimaryContainer,
+    secondary = DarkSecondary,
+    onSecondary = DarkOnSecondary,
+    secondaryContainer = DarkSecondaryContainer,
+    onSecondaryContainer = DarkOnSecondaryContainer,
+    tertiary = DarkTertiary,
+    onTertiary = DarkOnTertiary,
+    tertiaryContainer = DarkTertiaryContainer,
+    onTertiaryContainer = DarkOnTertiaryContainer,
+    error = DarkError,
+    onError = DarkOnError,
+    errorContainer = DarkErrorContainer,
+    onErrorContainer = DarkOnErrorContainer,
+    background = DarkBackground,
+    onBackground = DarkOnBackground,
+    surface = DarkSurface,
+    onSurface = DarkOnSurface,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = DarkOnSurfaceVariant,
+    outline = DarkOutline,
 )
 
 /**
  * Main theme for the Rhenti App.
  *
+ * Features Rhenti's brand identity with the signature blue (#4D65FF) and
+ * modern, professional design aesthetic matching rhenti.com.
+ *
  * Supports:
  * - Light and dark themes
- * - Dynamic color on Android 12+ (Material You)
- * - Custom color palette
+ * - Dynamic color on Android 12+ (Material You) - optional
+ * - Rhenti brand colors and design system
+ * - Poppins typography (matching website)
  *
  * @param darkTheme Whether to use dark theme
- * @param dynamicColor Whether to use dynamic colors (Android 12+)
+ * @param dynamicColor Whether to use dynamic colors (Android 12+) - defaults to false to maintain brand consistency
  * @param content The composable content to theme
  */
 @Composable
 fun RhentiAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false, // Disabled by default to maintain Rhenti branding
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -63,8 +89,8 @@ fun RhentiAppTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> RhentiDarkColorScheme
+        else -> RhentiLightColorScheme
     }
 
     MaterialTheme(

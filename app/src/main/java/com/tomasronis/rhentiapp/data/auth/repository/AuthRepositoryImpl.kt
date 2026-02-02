@@ -33,12 +33,27 @@ class AuthRepositoryImpl @Inject constructor(
             val request = LoginRequest(email = email, password = password)
             val requestMap = moshi.adapter(LoginRequest::class.java).toJsonValue(request) as Map<String, Any>
 
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "Login attempt for email: $email")
+                android.util.Log.d("AuthRepository", "Request payload: $requestMap")
+            }
+
             val response = apiClient.login(requestMap)
+
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "Login response received: ${response.keys}")
+            }
+
             val loginResponse = moshi.adapter(LoginResponse::class.java).fromJsonValue(response)!!
 
             saveAuthData(loginResponse)
             NetworkResult.Success(loginResponse)
         } catch (e: Exception) {
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.e("AuthRepository", "Login failed", e)
+                android.util.Log.e("AuthRepository", "Error message: ${e.message}")
+                android.util.Log.e("AuthRepository", "Error type: ${e.javaClass.simpleName}")
+            }
             NetworkResult.Error(
                 exception = e,
                 cachedData = null
