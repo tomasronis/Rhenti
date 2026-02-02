@@ -271,17 +271,27 @@ class ChatHubRepositoryImpl @Inject constructor(
         for (threadData in threadsData) {
             try {
                 val id = threadData["_id"] as? String ?: continue
-                val displayName = threadData["display_name"] as? String ?: "Unknown"
+                val displayName = (threadData["display_name"] as? String)
+                    ?: (threadData["displayName"] as? String)
+                    ?: "Unknown"
                 val email = threadData["email"] as? String
                 val phone = threadData["phone"] as? String
-                val imageUrl = threadData["image_url"] as? String
-                val unreadCount = (threadData["unread_count"] as? Number)?.toInt() ?: 0
-                val lastMessage = threadData["last_message"] as? String
-                val lastMessageTime = (threadData["last_message_time"] as? Number)?.toLong()
-                val legacyChatSessionId = threadData["legacy_chat_session_id"] as? String
-                val renterId = threadData["renter_id"] as? String
-                val ownerId = threadData["owner_id"] as? String
-                val isPinned = threadData["is_pinned"] as? Boolean ?: false
+                val imageUrl = (threadData["image_url"] as? String)
+                    ?: (threadData["imageUrl"] as? String)
+                val unreadCount = ((threadData["unread_count"] as? Number)
+                    ?: (threadData["unreadCount"] as? Number))?.toInt() ?: 0
+                val lastMessage = (threadData["last_message"] as? String)
+                    ?: (threadData["lastMessage"] as? String)
+                val lastMessageTime = ((threadData["last_message_time"] as? Number)
+                    ?: (threadData["lastMessageTime"] as? Number))?.toLong()
+                val legacyChatSessionId = (threadData["legacy_chat_session_id"] as? String)
+                    ?: (threadData["legacyChatSessionId"] as? String)
+                val renterId = (threadData["renter_id"] as? String)
+                    ?: (threadData["renterId"] as? String)
+                val ownerId = (threadData["owner_id"] as? String)
+                    ?: (threadData["ownerId"] as? String)
+                val isPinned = ((threadData["is_pinned"] as? Boolean)
+                    ?: (threadData["isPinned"] as? Boolean)) ?: false
 
                 threads.add(
                     ChatThread(
@@ -321,8 +331,10 @@ class ChatHubRepositoryImpl @Inject constructor(
                 val sender = messageData["sender"] as? String ?: "system"
                 val text = messageData["text"] as? String
                 val type = messageData["type"] as? String ?: "text"
-                val attachmentUrl = messageData["attachment_url"] as? String
-                val createdAt = (messageData["created_at"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                val attachmentUrl = (messageData["attachment_url"] as? String)
+                    ?: (messageData["attachmentUrl"] as? String)
+                val createdAt = ((messageData["created_at"] as? Number)
+                    ?: (messageData["createdAt"] as? Number))?.toLong() ?: System.currentTimeMillis()
 
                 // Parse metadata for booking messages
                 val metadata = if (type == "booking") {
@@ -330,10 +342,10 @@ class ChatHubRepositoryImpl @Inject constructor(
                     val metadataMap = messageData["metadata"] as? Map<String, Any>
                     metadataMap?.let {
                         MessageMetadata(
-                            bookingId = it["booking_id"] as? String,
-                            propertyAddress = it["property_address"] as? String,
-                            viewingTime = it["viewing_time"] as? String,
-                            bookingStatus = it["booking_status"] as? String
+                            bookingId = (it["booking_id"] as? String) ?: (it["bookingId"] as? String),
+                            propertyAddress = (it["property_address"] as? String) ?: (it["propertyAddress"] as? String),
+                            viewingTime = (it["viewing_time"] as? String) ?: (it["viewingTime"] as? String),
+                            bookingStatus = (it["booking_status"] as? String) ?: (it["bookingStatus"] as? String)
                         )
                     }
                 } else null

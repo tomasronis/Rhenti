@@ -32,7 +32,7 @@ interface ApiClient {
     // ============================================================================
 
     @POST("/chat-hub/threads")
-    suspend fun getThreads(@Body filter: Map<String, Any>?): Map<String, Any>
+    suspend fun getThreads(@Body filter: Map<String, Any>): Map<String, Any>
 
     @GET("/chat-hub/threads/{threadId}")
     suspend fun getThread(@Path("threadId") threadId: String): Map<String, Any>
@@ -67,7 +67,7 @@ interface ApiClient {
     // ============================================================================
 
     @GET("/phone-tracking/getContacts/{superAccountId}")
-    suspend fun getContacts(@Path("superAccountId") superAccountId: String): List<Map<String, Any>>
+    suspend fun getContacts(@Path("superAccountId") superAccountId: String): Map<String, Any>
 
     @POST("/phone-tracking/getContactProfile")
     suspend fun getContactProfile(@Body request: Map<String, Any>): Map<String, Any>

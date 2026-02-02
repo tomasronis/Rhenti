@@ -27,7 +27,11 @@ class ContactsRepositoryImpl @Inject constructor(
                 android.util.Log.d("ContactsRepository", "Contacts response: $response")
             }
 
-            val contacts = parseContactsResponse(response)
+            // Extract the contacts array from the wrapper object
+            @Suppress("UNCHECKED_CAST")
+            val contactsList = response["contacts"] as? List<Map<String, Any>> ?: emptyList()
+
+            val contacts = parseContactsResponse(contactsList)
 
             // Cache contacts
             val cachedContacts = contacts.map { it.toCachedContact() }
