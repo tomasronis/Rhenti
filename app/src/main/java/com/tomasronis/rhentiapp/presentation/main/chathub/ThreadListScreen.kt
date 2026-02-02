@@ -18,7 +18,7 @@ import com.tomasronis.rhentiapp.presentation.main.chathub.components.*
 
 /**
  * Thread list screen showing all chat conversations.
- * Includes search, pull-to-refresh, and swipe actions.
+ * Includes search, manual refresh button, and swipe actions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +65,9 @@ fun ThreadListScreen(
                 TopAppBar(
                     title = { Text("Chats") },
                     actions = {
+                        IconButton(onClick = { viewModel.refreshThreads() }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        }
                         IconButton(onClick = { showSearchBar = true }) {
                             Icon(Icons.Filled.Search, contentDescription = "Search")
                         }
@@ -159,7 +162,7 @@ fun ThreadListScreen(
 }
 
 /**
- * List of threads with pull-to-refresh and swipe actions.
+ * List of threads with swipe actions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,8 +175,6 @@ private fun ThreadList(
     onDeleteThread: (ChatThread) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pullRefreshState = rememberPullToRefreshState()
-
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -193,22 +194,14 @@ private fun ThreadList(
             }
         }
 
-        if (pullRefreshState.isRefreshing) {
-            LaunchedEffect(Unit) {
-                onRefresh()
-            }
+        // Show loading indicator while refreshing
+        if (isRefreshing) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            )
         }
-
-        if (!isRefreshing && pullRefreshState.isRefreshing) {
-            LaunchedEffect(Unit) {
-                pullRefreshState.endRefresh()
-            }
-        }
-
-        PullToRefreshContainer(
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 }
 
