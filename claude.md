@@ -1,8 +1,8 @@
 # Rhenti Android App - Project Context & Requirements
 
-**Last Updated:** February 1, 2026
-**Current Phase:** Phase 2 Complete (Authentication)
-**Next Phase:** Phase 3 (UI/Navigation - Main Features)
+**Last Updated:** February 1, 2026 (Evening - Authentication Fixed)
+**Current Phase:** Phase 2 Complete (Authentication - Working)
+**Next Phase:** Phase 3 (UI/Navigation - Main Features - Starting Now)
 
 ---
 
@@ -219,6 +219,17 @@ core/                 # Core Infrastructure
 - Microsoft uses MSAL with web view (matches iOS implementation)
 - Client ID: `affcec03-e96d-490f-b869-c334d0b0835b`
 - SSO tokens exchanged immediately, not persisted
+
+**Authentication Fixes (Feb 1, 2026):**
+- ✅ Added INTERNET permission to AndroidManifest (was missing!)
+- ✅ Added `x-white-label: rhenti_mobile` header to all requests including auth endpoints
+- ✅ Fixed API response parsing to match production API format:
+  * API returns camelCase: `userId`, `whiteLabel` (not snake_case)
+  * User data in `profile` field (not `user`)
+  * Dates as ISO 8601 strings (not Unix timestamps)
+- ✅ Configured for production API: `https://api.rhenti.com`
+- ✅ Login now works with demo@rhenti.com credentials
+- ✅ White label configured as `rhenti_mobile` (matching iOS)
 
 ---
 
@@ -620,22 +631,27 @@ core/                 # Core Infrastructure
 
 **✅ Completed:**
 - Phase 1: Foundation (networking, database, security)
-- Phase 2: Authentication (email, Google, Microsoft, registration)
+- Phase 2: Authentication (email, Google, Microsoft, registration) ✨ **WORKING!**
 
 **🚧 In Progress:**
-- None (ready for Phase 3)
+- Phase 3: UI/Navigation - Main Features (starting now)
 
 **📋 Next Up:**
-- Phase 3: UI/Navigation - Chat Hub implementation
+- Phase 3.1: Bottom Tab Navigation
+- Phase 3.2: Chat Hub Screen
+- Phase 3.3: Thread Detail Screen
 
-**⚙️ Configuration Needed:**
-- Google OAuth Web Client ID (in `app/build.gradle.kts`)
-- Microsoft MSAL signature hash (in `msal_config.json` and `AndroidManifest.xml`)
+**⚙️ Configuration Status:**
+- ✅ API Configuration: Production (`api.rhenti.com`)
+- ✅ White Label: `rhenti_mobile`
+- ✅ Internet Permissions: Added
+- ⚠️ Google OAuth Web Client ID: Needs real credentials (currently placeholder)
+- ⚠️ Microsoft MSAL signature hash: Needs configuration
 
 **🔗 Repository:**
 - GitHub: `https://github.com/tomasronis/Rhenti`
 - Branch: `master`
-- Last Commit: Initial commit with Phase 1 + 2
+- Last Commit: Fix authentication to work with production API (Feb 1, 2026)
 
 ---
 
