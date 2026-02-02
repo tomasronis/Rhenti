@@ -88,7 +88,15 @@ fun MainTabScreen(
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
                 0 -> ChatsTabContent()
-                1 -> ContactsPlaceholderScreen()
+                1 -> ContactsTabContent(
+                    onStartChat = { contact ->
+                        // Switch to Chats tab when starting a chat from contacts
+                        scope.launch {
+                            viewModel.setSelectedTab(0)
+                        }
+                        // TODO: Could navigate to specific thread if exists
+                    }
+                )
                 2 -> CallsPlaceholderScreen()
                 3 -> ProfilePlaceholderScreen(
                     onLogout = { authViewModel.logout() }
