@@ -287,6 +287,7 @@ fun RegistrationScreen(
                             firstName = firstName,
                             lastName = lastName,
                             email = email,
+                            phone = phone,
                             password = password,
                             confirmPassword = confirmPassword
                         )
