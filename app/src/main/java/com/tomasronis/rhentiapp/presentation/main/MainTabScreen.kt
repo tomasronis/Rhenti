@@ -1,50 +1,97 @@
 package com.tomasronis.rhentiapp.presentation.main
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.tomasronis.rhentiapp.presentation.auth.AuthViewModel
+import com.tomasronis.rhentiapp.presentation.main.tabs.*
+import kotlinx.coroutines.launch
 
 /**
- * Placeholder for the main authenticated screen.
- * This will be expanded in Phase 3 with tab navigation and actual features.
+ * Main authenticated screen with bottom tab navigation.
+ * Tabs: Chats, Contacts, Calls, Profile
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainTabScreen() {
+fun MainTabScreen(
+    authViewModel: AuthViewModel = hiltViewModel()
+) {
+    val viewModel: MainTabViewModel = hiltViewModel()
+    val selectedTab by viewModel.selectedTab.collectAsState()
+    val unreadCount by viewModel.unreadCount.collectAsState()
+    val scope = rememberCoroutineScope()
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Rhenti") }
-            )
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "Welcome to Rhenti!",
-                    style = MaterialTheme.typography.headlineMedium,
-                    textAlign = TextAlign.Center
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    icon = {
+                        BadgedBox(
+                            badge = {
+                                if (unreadCount > 0) {
+                                    Badge {
+                                        Text(unreadCount.toString())
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Filled.Chat, contentDescription = "Chats")
+                        }
+                    },
+                    label = { Text("Chats") },
+                    selected = selectedTab == 0,
+                    onClick = {
+                        scope.launch {
+                            viewModel.setSelectedTab(0)
+                        }
+                    }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.People, contentDescription = "Contacts") },
+                    label = { Text("Contacts") },
+                    selected = selectedTab == 1,
+                    onClick = {
+                        scope.launch {
+                            viewModel.setSelectedTab(1)
+                        }
+                    }
+                )
 
-                Text(
-                    text = "Phase 2: Authentication Complete!\n\nMain features will be added in Phase 3.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Phone, contentDescription = "Calls") },
+                    label = { Text("Calls") },
+                    selected = selectedTab == 2,
+                    onClick = {
+                        scope.launch {
+                            viewModel.setSelectedTab(2)
+                        }
+                    }
+                )
+
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Person, contentDescription = "Profile") },
+                    label = { Text("Profile") },
+                    selected = selectedTab == 3,
+                    onClick = {
+                        scope.launch {
+                            viewModel.setSelectedTab(3)
+                        }
+                    }
+                )
+            }
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            when (selectedTab) {
+                0 -> ChatsTabContent()
+                1 -> ContactsPlaceholderScreen()
+                2 -> CallsPlaceholderScreen()
+                3 -> ProfilePlaceholderScreen(
+                    onLogout = { authViewModel.logout() }
                 )
             }
         }

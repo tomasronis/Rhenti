@@ -54,7 +54,7 @@ fun RhentiNavHost(
         }
 
         composable("main") {
-            MainTabScreen()
+            MainTabScreen(authViewModel = authViewModel)
         }
     }
 
