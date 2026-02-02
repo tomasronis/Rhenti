@@ -1,7 +1,6 @@
 package com.tomasronis.rhentiapp.data.auth.repository
 
 import android.app.Activity
-import com.squareup.moshi.Moshi
 import com.tomasronis.rhentiapp.core.database.dao.UserDao
 import com.tomasronis.rhentiapp.core.database.entities.CachedUser
 import com.tomasronis.rhentiapp.core.network.ApiClient
@@ -22,8 +21,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val tokenManager: TokenManager,
     private val userDao: UserDao,
     private val googleAuthService: GoogleAuthService,
-    private val microsoftAuthService: MicrosoftAuthService,
-    private val moshi: Moshi
+    private val microsoftAuthService: MicrosoftAuthService
 ) : AuthRepository {
 
     private val _authStateFlow = MutableStateFlow(false)
@@ -31,20 +29,16 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun login(email: String, password: String): NetworkResult<LoginResponse> {
         return try {
             val request = LoginRequest(email = email, password = password)
-            val requestMap = moshi.adapter(LoginRequest::class.java).toJsonValue(request) as Map<String, Any>
 
             if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
                 android.util.Log.d("AuthRepository", "Login attempt for email: $email")
-                android.util.Log.d("AuthRepository", "Request payload: $requestMap")
             }
 
-            val response = apiClient.login(requestMap)
+            val loginResponse = apiClient.login(request)
 
             if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
-                android.util.Log.d("AuthRepository", "Login response received: ${response.keys}")
+                android.util.Log.d("AuthRepository", "Login successful for user: ${loginResponse.userId}")
             }
-
-            val loginResponse = moshi.adapter(LoginResponse::class.java).fromJsonValue(response)!!
 
             saveAuthData(loginResponse)
             NetworkResult.Success(loginResponse)
@@ -63,10 +57,12 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun register(request: RegistrationRequest): NetworkResult<Unit> {
         return try {
-            val requestMap = moshi.adapter(RegistrationRequest::class.java).toJsonValue(request) as Map<String, Any>
-            apiClient.register(requestMap)
+            apiClient.register(request)
             NetworkResult.Success(Unit)
         } catch (e: Exception) {
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.e("AuthRepository", "Registration failed", e)
+            }
             NetworkResult.Error(
                 exception = e,
                 cachedData = null
@@ -77,10 +73,12 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun forgotPassword(email: String): NetworkResult<Unit> {
         return try {
             val request = ForgotPasswordRequest(email = email)
-            val requestMap = moshi.adapter(ForgotPasswordRequest::class.java).toJsonValue(request) as Map<String, Any>
-            apiClient.forgotPassword(requestMap)
+            apiClient.forgotPassword(request)
             NetworkResult.Success(Unit)
         } catch (e: Exception) {
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.e("AuthRepository", "Forgot password failed", e)
+            }
             NetworkResult.Error(
                 exception = e,
                 cachedData = null
@@ -99,14 +97,23 @@ class AuthRepositoryImpl @Inject constructor(
                 token = token,
                 provider = provider.value
             )
-            val requestMap = moshi.adapter(SSOLoginRequest::class.java).toJsonValue(request) as Map<String, Any>
 
-            val response = apiClient.ssoLogin(requestMap)
-            val loginResponse = moshi.adapter(LoginResponse::class.java).fromJsonValue(response)!!
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "SSO login attempt for email: $email, provider: ${provider.value}")
+            }
+
+            val loginResponse = apiClient.ssoLogin(request)
+
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "SSO login successful for user: ${loginResponse.userId}")
+            }
 
             saveAuthData(loginResponse)
             NetworkResult.Success(loginResponse)
         } catch (e: Exception) {
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.e("AuthRepository", "SSO login failed", e)
+            }
             NetworkResult.Error(
                 exception = e,
                 cachedData = null

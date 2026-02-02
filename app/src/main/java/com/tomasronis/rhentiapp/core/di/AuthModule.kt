@@ -1,6 +1,5 @@
 package com.tomasronis.rhentiapp.core.di
 
-import com.squareup.moshi.Moshi
 import com.tomasronis.rhentiapp.core.database.dao.UserDao
 import com.tomasronis.rhentiapp.core.network.ApiClient
 import com.tomasronis.rhentiapp.core.security.TokenManager
@@ -25,16 +24,14 @@ object AuthModule {
         tokenManager: TokenManager,
         userDao: UserDao,
         googleAuthService: GoogleAuthService,
-        microsoftAuthService: MicrosoftAuthService,
-        moshi: Moshi
+        microsoftAuthService: MicrosoftAuthService
     ): AuthRepository {
         return AuthRepositoryImpl(
             apiClient,
             tokenManager,
             userDao,
             googleAuthService,
-            microsoftAuthService,
-            moshi
+            microsoftAuthService
         )
     }
 }

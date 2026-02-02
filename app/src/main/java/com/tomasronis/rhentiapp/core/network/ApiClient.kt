@@ -1,5 +1,6 @@
 package com.tomasronis.rhentiapp.core.network
 
+import com.tomasronis.rhentiapp.data.auth.models.*
 import retrofit2.http.*
 
 /**
@@ -15,16 +16,16 @@ interface ApiClient {
     // ============================================================================
 
     @POST("/login")
-    suspend fun login(@Body request: Map<String, Any>): Map<String, Any>
+    suspend fun login(@Body request: LoginRequest): LoginResponse
 
     @POST("/register")
-    suspend fun register(@Body request: Map<String, Any>): Map<String, Any>
+    suspend fun register(@Body request: RegistrationRequest)
 
     @POST("/forgot")
-    suspend fun forgotPassword(@Body request: Map<String, Any>): Map<String, Any>
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest)
 
     @POST("/integrations/sso/mobile/login")
-    suspend fun ssoLogin(@Body request: Map<String, Any>): Map<String, Any>
+    suspend fun ssoLogin(@Body request: SSOLoginRequest): LoginResponse
 
     // ============================================================================
     // Chat Hub Endpoints
