@@ -1,0 +1,15 @@
+{
+  "client_id": "affcec03-e96d-490f-b869-c334d0b0835b",
+  "authorization_user_agent": "WEBVIEW",
+  "redirect_uri": "msauth://com.tomasronis.rhentiapp/SIGNATURE_HASH_PLACEHOLDER",
+  "broker_redirect_uri_registered": false,
+  "account_mode": "MULTIPLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADMultipleOrgs"
+      }
+    }
+  ]
+}
