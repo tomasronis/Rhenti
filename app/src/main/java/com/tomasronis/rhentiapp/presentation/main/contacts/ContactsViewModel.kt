@@ -119,8 +119,8 @@ class ContactsViewModel @Inject constructor(
                 return@launch
             }
 
-            // Email is required by the API
-            val email = contact.email ?: run {
+            // Email is required by the API - check for null or blank
+            val email = contact.email?.takeIf { it.isNotBlank() } ?: run {
                 _uiState.update { it.copy(isLoading = false, error = "Contact email not available") }
                 return@launch
             }

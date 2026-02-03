@@ -55,6 +55,9 @@ class ContactsRepositoryImpl @Inject constructor(
         superAccountId: String
     ): NetworkResult<ContactProfile> {
         return try {
+            // Ensure email is not blank
+            require(email.isNotBlank()) { "Email cannot be blank" }
+
             val request = mapOf(
                 "contact_id" to contactId,
                 "email" to email,
