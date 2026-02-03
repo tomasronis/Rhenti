@@ -64,15 +64,16 @@ class ContactsRepositoryImpl @Inject constructor(
                 "super_account_id" to superAccountId
             )
 
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d("ContactsRepository", "Get contact profile request: $request")
-            }
+            // Always log the request to debug the issue
+            android.util.Log.d("ContactsRepository", "=== GET CONTACT PROFILE REQUEST ===")
+            android.util.Log.d("ContactsRepository", "contactId: $contactId")
+            android.util.Log.d("ContactsRepository", "email: '$email' (length: ${email.length})")
+            android.util.Log.d("ContactsRepository", "superAccountId: $superAccountId")
+            android.util.Log.d("ContactsRepository", "Full request map: $request")
 
             val response = apiClient.getContactProfile(request)
 
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d("ContactsRepository", "Contact profile response: $response")
-            }
+            android.util.Log.d("ContactsRepository", "Contact profile response: $response")
 
             val profile = parseContactProfileResponse(response)
 
