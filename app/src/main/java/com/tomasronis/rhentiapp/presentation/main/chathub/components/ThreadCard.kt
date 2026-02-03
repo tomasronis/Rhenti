@@ -148,20 +148,24 @@ private fun ThreadAvatar(
             .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center
     ) {
+        // Always show initials as background/fallback
+        Text(
+            text = getInitials(displayName),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold
+        )
+
+        // Overlay image if URL exists
         if (!imageUrl.isNullOrBlank()) {
             AsyncImage(
                 model = imageUrl,
                 contentDescription = "Avatar",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            // Show initials
-            Text(
-                text = getInitials(displayName),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold
+                contentScale = ContentScale.Crop,
+                onError = {
+                    // Image failed to load, initials will show through
+                }
             )
         }
     }
