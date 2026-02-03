@@ -2,9 +2,12 @@ package com.tomasronis.rhentiapp.core.security
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.tomasronis.rhentiapp.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.crypto.AEADBadTagException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,13 +28,35 @@ class EncryptedPreferences @Inject constructor(
     }
 
     private val sharedPreferences: SharedPreferences by lazy {
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_FILE_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        try {
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_FILE_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            // Handle corrupted encrypted preferences (AEADBadTagException)
+            // This can happen after app reinstall or keystore changes
+            if (BuildConfig.DEBUG) {
+                Log.e("EncryptedPreferences", "Encrypted preferences corrupted, recreating", e)
+            }
+
+            // Delete the corrupted file
+            val prefsFile = context.getSharedPreferences(PREFS_FILE_NAME, Context.MODE_PRIVATE)
+            prefsFile.edit().clear().apply()
+            context.deleteSharedPreferences(PREFS_FILE_NAME)
+
+            // Recreate with clean slate
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_FILE_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }
     }
 
     /**
