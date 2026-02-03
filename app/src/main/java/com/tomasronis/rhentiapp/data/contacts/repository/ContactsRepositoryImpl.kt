@@ -61,6 +61,10 @@ class ContactsRepositoryImpl @Inject constructor(
                 "super_account_id" to superAccountId
             )
 
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Get contact profile request: $request")
+            }
+
             val response = apiClient.getContactProfile(request)
 
             if (BuildConfig.DEBUG) {
