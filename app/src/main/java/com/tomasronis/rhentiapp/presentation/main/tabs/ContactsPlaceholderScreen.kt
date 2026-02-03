@@ -29,8 +29,21 @@ fun ContactsTabContent(
         if (isGranted) {
             // Permission granted, start the call
             pendingCallNumber?.let { phoneNumber ->
-                CallService.startCall(context, phoneNumber)
+                try {
+                    android.util.Log.d("ContactsTab", "Starting call to: $phoneNumber")
+                    CallService.startCall(context, phoneNumber)
+                } catch (e: Exception) {
+                    android.util.Log.e("ContactsTab", "Failed to start call", e)
+                    // Show error to user
+                    android.widget.Toast.makeText(
+                        context,
+                        "Failed to start call: ${e.message}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
             }
+        } else {
+            android.util.Log.d("ContactsTab", "Audio permission denied")
         }
         pendingCallNumber = null
     }
