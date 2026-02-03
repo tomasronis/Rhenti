@@ -55,9 +55,58 @@ fun ContactsListScreen(
                                 Icon(Icons.Filled.Close, contentDescription = "Clear search")
                             }
                         }
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Search results (same as main list)
+                    // Search results
+                    if (uiState.contacts.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (searchQuery.isEmpty()) "Start typing to search..." else "No results found",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        // Group contacts by first letter
+                        val groupedContacts = uiState.contacts.groupBy { it.sectionLetter }.toSortedMap()
+
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            groupedContacts.forEach { (letter, contactsInSection) ->
+                                // Section header
+                                item(key = "header_$letter") {
+                                    Text(
+                                        text = letter,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                }
+
+                                // Contacts in section
+                                items(
+                                    items = contactsInSection,
+                                    key = { it.id }
+                                ) { contact ->
+                                    ContactCard(
+                                        contact = contact,
+                                        onClick = {
+                                            showSearchBar = false
+                                            viewModel.searchContacts("")
+                                            onContactClick(contact)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 TopAppBar(

@@ -57,9 +57,42 @@ fun ThreadListScreen(
                                 Icon(Icons.Filled.Close, contentDescription = "Clear search")
                             }
                         }
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Search results (same as main list)
+                    // Search results
+                    if (uiState.threads.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (searchQuery.isEmpty()) "Start typing to search..." else "No results found",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(
+                                items = uiState.threads,
+                                key = { it.id }
+                            ) { thread ->
+                                ThreadCard(
+                                    thread = thread,
+                                    onClick = {
+                                        showSearchBar = false
+                                        viewModel.searchThreads("")
+                                        onThreadClick(thread)
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 TopAppBar(

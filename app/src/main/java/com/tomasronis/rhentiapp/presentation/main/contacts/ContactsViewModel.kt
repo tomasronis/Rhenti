@@ -29,11 +29,23 @@ class ContactsViewModel @Inject constructor(
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     init {
-        // Observe cached contacts
+        // Observe cached contacts with search filter
         viewModelScope.launch {
-            repository.observeContacts().collect { contacts ->
-                _uiState.update { it.copy(contacts = contacts) }
-            }
+            repository.observeContacts()
+                .combine(_searchQuery) { contacts, query ->
+                    if (query.isBlank()) {
+                        contacts
+                    } else {
+                        contacts.filter { contact ->
+                            contact.displayName.contains(query, ignoreCase = true) ||
+                            contact.email?.contains(query, ignoreCase = true) == true ||
+                            contact.phone?.contains(query, ignoreCase = true) == true
+                        }
+                    }
+                }
+                .collect { filteredContacts ->
+                    _uiState.update { it.copy(contacts = filteredContacts) }
+                }
         }
 
         // Load contacts on init
@@ -72,26 +84,10 @@ class ContactsViewModel @Inject constructor(
     }
 
     /**
-     * Search contacts by query.
+     * Search contacts by query (filters locally).
      */
     fun searchContacts(query: String) {
         _searchQuery.value = query
-
-        if (query.isBlank()) {
-            // Show all contacts when search is cleared
-            viewModelScope.launch {
-                repository.observeContacts().collect { contacts ->
-                    _uiState.update { it.copy(contacts = contacts) }
-                }
-            }
-        } else {
-            // Filter contacts by search query
-            viewModelScope.launch {
-                repository.searchContacts(query).collect { contacts ->
-                    _uiState.update { it.copy(contacts = contacts) }
-                }
-            }
-        }
     }
 
     /**
