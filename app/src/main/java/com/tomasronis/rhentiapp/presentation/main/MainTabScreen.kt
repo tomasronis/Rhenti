@@ -22,7 +22,13 @@ fun MainTabScreen(
     val viewModel: MainTabViewModel = hiltViewModel()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
+    val contactToStartChat by viewModel.contactToStartChat.collectAsState()
     val scope = rememberCoroutineScope()
+
+    // Initialize Twilio on first composition
+    LaunchedEffect(Unit) {
+        viewModel.initializeTwilio()
+    }
 
     Scaffold(
         bottomBar = {
@@ -87,18 +93,23 @@ fun MainTabScreen(
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             when (selectedTab) {
-                0 -> ChatsTabContent()
+                0 -> ChatsTabContent(
+                    contactToStartChat = contactToStartChat,
+                    onContactChatOpened = {
+                        viewModel.clearContactToStartChat()
+                    }
+                )
                 1 -> ContactsTabContent(
                     onStartChat = { contact ->
-                        // Switch to Chats tab when starting a chat from contacts
+                        // Set the contact and switch to Chats tab
+                        viewModel.setContactToStartChat(contact)
                         scope.launch {
                             viewModel.setSelectedTab(0)
                         }
-                        // TODO: Could navigate to specific thread if exists
                     }
                 )
-                2 -> CallsPlaceholderScreen()
-                3 -> ProfilePlaceholderScreen(
+                2 -> CallsTab()
+                3 -> ProfileTab(
                     onLogout = { authViewModel.logout() }
                 )
             }

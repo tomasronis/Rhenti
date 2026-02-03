@@ -1,15 +1,18 @@
 package com.tomasronis.rhentiapp.presentation.main.tabs
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.tomasronis.rhentiapp.core.voip.CallService
-import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
-import com.tomasronis.rhentiapp.presentation.main.contacts.ContactDetailScreen
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
+import com.tomasronis.rhentiapp.presentation.main.contacts.ContactDetailScreen
+import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
 
 /**
  * Contacts tab content - manages navigation between contact list and detail.
- * Provides actions for starting chat and calling (call is placeholder for Phase 7).
+ * Provides actions for starting chat and calling.
  */
 @Composable
 fun ContactsTabContent(
@@ -17,6 +20,20 @@ fun ContactsTabContent(
 ) {
     val context = LocalContext.current
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
+    var pendingCallNumber by remember { mutableStateOf<String?>(null) }
+
+    // Audio permission launcher
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, start the call
+            pendingCallNumber?.let { phoneNumber ->
+                CallService.startCall(context, phoneNumber)
+            }
+        }
+        pendingCallNumber = null
+    }
 
     if (selectedContact != null) {
         ContactDetailScreen(
@@ -28,9 +45,10 @@ fun ContactsTabContent(
                 selectedContact = null
             },
             onCall = { contact ->
-                // Initiate VoIP call using Twilio
+                // Check for audio permission before initiating call
                 contact.phone?.let { phoneNumber ->
-                    CallService.startCall(context, phoneNumber)
+                    pendingCallNumber = phoneNumber
+                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
             }
         )
