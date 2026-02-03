@@ -51,11 +51,13 @@ class ContactsRepositoryImpl @Inject constructor(
 
     override suspend fun getContactProfile(
         contactId: String,
+        email: String,
         superAccountId: String
     ): NetworkResult<ContactProfile> {
         return try {
             val request = mapOf(
                 "contact_id" to contactId,
+                "email" to email,
                 "super_account_id" to superAccountId
             )
 

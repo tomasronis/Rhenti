@@ -20,7 +20,7 @@ interface ContactsRepository {
     /**
      * Get detailed profile for a specific contact.
      */
-    suspend fun getContactProfile(contactId: String, superAccountId: String): NetworkResult<ContactProfile>
+    suspend fun getContactProfile(contactId: String, email: String, superAccountId: String): NetworkResult<ContactProfile>
 
     /**
      * Search contacts by name, email, or phone.

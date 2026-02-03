@@ -97,7 +97,7 @@ class ContactsViewModel @Inject constructor(
         _uiState.update { it.copy(selectedContact = contact, contactProfile = null) }
 
         // Load full profile
-        loadContactProfile(contact.id)
+        loadContactProfile(contact)
     }
 
     /**
@@ -110,7 +110,7 @@ class ContactsViewModel @Inject constructor(
     /**
      * Load detailed profile for a contact.
      */
-    private fun loadContactProfile(contactId: String) {
+    private fun loadContactProfile(contact: Contact) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -119,7 +119,13 @@ class ContactsViewModel @Inject constructor(
                 return@launch
             }
 
-            when (val result = repository.getContactProfile(contactId, superAccountId)) {
+            // Email is required by the API
+            val email = contact.email ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "Contact email not available") }
+                return@launch
+            }
+
+            when (val result = repository.getContactProfile(contact.id, email, superAccountId)) {
                 is NetworkResult.Success -> {
                     _uiState.update {
                         it.copy(
