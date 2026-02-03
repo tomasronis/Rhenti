@@ -1,6 +1,8 @@
 package com.tomasronis.rhentiapp.presentation.main.tabs
 
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import com.tomasronis.rhentiapp.core.voip.CallService
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactDetailScreen
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
@@ -13,6 +15,7 @@ import com.tomasronis.rhentiapp.data.contacts.models.Contact
 fun ContactsTabContent(
     onStartChat: (Contact) -> Unit = {}
 ) {
+    val context = LocalContext.current
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
 
     if (selectedContact != null) {
@@ -25,8 +28,10 @@ fun ContactsTabContent(
                 selectedContact = null
             },
             onCall = { contact ->
-                // TODO: Implement in Phase 7 (VoIP Calling)
-                // For now, this is a placeholder
+                // Initiate VoIP call using Twilio
+                contact.phone?.let { phoneNumber ->
+                    CallService.startCall(context, phoneNumber)
+                }
             }
         )
     } else {
