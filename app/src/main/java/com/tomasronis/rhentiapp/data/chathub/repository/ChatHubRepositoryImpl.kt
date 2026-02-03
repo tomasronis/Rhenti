@@ -22,12 +22,16 @@ class ChatHubRepositoryImpl @Inject constructor(
 
     override suspend fun getThreads(superAccountId: String, search: String?): NetworkResult<List<ChatThread>> {
         return try {
-            val request = mapOf(
-                "super_account_id" to superAccountId,
-                "limit" to 50,
-                "offset" to 0
-            ).let { base ->
-                search?.let { base + ("search" to it) } ?: base
+            // Build request with correct format (skip instead of offset)
+            val request = buildMap<String, Any> {
+                put("searchText", search ?: "")
+                put("skip", 0)
+                put("limit", 50)
+                // Only include null values for the API - they're explicitly expected
+            }
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Fetching threads with request: $request")
             }
 
             val response = apiClient.getThreads(request)
@@ -38,9 +42,20 @@ class ChatHubRepositoryImpl @Inject constructor(
 
             val threads = parseThreadsResponse(response)
 
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Parsed ${threads.size} threads")
+                threads.firstOrNull()?.let { thread ->
+                    android.util.Log.d("ChatHubRepository", "First thread: id=${thread.id}, name=${thread.displayName}, members=${thread.members}")
+                }
+            }
+
             // Cache threads
             val cachedThreads = threads.map { it.toCachedThread() }
             threadDao.insertThreads(cachedThreads)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Cached ${cachedThreads.size} threads to database")
+            }
 
             NetworkResult.Success(threads)
         } catch (e: Exception) {
@@ -88,19 +103,32 @@ class ChatHubRepositoryImpl @Inject constructor(
 
     override suspend fun sendTextMessage(
         senderId: String,
+        userName: String,
         chatSessionId: String,
-        text: String
+        text: String,
+        thread: ChatThread
     ): NetworkResult<ChatMessage> {
         return try {
+            val timestamp = System.currentTimeMillis()
+
+            // Build request with correct iOS format
             val request = mapOf(
-                "chat_session_id" to chatSessionId,
-                "message" to text,
-                "type" to "text",
-                "chatSessionMembersObj" to mapOf(
-                    "renter" to 0,
-                    "owner" to 0
-                )
+                "message" to mapOf(
+                    "_id" to timestamp,
+                    "createdAt" to timestamp,
+                    "text" to text,
+                    "user" to mapOf(
+                        "name" to userName,
+                        "_id" to senderId
+                    )
+                ),
+                "chatSessionId" to chatSessionId,
+                "chatSessionMembersObj" to thread.membersObject
             )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Sending message with format: $request")
+            }
 
             val response = apiClient.sendMessage(senderId, request)
 
@@ -108,7 +136,7 @@ class ChatHubRepositoryImpl @Inject constructor(
                 android.util.Log.d("ChatHubRepository", "Send message response: $response")
             }
 
-            val message = parseSendMessageResponse(response, chatSessionId)
+            val message = parseSendMessageResponse(response, thread.id)
 
             // Cache the sent message
             messageDao.insertMessage(message.toCachedMessage())
@@ -127,19 +155,35 @@ class ChatHubRepositoryImpl @Inject constructor(
 
     override suspend fun sendImageMessage(
         senderId: String,
+        userName: String,
         chatSessionId: String,
-        imageBase64: String
+        imageBase64: String,
+        thread: ChatThread
     ): NetworkResult<ChatMessage> {
         return try {
+            val timestamp = System.currentTimeMillis()
+
+            // Add data URI prefix as iOS does
+            val base64WithPrefix = "data:image/jpeg;base64,$imageBase64"
+
+            // Build request with correct iOS format
             val request = mapOf(
-                "chat_session_id" to chatSessionId,
-                "type" to "image",
-                "attachment" to imageBase64,
-                "chatSessionMembersObj" to mapOf(
-                    "renter" to 0,
-                    "owner" to 0
-                )
+                "message" to mapOf(
+                    "_id" to timestamp,
+                    "createdAt" to timestamp,
+                    "base64" to base64WithPrefix,  // Use "base64", not "attachment"
+                    "user" to mapOf(
+                        "name" to userName,
+                        "_id" to senderId
+                    )
+                ),
+                "chatSessionId" to chatSessionId,
+                "chatSessionMembersObj" to thread.membersObject
             )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Sending image with format: $request")
+            }
 
             val response = apiClient.sendMessage(senderId, request)
 
@@ -147,7 +191,7 @@ class ChatHubRepositoryImpl @Inject constructor(
                 android.util.Log.d("ChatHubRepository", "Send image response: $response")
             }
 
-            val message = parseSendMessageResponse(response, chatSessionId)
+            val message = parseSendMessageResponse(response, thread.id)
 
             // Cache the sent message
             messageDao.insertMessage(message.toCachedMessage())
@@ -266,24 +310,43 @@ class ChatHubRepositoryImpl @Inject constructor(
         val threads = mutableListOf<ChatThread>()
 
         @Suppress("UNCHECKED_CAST")
-        val threadsData = response["threads"] as? List<Map<String, Any>> ?: emptyList()
+        val threadsData = response["chatThreads"] as? List<Map<String, Any>> ?: emptyList()
 
         for (threadData in threadsData) {
             try {
-                val id = threadData["_id"] as? String ?: continue
+                // Support both "id" and "_id" field names
+                val id = (threadData["id"] as? String)
+                    ?: (threadData["_id"] as? String)
+                    ?: continue
                 val displayName = (threadData["display_name"] as? String)
                     ?: (threadData["displayName"] as? String)
                     ?: "Unknown"
                 val email = threadData["email"] as? String
                 val phone = threadData["phone"] as? String
-                val imageUrl = (threadData["image_url"] as? String)
+                val imageUrlRaw = (threadData["image"] as? String)
+                    ?: (threadData["image_url"] as? String)
                     ?: (threadData["imageUrl"] as? String)
-                val unreadCount = ((threadData["unread_count"] as? Number)
-                    ?: (threadData["unreadCount"] as? Number))?.toInt() ?: 0
+                val imageUrl = imageUrlRaw?.let { buildFullImageUrl(it) }
+                // Support both unReadCount and unreadCount
+                val unreadCount = ((threadData["unReadCount"] as? Number)
+                    ?: (threadData["unreadCount"] as? Number)
+                    ?: (threadData["unread_count"] as? Number))?.toInt() ?: 0
                 val lastMessage = (threadData["last_message"] as? String)
                     ?: (threadData["lastMessage"] as? String)
-                val lastMessageTime = ((threadData["last_message_time"] as? Number)
-                    ?: (threadData["lastMessageTime"] as? Number))?.toLong()
+                // Support both lastMessageTime string and timestamp
+                val lastMessageTimeStr = (threadData["lastMessageTime"] as? String)
+                    ?: (threadData["last_message_time"] as? String)
+                val lastMessageTime = if (lastMessageTimeStr != null) {
+                    // Parse ISO 8601 string to timestamp
+                    try {
+                        java.time.Instant.parse(lastMessageTimeStr).toEpochMilli()
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else {
+                    ((threadData["lastMessageTime"] as? Number)
+                        ?: (threadData["last_message_time"] as? Number))?.toLong()
+                }
                 val legacyChatSessionId = (threadData["legacy_chat_session_id"] as? String)
                     ?: (threadData["legacyChatSessionId"] as? String)
                 val renterId = (threadData["renter_id"] as? String)
@@ -292,6 +355,13 @@ class ChatHubRepositoryImpl @Inject constructor(
                     ?: (threadData["ownerId"] as? String)
                 val isPinned = ((threadData["is_pinned"] as? Boolean)
                     ?: (threadData["isPinned"] as? Boolean)) ?: false
+
+                // Parse members map - convert Number values to Int
+                @Suppress("UNCHECKED_CAST")
+                val membersRaw = threadData["members"] as? Map<String, Any>
+                val members = membersRaw?.mapValues { (_, value) ->
+                    (value as? Number)?.toInt() ?: 0
+                }
 
                 threads.add(
                     ChatThread(
@@ -306,7 +376,8 @@ class ChatHubRepositoryImpl @Inject constructor(
                         legacyChatSessionId = legacyChatSessionId,
                         renterId = renterId,
                         ownerId = ownerId,
-                        isPinned = isPinned
+                        isPinned = isPinned,
+                        members = members
                     )
                 )
             } catch (e: Exception) {
@@ -411,6 +482,7 @@ private fun ChatThread.toCachedThread(): CachedThread {
         renterId = renterId,
         ownerId = ownerId,
         isPinned = isPinned,
+        members = members,
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis()
     )
@@ -429,7 +501,8 @@ private fun CachedThread.toDomainModel(): ChatThread {
         legacyChatSessionId = legacyChatSessionId,
         renterId = renterId,
         ownerId = ownerId,
-        isPinned = isPinned
+        isPinned = isPinned,
+        members = members
     )
 }
 
@@ -461,4 +534,18 @@ private fun CachedMessage.toDomainModel(): ChatMessage {
         status = status,
         createdAt = createdAt
     )
+}
+
+/**
+ * Build full image URL from partial path.
+ * If the URL is already complete (starts with http), return as-is.
+ * Otherwise, prepend the UAT image base URL.
+ */
+private fun buildFullImageUrl(imagePath: String): String {
+    return if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+        imagePath
+    } else {
+        // UAT image base URL
+        "https://uatimgs.rhenti.com/images/${imagePath.trimStart('/')}"
+    }
 }
