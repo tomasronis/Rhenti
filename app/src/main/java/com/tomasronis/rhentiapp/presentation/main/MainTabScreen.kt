@@ -106,7 +106,8 @@ fun MainTabScreen(
                         scope.launch {
                             viewModel.setSelectedTab(0)
                         }
-                    }
+                    },
+                    isTwilioInitialized = viewModel.isTwilioInitialized.collectAsState().value
                 )
                 2 -> CallsTab()
                 3 -> ProfileTab(

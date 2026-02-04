@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp
 
 import android.app.Application
+import com.tomasronis.rhentiapp.core.notifications.NotificationChannels
 import dagger.hilt.android.HiltAndroidApp
 
 /**
@@ -14,6 +15,9 @@ class RhentiApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Initialize notification channels for VoIP calls
+        NotificationChannels.createChannels(this)
 
         // Initialize any application-level components here
         // (e.g., logging, crash reporting, etc.)

@@ -33,26 +33,34 @@ interface ChatHubRepository {
      * Send a text message.
      *
      * @param senderId The sender's user ID
+     * @param userName The sender's full name
      * @param chatSessionId The legacy chat session ID (from thread.legacyChatSessionId)
      * @param text The message text
+     * @param thread The current thread (for membersObject)
      */
     suspend fun sendTextMessage(
         senderId: String,
+        userName: String,
         chatSessionId: String,
-        text: String
+        text: String,
+        thread: ChatThread
     ): NetworkResult<ChatMessage>
 
     /**
      * Send an image message.
      *
      * @param senderId The sender's user ID
+     * @param userName The sender's full name
      * @param chatSessionId The legacy chat session ID
-     * @param imageBase64 Base64 encoded image with data URI prefix
+     * @param imageBase64 Base64 encoded image (without data URI prefix)
+     * @param thread The current thread (for membersObject)
      */
     suspend fun sendImageMessage(
         senderId: String,
+        userName: String,
         chatSessionId: String,
-        imageBase64: String
+        imageBase64: String,
+        thread: ChatThread
     ): NetworkResult<ChatMessage>
 
     /**

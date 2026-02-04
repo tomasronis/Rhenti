@@ -31,6 +31,9 @@ class MainTabViewModel @Inject constructor(
     private val _contactToStartChat = MutableStateFlow<Contact?>(null)
     val contactToStartChat: StateFlow<Contact?> = _contactToStartChat.asStateFlow()
 
+    private val _isTwilioInitialized = MutableStateFlow(false)
+    val isTwilioInitialized: StateFlow<Boolean> = _isTwilioInitialized.asStateFlow()
+
     init {
         // Restore selected tab from preferences
         viewModelScope.launch {
@@ -77,7 +80,15 @@ class MainTabViewModel @Inject constructor(
      */
     fun initializeTwilio() {
         viewModelScope.launch {
-            twilioManager.initialize()
+            try {
+                android.util.Log.d("MainTabViewModel", "Starting Twilio initialization...")
+                twilioManager.initialize()
+                _isTwilioInitialized.value = true
+                android.util.Log.d("MainTabViewModel", "Twilio initialized successfully")
+            } catch (e: Exception) {
+                android.util.Log.e("MainTabViewModel", "Twilio initialization failed", e)
+                _isTwilioInitialized.value = false
+            }
         }
     }
 }

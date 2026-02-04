@@ -71,18 +71,59 @@ class TokenManager @Inject constructor(
     }
 
     /**
+     * Saves the user's first name.
+     */
+    suspend fun saveUserFirstName(firstName: String) {
+        encryptedPreferences.putString(KEY_USER_FIRST_NAME, firstName)
+    }
+
+    /**
+     * Retrieves the user's first name.
+     */
+    suspend fun getUserFirstName(): String? {
+        return encryptedPreferences.getString(KEY_USER_FIRST_NAME)
+    }
+
+    /**
+     * Saves the user's last name.
+     */
+    suspend fun saveUserLastName(lastName: String) {
+        encryptedPreferences.putString(KEY_USER_LAST_NAME, lastName)
+    }
+
+    /**
+     * Retrieves the user's last name.
+     */
+    suspend fun getUserLastName(): String? {
+        return encryptedPreferences.getString(KEY_USER_LAST_NAME)
+    }
+
+    /**
+     * Retrieves the user's full name.
+     */
+    suspend fun getUserFullName(): String {
+        val firstName = getUserFirstName() ?: ""
+        val lastName = getUserLastName() ?: ""
+        return "$firstName $lastName".trim().ifEmpty { "Unknown User" }
+    }
+
+    /**
      * Saves all authentication data at once.
      */
     suspend fun saveAuthData(
         token: String,
         userId: String,
         whiteLabel: String,
-        superAccountId: String
+        superAccountId: String,
+        firstName: String? = null,
+        lastName: String? = null
     ) {
         saveAuthToken(token)
         saveUserId(userId)
         saveWhiteLabel(whiteLabel)
         saveSuperAccountId(superAccountId)
+        firstName?.let { saveUserFirstName(it) }
+        lastName?.let { saveUserLastName(it) }
     }
 
     /**
@@ -100,6 +141,8 @@ class TokenManager @Inject constructor(
         encryptedPreferences.remove(KEY_USER_ID)
         encryptedPreferences.remove(KEY_WHITE_LABEL)
         encryptedPreferences.remove(KEY_SUPER_ACCOUNT_ID)
+        encryptedPreferences.remove(KEY_USER_FIRST_NAME)
+        encryptedPreferences.remove(KEY_USER_LAST_NAME)
     }
 
     companion object {
@@ -107,5 +150,7 @@ class TokenManager @Inject constructor(
         private const val KEY_USER_ID = "user_id"
         private const val KEY_WHITE_LABEL = "white_label"
         private const val KEY_SUPER_ACCOUNT_ID = "super_account_id"
+        private const val KEY_USER_FIRST_NAME = "user_first_name"
+        private const val KEY_USER_LAST_NAME = "user_last_name"
     }
 }

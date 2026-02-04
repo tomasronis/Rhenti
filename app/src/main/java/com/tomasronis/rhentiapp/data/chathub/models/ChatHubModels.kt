@@ -18,8 +18,16 @@ data class ChatThread(
     val legacyChatSessionId: String?, // CRITICAL: Use for sending messages
     val renterId: String?,
     val ownerId: String?,
-    val isPinned: Boolean
-)
+    val isPinned: Boolean,
+    val members: Map<String, Int>? // CRITICAL: Member IDs mapped to badge counts
+) {
+    /**
+     * Get the members object for sending messages.
+     * Uses actual member IDs from API, not role names like "renter"/"owner".
+     */
+    val membersObject: Map<String, Int>
+        get() = members ?: emptyMap()
+}
 
 /**
  * Domain model for a chat message.

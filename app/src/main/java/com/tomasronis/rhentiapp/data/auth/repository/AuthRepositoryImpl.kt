@@ -41,6 +41,13 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             saveAuthData(loginResponse)
+
+            // Fetch full user profile
+            fetchUserProfile(loginResponse.userId)
+
+            // Fetch white label settings
+            fetchWhiteLabelSettings()
+
             NetworkResult.Success(loginResponse)
         } catch (e: Exception) {
             if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
@@ -109,6 +116,13 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             saveAuthData(loginResponse)
+
+            // Fetch full user profile
+            fetchUserProfile(loginResponse.userId)
+
+            // Fetch white label settings
+            fetchWhiteLabelSettings()
+
             NetworkResult.Success(loginResponse)
         } catch (e: Exception) {
             if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
@@ -172,12 +186,14 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveAuthData(response: LoginResponse) {
-        // Save token and IDs
+        // Save token, IDs, and user name
         tokenManager.saveAuthData(
             token = response.token,
             userId = response.userId,
             whiteLabel = response.whiteLabel,
-            superAccountId = response.superAccountId
+            superAccountId = response.superAccountId,
+            firstName = response.profile.firstName ?: "",
+            lastName = response.profile.lastName ?: ""
         )
 
         // Cache user data
@@ -275,6 +291,90 @@ class AuthRepositoryImpl @Inject constructor(
             java.time.Instant.ofEpochMilli(timestamp).toString()
         } catch (e: Exception) {
             java.time.Instant.now().toString()
+        }
+    }
+
+    /**
+     * Fetch full user profile from server and update cache.
+     * Called after successful login to ensure we have complete user data.
+     */
+    private suspend fun fetchUserProfile(userId: String) {
+        try {
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "Fetching user profile for userId: $userId")
+            }
+
+            val userProfileResponse = apiClient.getUserProfile(userId)
+
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "User profile response: $userProfileResponse")
+            }
+
+            // Parse user profile response
+            val id = userProfileResponse["_id"] as? String ?: userId
+            val email = userProfileResponse["email"] as? String ?: ""
+            val firstName = userProfileResponse["firstName"] as? String
+            val lastName = userProfileResponse["lastName"] as? String
+            val phone = userProfileResponse["phone"] as? String
+            val profilePhotoUri = userProfileResponse["profilePhotoUri"] as? String
+            val createdAt = userProfileResponse["createdAt"] as? String
+            val updatedAt = userProfileResponse["updatedAt"] as? String
+
+            // Update cached user with complete profile data
+            val cachedUser = CachedUser(
+                id = id,
+                email = email,
+                firstName = firstName,
+                lastName = lastName,
+                phone = phone,
+                profilePhotoUri = profilePhotoUri,
+                createdAt = parseIsoDateToTimestamp(createdAt),
+                updatedAt = parseIsoDateToTimestamp(updatedAt)
+            )
+            userDao.insertUser(cachedUser)
+
+            // Update name in token manager if we got it
+            if (firstName != null || lastName != null) {
+                tokenManager.saveUserFirstName(firstName ?: "")
+                tokenManager.saveUserLastName(lastName ?: "")
+            }
+
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "User profile updated successfully")
+            }
+        } catch (e: Exception) {
+            // Don't fail login if profile fetch fails - we have basic data from login response
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.w("AuthRepository", "Failed to fetch user profile (non-critical)", e)
+            }
+        }
+    }
+
+    /**
+     * Fetch white label settings from server.
+     * This includes app customization, branding, and feature flags.
+     */
+    private suspend fun fetchWhiteLabelSettings() {
+        try {
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "Fetching white label settings")
+            }
+
+            val settingsResponse = apiClient.getWhiteLabelSettings()
+
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("AuthRepository", "White label settings response: $settingsResponse")
+            }
+
+            // TODO: Parse and store settings as needed
+            // For now, just log that we received them
+            // You can add PreferencesManager or SettingsRepository to store these later
+
+        } catch (e: Exception) {
+            // Don't fail login if settings fetch fails - use defaults
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.w("AuthRepository", "Failed to fetch white label settings (non-critical)", e)
+            }
         }
     }
 }

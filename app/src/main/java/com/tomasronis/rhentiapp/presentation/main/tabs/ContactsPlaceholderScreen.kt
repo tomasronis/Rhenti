@@ -16,7 +16,8 @@ import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
  */
 @Composable
 fun ContactsTabContent(
-    onStartChat: (Contact) -> Unit = {}
+    onStartChat: (Contact) -> Unit = {},
+    isTwilioInitialized: Boolean = false
 ) {
     val context = LocalContext.current
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
@@ -58,6 +59,16 @@ fun ContactsTabContent(
                 selectedContact = null
             },
             onCall = { contact ->
+                // Check if Twilio is initialized
+                if (!isTwilioInitialized) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Call service is initializing, please try again in a moment",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    return@ContactDetailScreen
+                }
+
                 // Check for audio permission before initiating call
                 contact.phone?.let { phoneNumber ->
                     pendingCallNumber = phoneNumber

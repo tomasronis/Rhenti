@@ -2,6 +2,7 @@ package com.tomasronis.rhentiapp.core.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.tomasronis.rhentiapp.core.database.dao.*
 import com.tomasronis.rhentiapp.core.database.entities.*
 
@@ -15,6 +16,7 @@ import com.tomasronis.rhentiapp.core.database.entities.*
  * - Call logs
  *
  * Version 1 - Initial schema
+ * Version 2 - Added members field to CachedThread
  */
 @Database(
     entities = [
@@ -24,9 +26,10 @@ import com.tomasronis.rhentiapp.core.database.entities.*
         CachedContact::class,
         CachedCallLog::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class RhentiDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao

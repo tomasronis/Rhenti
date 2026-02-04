@@ -128,8 +128,8 @@ dependencies {
     // Coil (image loading)
     implementation(libs.coil.compose)
 
-    // Twilio Voice (will be added in Phase 7)
-    // implementation(libs.twilio.voice)
+    // Twilio Voice (Phase 7)
+    implementation(libs.twilio.voice)
 
     // Google Auth
     implementation(libs.play.services.auth)
