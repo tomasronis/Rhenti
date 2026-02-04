@@ -9,29 +9,47 @@ object PhoneNumberFormatter {
     /**
      * Format a phone number to E.164 format for Twilio.
      * Assumes North American numbers if no country code is present.
+     *
+     * Examples:
+     * - "5551234567" -> "+15551234567"
+     * - "+15551234567" -> "+15551234567"
+     * - "(555) 123-4567" -> "+15551234567"
+     * - "15551234567" -> "+15551234567"
      */
     fun formatForTwilio(phoneNumber: String): String {
         // Remove all non-digit characters except +
-        val cleaned = phoneNumber.replace(Regex("[^+\\d]"), "")
+        var cleaned = phoneNumber.replace(Regex("[^+\\d]"), "")
 
-        // If already has + prefix, assume it's formatted correctly
+        // If already has + prefix, validate it
         if (cleaned.startsWith("+")) {
-            return cleaned
+            // Remove the + for validation, we'll add it back
+            cleaned = cleaned.substring(1)
         }
 
-        // If starts with 1 and has 11 digits total, add + prefix
-        if (cleaned.startsWith("1") && cleaned.length == 11) {
-            return "+$cleaned"
+        // Now cleaned should only contain digits
+        // Validate and format based on length
+        val formatted = when {
+            // 10 digits - North American number without country code
+            cleaned.length == 10 -> {
+                "+1$cleaned"
+            }
+            // 11 digits starting with 1 - North American number with country code
+            cleaned.length == 11 && cleaned.startsWith("1") -> {
+                "+$cleaned"
+            }
+            // International number (assume it's already correct if 11+ digits)
+            cleaned.length >= 11 -> {
+                "+$cleaned"
+            }
+            // Too short or empty - return original with validation note
+            else -> {
+                // Return the cleaned version with + if we have any digits
+                if (cleaned.isNotEmpty()) "+$cleaned" else phoneNumber
+            }
         }
 
-        // If 10 digits, assume North American number and add +1
-        if (cleaned.length == 10) {
-            return "+1$cleaned"
-        }
-
-        // If less than 10 digits or more than 11, return as-is with + prefix
-        // (might be short code or international number)
-        return if (cleaned.isEmpty()) phoneNumber else "+$cleaned"
+        android.util.Log.d("PhoneNumberFormatter", "Input: '$phoneNumber' -> Formatted: '$formatted'")
+        return formatted
     }
 
     /**

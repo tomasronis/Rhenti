@@ -123,13 +123,22 @@ class TwilioManager @Inject constructor(
             if (BuildConfig.DEBUG) {
                 Log.e(TAG, "Cannot make call: No access token")
             }
-            _callState.value = CallState.Failed("Not authenticated")
+            _callState.value = CallState.Failed("Not authenticated. Please try again.")
             return
         }
 
         try {
             // Format phone number to E.164 format for Twilio
             val formattedNumber = PhoneNumberFormatter.formatForTwilio(phoneNumber)
+
+            // Validate the formatted number
+            if (!isValidE164Number(formattedNumber)) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(TAG, "Invalid phone number format: $phoneNumber -> $formattedNumber")
+                }
+                _callState.value = CallState.Failed("Invalid phone number. Please check the number and try again.")
+                return
+            }
 
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Making outgoing call to: $phoneNumber (formatted: $formattedNumber)")
@@ -154,6 +163,22 @@ class TwilioManager @Inject constructor(
             }
             _callState.value = CallState.Failed(e.message ?: "Failed to make call")
         }
+    }
+
+    /**
+     * Validate E.164 phone number format
+     * E.164 format: +[1-15 digits]
+     */
+    private fun isValidE164Number(phoneNumber: String): Boolean {
+        // Must start with +
+        if (!phoneNumber.startsWith("+")) return false
+
+        // Must have only digits after +
+        val digits = phoneNumber.substring(1)
+        if (!digits.all { it.isDigit() }) return false
+
+        // Must have between 7 and 15 digits (E.164 standard)
+        return digits.length in 7..15
     }
 
     /**
@@ -282,10 +307,23 @@ class TwilioManager @Inject constructor(
     private val callListener = object : Call.Listener {
         override fun onConnectFailure(call: Call, error: CallException) {
             if (BuildConfig.DEBUG) {
-                Log.e(TAG, "Call connect failure: ${error.message}")
+                Log.e(TAG, "Call connect failure: ${error.message} (Error code: ${error.errorCode})")
             }
 
-            _callState.value = CallState.Failed(error.message ?: "Connection failed")
+            // Provide user-friendly error message based on Twilio error
+            val userMessage = when {
+                error.message?.contains("invalid", ignoreCase = true) == true ->
+                    "Invalid phone number. Please check the number and try again."
+                error.message?.contains("permission", ignoreCase = true) == true ->
+                    "Unable to call this number. Please contact support."
+                error.message?.contains("network", ignoreCase = true) == true ->
+                    "Network error. Please check your connection."
+                error.message?.contains("not permitted", ignoreCase = true) == true ->
+                    "This number cannot be called. Please verify the number."
+                else -> error.message ?: "Call failed. Please try again."
+            }
+
+            _callState.value = CallState.Failed(userMessage)
             recordCallLog(call, CallStatus.FAILED)
             cleanup()
         }
