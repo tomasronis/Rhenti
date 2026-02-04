@@ -1,11 +1,17 @@
 package com.tomasronis.rhentiapp.presentation.main
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.presentation.auth.AuthViewModel
@@ -27,6 +33,50 @@ fun MainTabScreen(
     val contactToStartChat by viewModel.contactToStartChat.collectAsState()
     val callState by viewModel.callState.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // State for pending phone number (waiting for permission)
+    var pendingPhoneNumber by remember { mutableStateOf<String?>(null) }
+
+    // Permission launcher for microphone access
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, make the call
+            pendingPhoneNumber?.let { phoneNumber ->
+                viewModel.makeCall(phoneNumber)
+                pendingPhoneNumber = null
+            }
+        } else {
+            // Permission denied
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "Microphone permission is required to make calls",
+                    duration = SnackbarDuration.Long
+                )
+            }
+            pendingPhoneNumber = null
+        }
+    }
+
+    // Function to check permission and make call
+    fun handleMakeCall(phoneNumber: String) {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PermissionChecker.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            // Permission already granted, make the call
+            viewModel.makeCall(phoneNumber)
+        } else {
+            // Request permission
+            pendingPhoneNumber = phoneNumber
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     // Initialize Twilio on first composition
     LaunchedEffect(Unit) {
@@ -39,6 +89,7 @@ fun MainTabScreen(
             callState is CallState.Dialing
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -120,7 +171,7 @@ fun MainTabScreen(
                 )
                 2 -> CallsTab(
                     onStartCall = { phoneNumber ->
-                        viewModel.makeCall(phoneNumber)
+                        handleMakeCall(phoneNumber)
                     }
                 )
                 3 -> ProfileTab(
