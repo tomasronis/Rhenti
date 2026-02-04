@@ -226,25 +226,30 @@ private fun MessageList(
             items = messages,
             key = { it.id }
         ) { message ->
-            when (message.type) {
-                "image" -> {
-                    ImageMessageView(message = message)
-                }
-                "booking" -> {
-                    BookingMessageCard(
-                        message = message,
-                        onApprove = onApproveBooking,
-                        onDecline = onDeclineBooking,
-                        onProposeAlternative = onProposeAlternative
-                    )
-                }
-                else -> {
-                    MessageBubble(
-                        message = message,
-                        onRetry = if (message.status == "failed") {
-                            { onRetryMessage(message) }
-                        } else null
-                    )
+            // System messages get special treatment (e.g., "Conversation about: [address]")
+            if (message.sender == "system") {
+                SystemMessageView(message = message)
+            } else {
+                when (message.type) {
+                    "image" -> {
+                        ImageMessageView(message = message)
+                    }
+                    "booking" -> {
+                        BookingMessageCard(
+                            message = message,
+                            onApprove = onApproveBooking,
+                            onDecline = onDeclineBooking,
+                            onProposeAlternative = onProposeAlternative
+                        )
+                    }
+                    else -> {
+                        MessageBubble(
+                            message = message,
+                            onRetry = if (message.status == "failed") {
+                                { onRetryMessage(message) }
+                            } else null
+                        )
+                    }
                 }
             }
         }

@@ -31,11 +31,22 @@ class ChatHubViewModel @Inject constructor(
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     init {
-        // Observe cached threads
+        // Observe cached threads with search filter
         viewModelScope.launch {
-            repository.observeThreads().collect { threads ->
-                _uiState.update { it.copy(threads = threads) }
-            }
+            repository.observeThreads()
+                .combine(_searchQuery) { threads, query ->
+                    if (query.isBlank()) {
+                        threads
+                    } else {
+                        threads.filter { thread ->
+                            thread.displayName.contains(query, ignoreCase = true) ||
+                            thread.lastMessage?.contains(query, ignoreCase = true) == true
+                        }
+                    }
+                }
+                .collect { filteredThreads ->
+                    _uiState.update { it.copy(threads = filteredThreads) }
+                }
         }
 
         // Observe total unread count
@@ -78,11 +89,10 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
-     * Search threads by query.
+     * Search threads by query (filters locally).
      */
     fun searchThreads(query: String) {
         _searchQuery.value = query
-        refreshThreads()
     }
 
     /**
@@ -157,6 +167,7 @@ class ChatHubViewModel @Inject constructor(
 
         viewModelScope.launch {
             val userId = tokenManager.getUserId() ?: return@launch
+            val userName = tokenManager.getUserFullName()
 
             // Create optimistic message
             val tempMessage = ChatMessage(
@@ -177,7 +188,7 @@ class ChatHubViewModel @Inject constructor(
             }
 
             // Send to API
-            when (val result = repository.sendTextMessage(userId, legacyChatSessionId, text)) {
+            when (val result = repository.sendTextMessage(userId, userName, legacyChatSessionId, text, currentThread)) {
                 is NetworkResult.Success -> {
                     // Replace temp message with real one
                     _uiState.update { state ->
@@ -212,6 +223,7 @@ class ChatHubViewModel @Inject constructor(
 
         viewModelScope.launch {
             val userId = tokenManager.getUserId() ?: return@launch
+            val userName = tokenManager.getUserFullName()
 
             // Create optimistic message
             val tempMessage = ChatMessage(
@@ -232,7 +244,7 @@ class ChatHubViewModel @Inject constructor(
             }
 
             // Send to API
-            when (val result = repository.sendImageMessage(userId, legacyChatSessionId, imageBase64)) {
+            when (val result = repository.sendImageMessage(userId, userName, legacyChatSessionId, imageBase64, currentThread)) {
                 is NetworkResult.Success -> {
                     // Replace temp message with real one
                     _uiState.update { state ->
