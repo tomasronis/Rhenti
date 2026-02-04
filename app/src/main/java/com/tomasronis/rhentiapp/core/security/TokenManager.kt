@@ -99,6 +99,48 @@ class TokenManager @Inject constructor(
     }
 
     /**
+     * Saves the user's email.
+     */
+    suspend fun saveUserEmail(email: String) {
+        encryptedPreferences.putString(KEY_USER_EMAIL, email)
+    }
+
+    /**
+     * Retrieves the user's email.
+     */
+    suspend fun getUserEmail(): String? {
+        return encryptedPreferences.getString(KEY_USER_EMAIL)
+    }
+
+    /**
+     * Saves the account ID (for Twilio).
+     */
+    suspend fun saveAccount(account: String) {
+        encryptedPreferences.putString(KEY_ACCOUNT, account)
+    }
+
+    /**
+     * Retrieves the account ID (for Twilio).
+     */
+    suspend fun getAccount(): String? {
+        return encryptedPreferences.getString(KEY_ACCOUNT)
+    }
+
+    /**
+     * Saves the child account ID (for Twilio).
+     */
+    suspend fun saveChildAccount(childAccount: String) {
+        encryptedPreferences.putString(KEY_CHILD_ACCOUNT, childAccount)
+    }
+
+    /**
+     * Retrieves the child account ID (for Twilio).
+     */
+    suspend fun getChildAccount(): String? {
+        return encryptedPreferences.getString(KEY_CHILD_ACCOUNT)
+    }
+
+    /**
      * Retrieves the user's full name.
      */
     suspend fun getUserFullName(): String {
@@ -116,7 +158,10 @@ class TokenManager @Inject constructor(
         whiteLabel: String,
         superAccountId: String,
         firstName: String? = null,
-        lastName: String? = null
+        lastName: String? = null,
+        email: String? = null,
+        account: String? = null,
+        childAccount: String? = null
     ) {
         saveAuthToken(token)
         saveUserId(userId)
@@ -124,6 +169,10 @@ class TokenManager @Inject constructor(
         saveSuperAccountId(superAccountId)
         firstName?.let { saveUserFirstName(it) }
         lastName?.let { saveUserLastName(it) }
+        email?.let { saveUserEmail(it) }
+        // Use account/childAccount from API if provided, otherwise fallback to superAccountId/userId
+        saveAccount(account ?: superAccountId)
+        saveChildAccount(childAccount ?: userId)
     }
 
     /**
@@ -143,6 +192,9 @@ class TokenManager @Inject constructor(
         encryptedPreferences.remove(KEY_SUPER_ACCOUNT_ID)
         encryptedPreferences.remove(KEY_USER_FIRST_NAME)
         encryptedPreferences.remove(KEY_USER_LAST_NAME)
+        encryptedPreferences.remove(KEY_USER_EMAIL)
+        encryptedPreferences.remove(KEY_ACCOUNT)
+        encryptedPreferences.remove(KEY_CHILD_ACCOUNT)
     }
 
     companion object {
@@ -152,5 +204,8 @@ class TokenManager @Inject constructor(
         private const val KEY_SUPER_ACCOUNT_ID = "super_account_id"
         private const val KEY_USER_FIRST_NAME = "user_first_name"
         private const val KEY_USER_LAST_NAME = "user_last_name"
+        private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_ACCOUNT = "account"
+        private const val KEY_CHILD_ACCOUNT = "child_account"
     }
 }

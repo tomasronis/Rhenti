@@ -15,6 +15,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.calls.models.CallLog
 import com.tomasronis.rhentiapp.data.calls.models.CallType
 import com.tomasronis.rhentiapp.presentation.calls.components.CallLogCard
+import com.tomasronis.rhentiapp.presentation.calls.components.DialNumberDialog
 import com.tomasronis.rhentiapp.presentation.calls.components.EmptyCallsState
 import com.tomasronis.rhentiapp.presentation.calls.components.FilterSheet
 import java.text.SimpleDateFormat
@@ -27,6 +28,7 @@ import java.util.*
 @Composable
 fun CallsScreen(
     onNavigateToActiveCall: (String) -> Unit,
+    onNavigateToDetail: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: CallsViewModel = hiltViewModel()
 ) {
@@ -35,6 +37,7 @@ fun CallsScreen(
 
     var showSearchBar by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var showDialDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Load call logs on screen open
@@ -117,6 +120,15 @@ fun CallsScreen(
                                         onClick = {
                                             showSearchBar = false
                                             viewModel.searchCalls("")
+                                            if (onNavigateToDetail != null) {
+                                                onNavigateToDetail(callLog.id)
+                                            } else {
+                                                onNavigateToActiveCall(callLog.contactPhone)
+                                            }
+                                        },
+                                        onCallClick = {
+                                            showSearchBar = false
+                                            viewModel.searchCalls("")
                                             onNavigateToActiveCall(callLog.contactPhone)
                                         }
                                     )
@@ -147,7 +159,17 @@ fun CallsScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (!showSearchBar) {
+                FloatingActionButton(
+                    onClick = { showDialDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(Icons.Filled.Dialpad, contentDescription = "Dial number")
+                }
+            }
+        }
     ) { paddingValues ->
         Box(
             modifier = modifier
@@ -179,6 +201,10 @@ fun CallsScreen(
                             onCallClick = { phoneNumber ->
                                 // Navigate to active call screen
                                 onNavigateToActiveCall(phoneNumber)
+                            },
+                            onDetailClick = { callId ->
+                                // Navigate to call detail screen
+                                onNavigateToDetail?.invoke(callId)
                             },
                             selectedFilter = uiState.selectedFilter
                         )
@@ -223,6 +249,16 @@ fun CallsScreen(
             onDismiss = { showFilterSheet = false }
         )
     }
+
+    // Dial number dialog
+    if (showDialDialog) {
+        DialNumberDialog(
+            onDismiss = { showDialDialog = false },
+            onDial = { phoneNumber ->
+                onNavigateToActiveCall(phoneNumber)
+            }
+        )
+    }
 }
 
 /**
@@ -232,6 +268,7 @@ fun CallsScreen(
 private fun CallLogsList(
     callLogs: List<CallLog>,
     onCallClick: (String) -> Unit,
+    onDetailClick: ((String) -> Unit)?,
     selectedFilter: CallType?,
     modifier: Modifier = Modifier
 ) {
@@ -262,7 +299,14 @@ private fun CallLogsList(
             ) { callLog ->
                 CallLogCard(
                     callLog = callLog,
-                    onClick = { onCallClick(callLog.contactPhone) }
+                    onClick = {
+                        if (onDetailClick != null) {
+                            onDetailClick(callLog.id)
+                        } else {
+                            onCallClick(callLog.contactPhone)
+                        }
+                    },
+                    onCallClick = { onCallClick(callLog.contactPhone) }
                 )
             }
         }

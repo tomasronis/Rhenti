@@ -42,7 +42,9 @@ data class LoginResponse(
     val userId: String,  // API returns camelCase
     @Json(name = "super_account_id") val superAccountId: String,
     val whiteLabel: String,  // API returns camelCase
-    val profile: User  // API returns user data in "profile" field
+    val profile: User,  // API returns user data in "profile" field
+    val account: String? = null,  // For Twilio - may be same as superAccountId
+    val childAccount: String? = null  // For Twilio - may be same as userId
 )
 
 @JsonClass(generateAdapter = true)

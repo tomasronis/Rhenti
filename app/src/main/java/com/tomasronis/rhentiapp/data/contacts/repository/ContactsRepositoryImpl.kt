@@ -55,21 +55,49 @@ class ContactsRepositoryImpl @Inject constructor(
         superAccountId: String
     ): NetworkResult<ContactProfile> {
         return try {
-            // Ensure email is not blank
-            require(email.isNotBlank()) { "Email cannot be blank" }
+            // TEMPORARY: API endpoint appears to be broken (always returns 500 "Email is required")
+            // Skip API call and return basic profile from cached contact data
+            if (BuildConfig.DEBUG) {
+                android.util.Log.w("ContactsRepository", "Skipping broken API endpoint, using cached contact data")
+            }
 
+            // Get cached contact
+            val cachedContact = contactDao.getContactByIdOnce(contactId)
+                ?: throw Exception("Contact not found in cache")
+
+            // Create basic profile from cached data
+            val profile = ContactProfile(
+                id = cachedContact.id,
+                firstName = cachedContact.firstName,
+                lastName = cachedContact.lastName,
+                email = cachedContact.email,
+                phone = cachedContact.phone,
+                avatarUrl = cachedContact.avatarUrl,
+                properties = emptyList(), // Would come from API
+                role = null, // Would come from API
+                notes = null, // Would come from API
+                totalMessages = cachedContact.totalMessages,
+                totalCalls = cachedContact.totalCalls,
+                lastActivity = cachedContact.lastActivity,
+                createdAt = cachedContact.createdAt
+            )
+
+            NetworkResult.Success(profile)
+
+            /* ORIGINAL CODE - API endpoint broken
             val request = mapOf(
                 "contact_id" to contactId,
                 "email" to email,
                 "super_account_id" to superAccountId
             )
 
-            // Always log the request to debug the issue
-            android.util.Log.d("ContactsRepository", "=== GET CONTACT PROFILE REQUEST ===")
-            android.util.Log.d("ContactsRepository", "contactId: $contactId")
-            android.util.Log.d("ContactsRepository", "email: '$email' (length: ${email.length})")
-            android.util.Log.d("ContactsRepository", "superAccountId: $superAccountId")
-            android.util.Log.d("ContactsRepository", "Full request map: $request")
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "=== GET CONTACT PROFILE REQUEST ===")
+                android.util.Log.d("ContactsRepository", "contactId: $contactId")
+                android.util.Log.d("ContactsRepository", "email: '$email'")
+                android.util.Log.d("ContactsRepository", "superAccountId: $superAccountId")
+                android.util.Log.d("ContactsRepository", "Full request map: $request")
+            }
 
             val response = apiClient.getContactProfile(request)
 
@@ -78,6 +106,7 @@ class ContactsRepositoryImpl @Inject constructor(
             val profile = parseContactProfileResponse(response)
 
             NetworkResult.Success(profile)
+            */
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
                 android.util.Log.e("ContactsRepository", "Get contact profile failed", e)
@@ -133,6 +162,10 @@ class ContactsRepositoryImpl @Inject constructor(
                     ?: contactData["lastName"] as? String
                 val email = contactData["email"] as? String
                 val phone = contactData["phone"] as? String
+
+                if (BuildConfig.DEBUG && email.isNullOrBlank()) {
+                    android.util.Log.w("ContactsRepository", "Contact $id ($firstName $lastName) has no email: $contactData")
+                }
                 val avatarUrl = contactData["avatar_url"] as? String
                     ?: contactData["avatarUrl"] as? String
 

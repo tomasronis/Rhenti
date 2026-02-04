@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.core.network
 
 import com.tomasronis.rhentiapp.data.auth.models.*
+import okhttp3.ResponseBody
 import retrofit2.http.*
 
 /**
@@ -77,7 +78,7 @@ interface ApiClient {
     // ============================================================================
 
     @POST("/phone-tracking/accessToken")
-    suspend fun getTwilioAccessToken(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
+    suspend fun getTwilioAccessToken(@Body request: Map<String, @JvmSuppressWildcards Any>): ResponseBody
 
     @GET("/phone-tracking/ownercontactlogs/{superAccountId}")
     suspend fun getCallLogs(@Path("superAccountId") superAccountId: String): Map<String, @JvmSuppressWildcards Any>

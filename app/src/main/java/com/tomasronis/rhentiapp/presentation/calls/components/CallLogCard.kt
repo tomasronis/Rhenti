@@ -29,45 +29,56 @@ import java.util.*
 fun CallLogCard(
     callLog: CallLog,
     onClick: () -> Unit,
+    onCallClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     ListItem(
         headlineContent = {
             Text(
-                text = callLog.contactName ?: callLog.contactPhone,
+                text = callLog.contactName ?: "Unknown",
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
         },
         supportingContent = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Call type icon
-                Icon(
-                    imageVector = when (callLog.callType) {
-                        CallType.INCOMING -> Icons.Filled.CallReceived
-                        CallType.OUTGOING -> Icons.Filled.CallMade
-                        CallType.MISSED -> Icons.Filled.CallMissed
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = when (callLog.callType) {
-                        CallType.MISSED -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                // Phone number
+                Text(
+                    text = callLog.contactPhone,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Timestamp
-                Text(
-                    text = formatCallTime(callLog.timestamp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = when (callLog.callType) {
-                        CallType.MISSED -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
+                // Call info row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Call type icon
+                    Icon(
+                        imageVector = when (callLog.callType) {
+                            CallType.INCOMING -> Icons.Filled.CallReceived
+                            CallType.OUTGOING -> Icons.Filled.CallMade
+                            CallType.MISSED -> Icons.Filled.CallMissed
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = when (callLog.callType) {
+                            CallType.MISSED -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+
+                    // Timestamp
+                    Text(
+                        text = formatCallTime(callLog.timestamp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when (callLog.callType) {
+                            CallType.MISSED -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
             }
         },
         leadingContent = {
@@ -123,7 +134,7 @@ fun CallLogCard(
                 }
 
                 // Call button
-                IconButton(onClick = onClick) {
+                IconButton(onClick = { onCallClick?.invoke() ?: onClick() }) {
                     Icon(
                         imageVector = Icons.Filled.Phone,
                         contentDescription = "Call",

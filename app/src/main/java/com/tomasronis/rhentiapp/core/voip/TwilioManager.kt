@@ -5,6 +5,7 @@ import android.util.Log
 import com.tomasronis.rhentiapp.BuildConfig
 import com.tomasronis.rhentiapp.core.network.NetworkResult
 import com.tomasronis.rhentiapp.core.security.TokenManager
+import com.tomasronis.rhentiapp.core.utils.PhoneNumberFormatter
 import com.tomasronis.rhentiapp.data.calls.models.CallStatus
 import com.tomasronis.rhentiapp.data.calls.models.CallType
 import com.tomasronis.rhentiapp.data.calls.repository.CallsRepository
@@ -72,13 +73,23 @@ class TwilioManager @Inject constructor(
     suspend fun initialize() {
         try {
             val userId = tokenManager.getUserId() ?: return
+            val email = tokenManager.getUserEmail() ?: return
+            val account = tokenManager.getAccount() ?: return
+            val childAccount = tokenManager.getChildAccount() ?: return
 
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Initializing Twilio SDK for user: $userId")
+                Log.d(TAG, "Initializing Twilio SDK - userId: $userId, email: $email, account: $account, childAccount: $childAccount")
             }
 
             // Get Twilio access token from API
-            when (val result = callsRepository.getTwilioAccessToken(userId)) {
+            // Use userId as identity (iOS uses device unique ID, but userId works as unique identifier)
+            when (val result = callsRepository.getTwilioAccessToken(
+                identity = userId,
+                os = "android",
+                email = email,
+                account = account,
+                childAccount = childAccount
+            )) {
                 is NetworkResult.Success -> {
                     accessToken = result.data
                     Voice.setLogLevel(if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.ERROR)
@@ -117,14 +128,17 @@ class TwilioManager @Inject constructor(
         }
 
         try {
+            // Format phone number to E.164 format for Twilio
+            val formattedNumber = PhoneNumberFormatter.formatForTwilio(phoneNumber)
+
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Making outgoing call to: $phoneNumber")
+                Log.d(TAG, "Making outgoing call to: $phoneNumber (formatted: $formattedNumber)")
             }
 
-            _callState.value = CallState.Dialing(phoneNumber)
+            _callState.value = CallState.Dialing(formattedNumber)
 
             val params = hashMapOf<String, String>().apply {
-                put("To", phoneNumber)
+                put("To", formattedNumber)
             }
 
             val connectOptions = ConnectOptions.Builder(token)

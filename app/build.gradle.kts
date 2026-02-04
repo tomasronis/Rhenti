@@ -11,7 +11,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.tomasronis.rhentiapp"
+        applicationId = "ca.com.rhentiMobile"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

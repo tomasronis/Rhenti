@@ -3,12 +3,15 @@ package com.tomasronis.rhentiapp.presentation.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tomasronis.rhentiapp.core.preferences.PreferencesManager
+import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.core.voip.TwilioManager
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,6 +36,14 @@ class MainTabViewModel @Inject constructor(
 
     private val _isTwilioInitialized = MutableStateFlow(false)
     val isTwilioInitialized: StateFlow<Boolean> = _isTwilioInitialized.asStateFlow()
+
+    // Observe call state from TwilioManager
+    val callState: StateFlow<CallState> = twilioManager.callState
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = CallState.Idle
+        )
 
     init {
         // Restore selected tab from preferences
@@ -90,5 +101,12 @@ class MainTabViewModel @Inject constructor(
                 _isTwilioInitialized.value = false
             }
         }
+    }
+
+    /**
+     * Start an outgoing call
+     */
+    fun makeCall(phoneNumber: String) {
+        twilioManager.makeOutgoingCall(phoneNumber)
     }
 }

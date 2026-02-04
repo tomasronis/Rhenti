@@ -16,6 +16,9 @@ interface ContactDao {
     @Query("SELECT * FROM cached_contacts WHERE id = :contactId")
     fun getContactById(contactId: String): Flow<CachedContact?>
 
+    @Query("SELECT * FROM cached_contacts WHERE id = :contactId")
+    suspend fun getContactByIdOnce(contactId: String): CachedContact?
+
     @Query("""
         SELECT * FROM cached_contacts
         WHERE firstName LIKE '%' || :query || '%'

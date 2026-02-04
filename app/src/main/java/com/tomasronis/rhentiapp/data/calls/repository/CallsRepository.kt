@@ -31,7 +31,13 @@ interface CallsRepository {
     /**
      * Get Twilio access token for VoIP calls
      */
-    suspend fun getTwilioAccessToken(identity: String): NetworkResult<String>
+    suspend fun getTwilioAccessToken(
+        identity: String,
+        os: String,
+        email: String,
+        account: String,
+        childAccount: String
+    ): NetworkResult<String>
 
     /**
      * Observe all call logs from database

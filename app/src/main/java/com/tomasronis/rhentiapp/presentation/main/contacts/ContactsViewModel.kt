@@ -94,6 +94,13 @@ class ContactsViewModel @Inject constructor(
      * Select a contact to view details.
      */
     fun selectContact(contact: Contact) {
+        android.util.Log.d("ContactsViewModel", "=== SELECT CONTACT ===")
+        android.util.Log.d("ContactsViewModel", "Contact ID: ${contact.id}")
+        android.util.Log.d("ContactsViewModel", "Display Name: ${contact.displayName}")
+        android.util.Log.d("ContactsViewModel", "Email: '${contact.email}' (is null: ${contact.email == null}, is blank: ${contact.email?.isBlank()})")
+        android.util.Log.d("ContactsViewModel", "Phone: ${contact.phone}")
+        android.util.Log.d("ContactsViewModel", "Full contact: $contact")
+
         _uiState.update { it.copy(selectedContact = contact, contactProfile = null) }
 
         // Load full profile
@@ -119,9 +126,32 @@ class ContactsViewModel @Inject constructor(
                 return@launch
             }
 
-            // Email is required by the API - check for null or blank
+            // Email is required by the API
             val email = contact.email?.takeIf { it.isNotBlank() } ?: run {
-                _uiState.update { it.copy(isLoading = false, error = "Contact email not available") }
+                android.util.Log.w("ContactsViewModel", "Contact ${contact.id} has no email, showing basic profile")
+                // Create a basic profile from contact data (no API call)
+                val basicProfile = ContactProfile(
+                    id = contact.id,
+                    firstName = contact.firstName,
+                    lastName = contact.lastName,
+                    email = null,
+                    phone = contact.phone,
+                    avatarUrl = contact.avatarUrl,
+                    properties = emptyList(),
+                    role = null,
+                    notes = null,
+                    totalMessages = contact.totalMessages,
+                    totalCalls = contact.totalCalls,
+                    lastActivity = contact.lastActivity,
+                    createdAt = System.currentTimeMillis()
+                )
+                _uiState.update {
+                    it.copy(
+                        contactProfile = basicProfile,
+                        isLoading = false,
+                        error = null
+                    )
+                }
                 return@launch
             }
 

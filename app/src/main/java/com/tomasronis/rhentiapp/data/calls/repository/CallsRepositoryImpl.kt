@@ -109,22 +109,37 @@ class CallsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getTwilioAccessToken(identity: String): NetworkResult<String> {
+    override suspend fun getTwilioAccessToken(
+        identity: String,
+        os: String,
+        email: String,
+        account: String,
+        childAccount: String
+    ): NetworkResult<String> {
         return try {
-            val request = mapOf("identity" to identity)
+            val request = mapOf(
+                "identity" to identity,
+                "os" to os,
+                "email" to email,
+                "account" to account,
+                "childAccount" to childAccount
+            )
 
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Get Twilio access token for: $identity")
+                Log.d(TAG, "Get Twilio access token - identity: $identity, os: $os, email: $email, account: $account, childAccount: $childAccount")
             }
 
-            val response = apiClient.getTwilioAccessToken(request)
+            val responseBody = apiClient.getTwilioAccessToken(request)
 
-            // Extract token from response
-            val token = (response["token"] ?: response["accessToken"]) as? String
-                ?: throw Exception("Token not found in response")
+            // Response is the token itself (plain text, not JSON)
+            val token = responseBody.string().trim()
+
+            if (token.isBlank()) {
+                throw Exception("Received empty token from server")
+            }
 
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Twilio access token retrieved")
+                Log.d(TAG, "Twilio access token retrieved successfully (${token.length} chars)")
             }
 
             NetworkResult.Success(token)

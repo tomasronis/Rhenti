@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.presentation.auth.AuthViewModel
+import com.tomasronis.rhentiapp.presentation.calls.active.ActiveCallScreen
 import com.tomasronis.rhentiapp.presentation.main.tabs.*
 import kotlinx.coroutines.launch
 
@@ -23,12 +25,18 @@ fun MainTabScreen(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
     val contactToStartChat by viewModel.contactToStartChat.collectAsState()
+    val callState by viewModel.callState.collectAsState()
     val scope = rememberCoroutineScope()
 
     // Initialize Twilio on first composition
     LaunchedEffect(Unit) {
         viewModel.initializeTwilio()
     }
+
+    // Check if we should show the active call screen
+    val showActiveCallScreen = callState is CallState.Active ||
+            callState is CallState.Ringing ||
+            callState is CallState.Dialing
 
     Scaffold(
         bottomBar = {
@@ -92,6 +100,7 @@ fun MainTabScreen(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
+            // Main tab content
             when (selectedTab) {
                 0 -> ChatsTabContent(
                     contactToStartChat = contactToStartChat,
@@ -109,9 +118,22 @@ fun MainTabScreen(
                     },
                     isTwilioInitialized = viewModel.isTwilioInitialized.collectAsState().value
                 )
-                2 -> CallsTab()
+                2 -> CallsTab(
+                    onStartCall = { phoneNumber ->
+                        viewModel.makeCall(phoneNumber)
+                    }
+                )
                 3 -> ProfileTab(
                     onLogout = { authViewModel.logout() }
+                )
+            }
+
+            // Active call screen overlay (shown when in a call)
+            if (showActiveCallScreen) {
+                ActiveCallScreen(
+                    onNavigateBack = {
+                        // Do nothing - call screen will auto-dismiss when call ends
+                    }
                 )
             }
         }

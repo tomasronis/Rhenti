@@ -193,7 +193,10 @@ class AuthRepositoryImpl @Inject constructor(
             whiteLabel = response.whiteLabel,
             superAccountId = response.superAccountId,
             firstName = response.profile.firstName ?: "",
-            lastName = response.profile.lastName ?: ""
+            lastName = response.profile.lastName ?: "",
+            email = response.profile.email,
+            account = response.account,
+            childAccount = response.childAccount
         )
 
         // Cache user data
