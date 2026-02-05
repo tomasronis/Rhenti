@@ -126,43 +126,93 @@ fun BookingMessageCard(
                         }
                     }
 
-                    // Actions (only show for pending bookings from owner)
-                    if (metadata.bookingStatus == "pending" && isOwner) {
+                    // Actions (only show for pending bookings) - iOS style
+                    if (metadata.bookingStatus == "pending") {
                         Divider()
 
+                        // iOS-style circular action buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedButton(
-                                onClick = { onDecline(bookingId) },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
+                            // Accept button (green)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilledIconButton(
+                                    onClick = { onApprove(bookingId) },
+                                    modifier = Modifier.size(56.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Success.copy(alpha = 0.2f),
+                                        contentColor = Success
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "Accept",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "Accept",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
-                            ) {
-                                Text("Decline")
                             }
 
-                            Button(
-                                onClick = { onApprove(bookingId) },
-                                modifier = Modifier.weight(1f)
+                            // Alter button (orange)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Text("Approve")
+                                FilledIconButton(
+                                    onClick = { onProposeAlternative(bookingId) },
+                                    modifier = Modifier.size(56.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Warning.copy(alpha = 0.2f),
+                                        contentColor = Warning
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AccessTime,
+                                        contentDescription = "Alter",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "Alter",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-                        }
 
-                        OutlinedButton(
-                            onClick = { onProposeAlternative(bookingId) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.CalendarMonth,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Propose Alternative")
+                            // Decline button (red)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilledIconButton(
+                                    onClick = { onDecline(bookingId) },
+                                    modifier = Modifier.size(56.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Decline",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "Decline",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }

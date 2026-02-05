@@ -19,11 +19,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.data.calls.models.CallLog
 import com.tomasronis.rhentiapp.data.calls.models.CallType
+import com.tomasronis.rhentiapp.presentation.theme.Success
+import com.tomasronis.rhentiapp.presentation.theme.AccentBlue
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Call log card showing call details.
+ * Call log card showing call details - iOS style.
  */
 @Composable
 fun CallLogCard(
@@ -32,119 +34,76 @@ fun CallLogCard(
     onCallClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    ListItem(
-        headlineContent = {
-            Text(
-                text = callLog.contactName ?: "Unknown",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
+    Surface(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Call type icon (green incoming, blue outgoing, red missed)
+            Icon(
+                imageVector = when (callLog.callType) {
+                    CallType.INCOMING -> Icons.Filled.PhoneInTalk
+                    CallType.OUTGOING -> Icons.Filled.PhoneForwarded
+                    CallType.MISSED -> Icons.Filled.PhoneMissed
+                },
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = when (callLog.callType) {
+                    CallType.INCOMING -> Success
+                    CallType.OUTGOING -> AccentBlue
+                    CallType.MISSED -> MaterialTheme.colorScheme.error
+                }
             )
-        },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                // Phone number
+
+            // Name and time
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
-                    text = callLog.contactPhone,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = callLog.contactName ?: callLog.contactPhone,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = formatCallTime(callLog.timestamp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
-                // Call info row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Call type icon
-                    Icon(
-                        imageVector = when (callLog.callType) {
-                            CallType.INCOMING -> Icons.Filled.CallReceived
-                            CallType.OUTGOING -> Icons.Filled.CallMade
-                            CallType.MISSED -> Icons.Filled.CallMissed
-                        },
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = when (callLog.callType) {
-                            CallType.MISSED -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-
-                    // Timestamp
-                    Text(
-                        text = formatCallTime(callLog.timestamp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = when (callLog.callType) {
-                            CallType.MISSED -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
             }
-        },
-        leadingContent = {
-            // Avatar
-            if (callLog.contactAvatar != null) {
-                AsyncImage(
-                    model = callLog.contactAvatar,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // Initials or phone icon
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (callLog.contactName != null) {
-                        Text(
-                            text = getInitials(callLog.contactName),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.Phone,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        },
-        trailingContent = {
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Duration
-                if (callLog.duration > 0) {
-                    Text(
-                        text = formatDuration(callLog.duration),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
 
-                // Call button
-                IconButton(onClick = { onCallClick?.invoke() ?: onClick() }) {
-                    Icon(
-                        imageVector = Icons.Filled.Phone,
-                        contentDescription = "Call",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        },
-        modifier = modifier.clickable { onClick() }
-    )
+            // Duration
+            Text(
+                text = if (callLog.duration > 0) formatDuration(callLog.duration) else "0:00",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            // Chevron
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = "View details",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // Divider at bottom
+        HorizontalDivider(
+            modifier = Modifier.padding(start = 52.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        )
+    }
 }
 
 /**
@@ -160,35 +119,11 @@ private fun getInitials(name: String): String {
 }
 
 /**
- * Format call timestamp
+ * Format call timestamp - iOS style (just time)
  */
 private fun formatCallTime(timestamp: Long): String {
-    val calendar = Calendar.getInstance()
-    val callCalendar = Calendar.getInstance().apply { timeInMillis = timestamp }
-
-    // Check if same day
-    val isToday = calendar.get(Calendar.YEAR) == callCalendar.get(Calendar.YEAR) &&
-            calendar.get(Calendar.DAY_OF_YEAR) == callCalendar.get(Calendar.DAY_OF_YEAR)
-
-    // Check if yesterday
-    calendar.add(Calendar.DAY_OF_YEAR, -1)
-    val isYesterday = calendar.get(Calendar.YEAR) == callCalendar.get(Calendar.YEAR) &&
-            calendar.get(Calendar.DAY_OF_YEAR) == callCalendar.get(Calendar.DAY_OF_YEAR)
-
-    return when {
-        isToday -> {
-            val format = SimpleDateFormat("h:mm a", Locale.getDefault())
-            format.format(Date(timestamp))
-        }
-        isYesterday -> {
-            val format = SimpleDateFormat("h:mm a", Locale.getDefault())
-            "Yesterday, ${format.format(Date(timestamp))}"
-        }
-        else -> {
-            val format = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
-            format.format(Date(timestamp))
-        }
-    }
+    val format = SimpleDateFormat("h:mm a", Locale.getDefault())
+    return format.format(Date(timestamp)).replace("AM", "AM").replace("PM", "PM")
 }
 
 /**

@@ -29,7 +29,6 @@ fun ThreadListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    var showSearchBar by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<ChatThread?>(null) }
 
     LaunchedEffect(Unit) {
@@ -38,73 +37,79 @@ fun ThreadListScreen(
 
     Scaffold(
         topBar = {
-            if (showSearchBar) {
-                SearchBar(
-                    query = searchQuery,
-                    onQueryChange = { viewModel.searchThreads(it) },
-                    onSearch = { /* Already searching on change */ },
-                    active = true,
-                    onActiveChange = { if (!it) showSearchBar = false },
-                    placeholder = { Text("Search conversations...") },
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 16.dp)
+            ) {
+                // Header row with title and menu icon
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Large title
+                    Text(
+                        text = "Messages",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    // Menu icon
+                    IconButton(onClick = { /* TODO: Open menu */ }) {
+                        Icon(
+                            imageVector = Icons.Filled.Menu,
+                            contentDescription = "Menu",
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Always-visible search bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { viewModel.searchThreads(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    placeholder = {
+                        Text(
+                            "Search by name or email",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     leadingIcon = {
-                        IconButton(onClick = { showSearchBar = false }) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Close search")
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { viewModel.searchThreads("") }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Clear search")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Search results
-                    if (uiState.threads.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (searchQuery.isEmpty()) "Start typing to search..." else "No results found",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(
-                                items = uiState.threads,
-                                key = { it.id }
-                            ) { thread ->
-                                ThreadCard(
-                                    thread = thread,
-                                    onClick = {
-                                        showSearchBar = false
-                                        viewModel.searchThreads("")
-                                        onThreadClick(thread)
-                                    }
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Clear search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                    }
-                }
-            } else {
-                TopAppBar(
-                    title = { Text("Chats") },
-                    actions = {
-                        IconButton(onClick = { viewModel.refreshThreads() }) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                        }
-                        IconButton(onClick = { showSearchBar = true }) {
-                            Icon(Icons.Filled.Search, contentDescription = "Search")
-                        }
-                    }
+                    },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.large,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
                 )
             }
         }

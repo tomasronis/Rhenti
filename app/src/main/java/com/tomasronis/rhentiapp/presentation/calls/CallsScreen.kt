@@ -55,109 +55,42 @@ fun CallsScreen(
 
     Scaffold(
         topBar = {
-            if (showSearchBar) {
-                SearchBar(
-                    query = uiState.searchQuery,
-                    onQueryChange = { viewModel.searchCalls(it) },
-                    onSearch = { /* Already searching on change */ },
-                    active = true,
-                    onActiveChange = { if (!it) showSearchBar = false },
-                    placeholder = { Text("Search calls...") },
-                    leadingIcon = {
-                        IconButton(onClick = { showSearchBar = false }) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Close search")
-                        }
-                    },
-                    trailingIcon = {
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.searchCalls("") }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Clear search")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Search results
-                    if (callLogs.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+            // iOS-style centered title with Done button
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "Recent Calls",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                },
+                actions = {
+                    if (showSearchBar || uiState.selectedFilter != null) {
+                        TextButton(onClick = {
+                            showSearchBar = false
+                            viewModel.searchCalls("")
+                            viewModel.clearFilters()
+                        }) {
                             Text(
-                                text = if (uiState.searchQuery.isEmpty()) "Start typing to search..." else "No results found",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "Done",
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     } else {
-                        // Group calls by date
-                        val groupedCalls = remember(callLogs) {
-                            groupCallsByDate(callLogs)
-                        }
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 8.dp)
-                        ) {
-                            groupedCalls.forEach { (dateHeader, calls) ->
-                                // Date header
-                                item(key = "header_$dateHeader") {
-                                    Text(
-                                        text = dateHeader,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                                    )
-                                }
-
-                                // Call logs for this date
-                                items(
-                                    items = calls,
-                                    key = { it.id }
-                                ) { callLog ->
-                                    CallLogCard(
-                                        callLog = callLog,
-                                        onClick = {
-                                            showSearchBar = false
-                                            viewModel.searchCalls("")
-                                            if (onNavigateToDetail != null) {
-                                                onNavigateToDetail(callLog.id)
-                                            } else {
-                                                onNavigateToActiveCall(callLog.contactPhone)
-                                            }
-                                        },
-                                        onCallClick = {
-                                            showSearchBar = false
-                                            viewModel.searchCalls("")
-                                            onNavigateToActiveCall(callLog.contactPhone)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                TopAppBar(
-                    title = { Text("Calls") },
-                    actions = {
                         IconButton(onClick = { showSearchBar = true }) {
                             Icon(Icons.Filled.Search, contentDescription = "Search")
                         }
                         IconButton(onClick = { showFilterSheet = true }) {
                             Icon(
-                                imageVector = if (uiState.selectedFilter != null ||
-                                    uiState.startDate != null) {
-                                    Icons.Filled.FilterAltOff
-                                } else {
-                                    Icons.Filled.FilterAlt
-                                },
+                                imageVector = Icons.Filled.FilterAlt,
                                 contentDescription = "Filter"
                             )
                         }
                     }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
                 )
-            }
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
@@ -282,13 +215,13 @@ private fun CallLogsList(
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         groupedCalls.forEach { (dateHeader, calls) ->
-            // Date header
+            // Date header - iOS style
             item(key = "header_$dateHeader") {
                 Text(
                     text = dateHeader,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
             }
 
@@ -314,37 +247,12 @@ private fun CallLogsList(
 }
 
 /**
- * Group call logs by date (Today, Yesterday, This Week, etc.)
+ * Group call logs by date - iOS style format (e.g., "January 30, 2026")
  */
 private fun groupCallsByDate(callLogs: List<CallLog>): Map<String, List<CallLog>> {
-    val calendar = Calendar.getInstance()
-    val today = calendar.apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-    val yesterday = calendar.apply {
-        add(Calendar.DAY_OF_YEAR, -1)
-    }.timeInMillis
-
-    val thisWeekStart = Calendar.getInstance().apply {
-        set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-    val dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
 
     return callLogs.groupBy { callLog ->
-        when {
-            callLog.timestamp >= today -> "Today"
-            callLog.timestamp >= yesterday -> "Yesterday"
-            callLog.timestamp >= thisWeekStart -> "This Week"
-            else -> dateFormat.format(Date(callLog.timestamp))
-        }
+        dateFormat.format(Date(callLog.timestamp))
     }
 }
