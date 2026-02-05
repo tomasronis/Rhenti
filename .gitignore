@@ -19,3 +19,4 @@ local.properties
 
 # iOS example code (reference only, not part of Android project)
 iOS Code Base to Use as Example Only/
+.kotlin/
