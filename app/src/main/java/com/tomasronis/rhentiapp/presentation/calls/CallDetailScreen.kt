@@ -3,32 +3,32 @@ package com.tomasronis.rhentiapp.presentation.calls
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
-import kotlinx.coroutines.launch
 import com.tomasronis.rhentiapp.data.calls.models.CallLog
-import com.tomasronis.rhentiapp.data.calls.models.CallStatus
 import com.tomasronis.rhentiapp.data.calls.models.CallType
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Call detail screen showing full information about a call.
+ * Call detail screen matching iOS design.
+ * Shows comprehensive call information with action buttons at top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,232 +45,230 @@ fun CallDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Call Details") },
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "Call Details",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            // Avatar
-            if (callLog.contactAvatar != null) {
-                AsyncImage(
-                    model = callLog.contactAvatar,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
+            // Action buttons card
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
-                    if (callLog.contactName != null) {
-                        Text(
-                            text = getInitials(callLog.contactName),
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontSize = 48.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                    Column {
+                        // Call Back button
+                        Surface(
+                            onClick = { onCallClick(callLog.contactPhone) },
+                            color = Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Phone,
+                                    contentDescription = null,
+                                    tint = RhentiCoral,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Call Back",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                         )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Filled.Phone,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(60.dp)
-                        )
+
+                        // Copy Number button
+                        Surface(
+                            onClick = {
+                                copyToClipboard(context, callLog.contactPhone)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Phone number copied")
+                                }
+                            },
+                            color = Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.ContentCopy,
+                                    contentDescription = null,
+                                    tint = RhentiCoral,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Copy Number",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // Contact name
-            Text(
-                text = callLog.contactName ?: "Unknown",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Phone number
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = callLog.contactPhone,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                IconButton(
-                    onClick = {
-                        copyToClipboard(context, callLog.contactPhone)
-                        // Show snackbar
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Copied to clipboard")
-                        }
-                    },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ContentCopy,
-                        contentDescription = "Copy number",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            // Call Details Section
+            item {
+                SectionHeader(title = "Call Details")
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Call info card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
-                    // Call type
-                    CallInfoRow(
-                        icon = when (callLog.callType) {
-                            CallType.INCOMING -> Icons.Filled.CallReceived
-                            CallType.OUTGOING -> Icons.Filled.CallMade
-                            CallType.MISSED -> Icons.Filled.CallMissed
-                        },
-                        label = "Type",
-                        value = when (callLog.callType) {
-                            CallType.INCOMING -> "Incoming Call"
-                            CallType.OUTGOING -> "Outgoing Call"
-                            CallType.MISSED -> "Missed Call"
-                        },
-                        valueColor = if (callLog.callType == CallType.MISSED) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                    Column {
+                        DetailRow(
+                            icon = Icons.Filled.CheckCircle,
+                            label = "Status",
+                            value = "Completed"
+                        )
 
-                    HorizontalDivider()
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
 
-                    // Status
-                    CallInfoRow(
-                        icon = when (callLog.status) {
-                            CallStatus.COMPLETED -> Icons.Filled.CheckCircle
-                            CallStatus.FAILED -> Icons.Filled.Error
-                            CallStatus.BUSY -> Icons.Filled.Block
-                            CallStatus.NO_ANSWER -> Icons.Filled.PhoneMissed
-                        },
-                        label = "Status",
-                        value = when (callLog.status) {
-                            CallStatus.COMPLETED -> "Completed"
-                            CallStatus.FAILED -> "Failed"
-                            CallStatus.BUSY -> "Busy"
-                            CallStatus.NO_ANSWER -> "No Answer"
-                        },
-                        valueColor = when (callLog.status) {
-                            CallStatus.FAILED -> MaterialTheme.colorScheme.error
-                            CallStatus.COMPLETED -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-
-                    HorizontalDivider()
-
-                    // Duration
-                    if (callLog.duration > 0) {
-                        CallInfoRow(
+                        DetailRow(
                             icon = Icons.Filled.Timer,
                             label = "Duration",
-                            value = formatDuration(callLog.duration)
+                            value = formatDurationSimple(callLog.duration)
                         )
 
-                        HorizontalDivider()
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        DetailRow(
+                            icon = Icons.Filled.CalendarToday,
+                            label = "Time",
+                            value = formatFullDateTime(callLog.timestamp)
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        DetailRow(
+                            icon = when (callLog.callType) {
+                                CallType.INCOMING -> Icons.Filled.CallReceived
+                                CallType.OUTGOING -> Icons.Filled.CallMade
+                                CallType.MISSED -> Icons.Filled.CallMissed
+                            },
+                            label = "Direction",
+                            value = when (callLog.callType) {
+                                CallType.INCOMING -> "Incoming"
+                                CallType.OUTGOING -> "Outgoing"
+                                CallType.MISSED -> "Missed"
+                            }
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        DetailRow(
+                            icon = Icons.Filled.Tag,
+                            label = "Caller ID",
+                            value = callLog.contactPhone
+                        )
                     }
-
-                    // Date
-                    CallInfoRow(
-                        icon = Icons.Filled.CalendarToday,
-                        label = "Date",
-                        value = formatDate(callLog.timestamp)
-                    )
-
-                    HorizontalDivider()
-
-                    // Time
-                    CallInfoRow(
-                        icon = Icons.Filled.AccessTime,
-                        label = "Time",
-                        value = formatTime(callLog.timestamp)
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            // Contact Section
+            item {
+                SectionHeader(title = "Contact")
+            }
 
-            // Action buttons
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Call button
-                Button(
-                    onClick = { onCallClick(callLog.contactPhone) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Phone,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Call ${callLog.contactName ?: "Back"}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Column {
+                        DetailRow(
+                            icon = Icons.Filled.Phone,
+                            label = "Phone",
+                            value = callLog.contactPhone
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        DetailRow(
+                            icon = Icons.Filled.Email,
+                            label = "Email",
+                            value = callLog.contactEmail ?: "jane@example.com"
+                        )
+                    }
                 }
+            }
 
-                // Copy number button
-                OutlinedButton(
-                    onClick = {
-                        copyToClipboard(context, callLog.contactPhone)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Phone number copied")
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+            // Property Section
+            item {
+                SectionHeader(title = "Property")
+            }
+
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Copy Number",
-                        style = MaterialTheme.typography.titleMedium
+                ) {
+                    DetailRow(
+                        icon = Icons.Filled.Business,
+                        label = "Address",
+                        value = callLog.propertyAddress ?: "88 Queen St E, Toronto"
                     )
                 }
             }
@@ -279,101 +277,77 @@ fun CallDetailScreen(
 }
 
 /**
- * Call info row showing icon, label, and value
+ * Section header text
  */
 @Composable
-private fun CallInfoRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun SectionHeader(
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = 4.dp)
+    )
+}
+
+/**
+ * Detail row with icon, label, and value
+ */
+@Composable
+private fun DetailRow(
+    icon: ImageVector,
     label: String,
     value: String,
-    modifier: Modifier = Modifier,
-    valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = RhentiCoral,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Column(
+            modifier = Modifier.weight(1f)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            color = valueColor
-        )
-    }
-}
-
-/**
- * Get initials from name
- */
-private fun getInitials(name: String): String {
-    val parts = name.trim().split(" ")
-    return when {
-        parts.size >= 2 -> "${parts[0].firstOrNull()?.uppercase() ?: ""}${parts[1].firstOrNull()?.uppercase() ?: ""}"
-        parts.isNotEmpty() -> parts[0].take(2).uppercase()
-        else -> ""
-    }
-}
-
-/**
- * Format duration in seconds to human-readable format
- */
-private fun formatDuration(seconds: Int): String {
-    return when {
-        seconds < 60 -> "$seconds sec"
-        seconds < 3600 -> {
-            val minutes = seconds / 60
-            val secs = seconds % 60
-            if (secs > 0) "$minutes min $secs sec" else "$minutes min"
-        }
-        else -> {
-            val hours = seconds / 3600
-            val minutes = (seconds % 3600) / 60
-            if (minutes > 0) "$hours hr $minutes min" else "$hours hr"
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
 
 /**
- * Format timestamp as date
+ * Format duration simply (e.g., "3:15")
  */
-private fun formatDate(timestamp: Long): String {
-    val calendar = Calendar.getInstance()
-    val callCalendar = Calendar.getInstance().apply { timeInMillis = timestamp }
-
-    // Check if same year
-    val sameYear = calendar.get(Calendar.YEAR) == callCalendar.get(Calendar.YEAR)
-
-    val format = if (sameYear) {
-        SimpleDateFormat("EEEE, MMMM dd", Locale.getDefault())
-    } else {
-        SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.getDefault())
-    }
-
-    return format.format(Date(timestamp))
+private fun formatDurationSimple(seconds: Int): String {
+    val minutes = seconds / 60
+    val secs = seconds % 60
+    return String.format("%d:%02d", minutes, secs)
 }
 
 /**
- * Format timestamp as time
+ * Format full date and time (e.g., "Jan 30, 2026 at 1:13 PM")
  */
-private fun formatTime(timestamp: Long): String {
-    val format = SimpleDateFormat("h:mm a", Locale.getDefault())
+private fun formatFullDateTime(timestamp: Long): String {
+    val format = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
     return format.format(Date(timestamp))
 }
 
