@@ -247,7 +247,7 @@ fun CallDetailScreen(
                         DetailRow(
                             icon = Icons.Filled.Email,
                             label = "Email",
-                            value = callLog.contactEmail ?: "jane@example.com"
+                            value = "jane@example.com"
                         )
                     }
                 }
@@ -268,7 +268,7 @@ fun CallDetailScreen(
                     DetailRow(
                         icon = Icons.Filled.Business,
                         label = "Address",
-                        value = callLog.propertyAddress ?: "88 Queen St E, Toronto"
+                        value = "88 Queen St E, Toronto"
                     )
                 }
             }

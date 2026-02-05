@@ -47,7 +47,7 @@ fun CallsTab(
                 CallDetailScreen(
                     callLog = callLog,
                     onNavigateBack = { navController.popBackStack() },
-                    onCallClick = { phoneNumber ->
+                    onCallClick = { phoneNumber: String ->
                         onStartCall(phoneNumber)
                     }
                 )
