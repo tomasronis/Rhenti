@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rhenti Logo: Navy blue circle with coral "r" -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Navy blue background -->
+    <path
+        android:fillColor="#2C3E50"
+        android:pathData="M100,0 A100,100 0,1 1,100 200 A100,100 0,1 1,100 0 Z"/>
+
+    <!-- Coral "r" in modern sans-serif style -->
+    <group>
+        <!-- Vertical stroke of r -->
+        <path
+            android:fillColor="#E8998D"
+            android:pathData="M60,140 L60,70 L75,70 L75,140 Z"/>
+
+        <!-- Top curve of r -->
+        <path
+            android:fillColor="#E8998D"
+            android:pathData="M75,70 L75,85 Q75,95 85,95 L110,95 Q130,95 130,80 Q130,70 120,70 L75,70 Z"/>
+    </group>
+
+    <!-- Text "rhenti" below (optional, can be removed) -->
+    <path
+        android:fillColor="#E8998D"
+        android:pathData="M55,160 L55,165 L145,165 L145,160 Z"
+        android:fillAlpha="0.5"/>
+</vector>

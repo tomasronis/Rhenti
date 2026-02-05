@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rhenti App Logo: Blue circle with coral "r" -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="512dp"
+    android:height="512dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Blue circular background -->
+    <path
+        android:fillColor="#2C3E50"
+        android:pathData="M256,256m-256,0a256,256 0,1 1,512 0a256,256 0,1 1,-512 0"/>
+
+    <!-- Coral lowercase "r" -->
+    <path
+        android:fillColor="#E8998D"
+        android:pathData="M180,360 L180,160 L240,160 L240,190 Q240,220 270,220 L300,220 Q320,220 320,200 L320,160 L360,160 L360,210 Q360,260 320,270 Q340,270 360,290 L360,360 L320,360 L320,300 Q320,280 300,280 L240,280 L240,360 Z"
+        android:strokeWidth="8"
+        android:strokeColor="#E8998D"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+</vector>
