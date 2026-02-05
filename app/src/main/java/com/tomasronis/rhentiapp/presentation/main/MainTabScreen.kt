@@ -3,13 +3,17 @@ package com.tomasronis.rhentiapp.presentation.main
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -17,6 +21,7 @@ import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.presentation.auth.AuthViewModel
 import com.tomasronis.rhentiapp.presentation.calls.active.ActiveCallScreen
 import com.tomasronis.rhentiapp.presentation.main.tabs.*
+import com.tomasronis.rhentiapp.presentation.theme.*
 import kotlinx.coroutines.launch
 
 /**
@@ -91,62 +96,109 @@ fun MainTabScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    icon = {
-                        BadgedBox(
-                            badge = {
-                                if (unreadCount > 0) {
-                                    Badge {
-                                        Text(unreadCount.toString())
+            // Rhenti-styled bottom navigation with dark rounded container
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = if (isSystemInDarkTheme()) DarkSurface else Color(0xFF2C2C2E),
+                tonalElevation = 3.dp
+            ) {
+                NavigationBar(
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
+                    NavigationBarItem(
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadCount > 0) {
+                                        Badge(
+                                            containerColor = UnreadBadge,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text(
+                                                unreadCount.toString(),
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
+                                        }
                                     }
                                 }
+                            ) {
+                                Icon(Icons.Filled.Chat, contentDescription = "Messages")
                             }
-                        ) {
-                            Icon(Icons.Filled.Chat, contentDescription = "Chats")
+                        },
+                        label = { Text("Messages") },
+                        selected = selectedTab == 0,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = RhentiCoral,
+                            selectedTextColor = RhentiCoral,
+                            unselectedIconColor = TextSecondary,
+                            unselectedTextColor = TextSecondary,
+                            indicatorColor = Color.Transparent
+                        ),
+                        onClick = {
+                            scope.launch {
+                                viewModel.setSelectedTab(0)
+                            }
                         }
-                    },
-                    label = { Text("Chats") },
-                    selected = selectedTab == 0,
-                    onClick = {
-                        scope.launch {
-                            viewModel.setSelectedTab(0)
-                        }
-                    }
-                )
+                    )
 
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.People, contentDescription = "Contacts") },
-                    label = { Text("Contacts") },
-                    selected = selectedTab == 1,
-                    onClick = {
-                        scope.launch {
-                            viewModel.setSelectedTab(1)
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Filled.People, contentDescription = "Contacts") },
+                        label = { Text("Contacts") },
+                        selected = selectedTab == 1,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = RhentiCoral,
+                            selectedTextColor = RhentiCoral,
+                            unselectedIconColor = TextSecondary,
+                            unselectedTextColor = TextSecondary,
+                            indicatorColor = Color.Transparent
+                        ),
+                        onClick = {
+                            scope.launch {
+                                viewModel.setSelectedTab(1)
+                            }
                         }
-                    }
-                )
+                    )
 
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Phone, contentDescription = "Calls") },
-                    label = { Text("Calls") },
-                    selected = selectedTab == 2,
-                    onClick = {
-                        scope.launch {
-                            viewModel.setSelectedTab(2)
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Filled.Phone, contentDescription = "Call") },
+                        label = { Text("Call") },
+                        selected = selectedTab == 2,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = RhentiCoral,
+                            selectedTextColor = RhentiCoral,
+                            unselectedIconColor = TextSecondary,
+                            unselectedTextColor = TextSecondary,
+                            indicatorColor = Color.Transparent
+                        ),
+                        onClick = {
+                            scope.launch {
+                                viewModel.setSelectedTab(2)
+                            }
                         }
-                    }
-                )
+                    )
 
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Person, contentDescription = "Profile") },
-                    label = { Text("Profile") },
-                    selected = selectedTab == 3,
-                    onClick = {
-                        scope.launch {
-                            viewModel.setSelectedTab(3)
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Filled.Settings, contentDescription = "Settings") },
+                        label = { Text("Settings") },
+                        selected = selectedTab == 3,
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = RhentiCoral,
+                            selectedTextColor = RhentiCoral,
+                            unselectedIconColor = TextSecondary,
+                            unselectedTextColor = TextSecondary,
+                            indicatorColor = Color.Transparent
+                        ),
+                        onClick = {
+                            scope.launch {
+                                viewModel.setSelectedTab(3)
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     ) { paddingValues ->
