@@ -53,6 +53,7 @@ class TwilioManager @Inject constructor(
     private val audioManager = VoipAudioManager(context)
 
     private var accessToken: String? = null
+    private var clientIdentity: String? = null  // Stored user ID for Twilio calls
     private var activeCall: Call? = null
     private var callInvite: CallInvite? = null
 
@@ -92,6 +93,7 @@ class TwilioManager @Inject constructor(
             )) {
                 is NetworkResult.Success -> {
                     accessToken = result.data
+                    clientIdentity = userId  // Store user ID for call parameters
                     Voice.setLogLevel(if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.ERROR)
 
                     if (BuildConfig.DEBUG) {
