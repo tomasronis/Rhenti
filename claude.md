@@ -1,14 +1,124 @@
 # Rhenti Android App - Project Context & Requirements
 
-**Last Updated:** February 3, 2026 (Phases 5-7 Committed + Bug Fixes!)
-**Current Phase:** Phase 7 Complete (VoIP Calling - Code Complete & Committed!)
+**Last Updated:** February 5, 2026 (iOS Design Implementation Complete!)
+**Current Phase:** Phase 7 Complete + iOS Design Parity Achieved!
 **Next Phase:** Phase 8 (Push Notifications) or Testing/Polish
 
-**Recent Updates (Feb 3, 2026):**
+**Recent Updates (Feb 5, 2026):**
+- ✅ **MAJOR REDESIGN:** Updated entire Android app to match iOS design specifications
+- ✅ Messages screen: Enhanced with platform tags, property addresses, improved badges
+- ✅ Login screen: Complete redesign with gradient background and glassmorphic styling
+- ✅ Settings screen: New comprehensive design with theme selector and organized sections
+- ✅ Calls screen: iOS-style layout with color-coded icons and proper grouping
+- ✅ Booking cards: Circular action buttons matching iOS design
+- ✅ Added iOS design reference images to repository
+- ✅ All changes committed and pushed to GitHub
+
+**Previous Updates (Feb 3, 2026):**
 - ✅ Fixed search functionality on all tabs (Chat, Contacts, Calls)
 - ✅ Fixed call logs API parsing error (wrapper object handling)
 - ✅ Committed all Phase 5-7 code to git
 - ✅ Added comprehensive documentation
+
+---
+
+## 🎨 iOS Design Parity (NEW - February 5, 2026)
+
+The Android app has been completely redesigned to match the iOS app design specifications. All major screens now feature iOS-inspired layouts, styling, and interactions while maintaining Material 3 principles.
+
+### Design Reference
+- **Location:** `App Design Guidance/` folder contains iOS screenshots and design images
+- **Source:** iPhone 17 Pro screenshots from iOS app (January 30, 2026)
+
+### Redesigned Screens
+
+#### 1. **Messages Screen**
+- Large "Messages" title (iOS-style)
+- Always-visible search bar with gray background
+- Hamburger menu icon in top right
+- **Enhanced Thread Cards:**
+  - Larger avatars (60dp) with badge icons
+  - Property address with location pin icon below name
+  - Blue pill platform tags (Rhenti-powered, Facebook, Kijiji, Zumper, rhenti)
+  - Circular dark unread badges with white text
+  - Chevron icons for navigation
+  - Proper dividers between items
+
+#### 2. **Login Screen**
+- Dark navy/blue gradient background (#2C3E50 → #34495E)
+- Large centered "rhenti" logo
+- **Glassmorphic card** with semi-transparent white background
+- Email and password fields with leading icons
+- Coral-colored "Sign In" button (#E8998D)
+- "Forgot Password?" text button
+- "or continue with" divider
+- **Circular SSO buttons** for Google and Microsoft
+
+#### 3. **Settings Screen** (Completely New)
+- Large "Settings" title
+- **Profile card** at top (avatar, name, email)
+- **Preferences section:**
+  - Theme color selector (Rhenti coral, Ocean blue, Earth teal)
+  - Visual color circles with checkmark on selected
+- **Storage section:**
+  - Keep Media, Messages per Chat, Storage Used, Clear Cache
+  - Each item with icon, label, and value
+- **About section:**
+  - Organization, Version, Connection info
+- **Help & Legal:**
+  - Help & Support, Privacy Policy, Terms of Service
+- Coral-colored "Sign Out" button
+- "Made with ❤️ in Canada" footer
+
+#### 4. **Calls Screen**
+- Centered "Recent Calls" title (iOS CenterAlignedTopAppBar)
+- "Done" button in top right (when filtering/searching)
+- Date headers in format "January 30, 2026"
+- **Call log items:**
+  - Color-coded call type icons (green incoming, blue outgoing, red missed)
+  - Name and time on left
+  - Duration on right
+  - Chevron for navigation
+  - Dividers between items
+
+#### 5. **Thread Detail / Booking Cards**
+- **iOS-style circular action buttons:**
+  - Accept (green background, checkmark icon)
+  - Alter (orange background, clock icon)
+  - Decline (red background, X icon)
+  - Labels below each button
+  - Spacious layout with proper spacing
+
+### Design System
+
+#### Colors
+- **Primary:** Rhenti Coral (#E8998D)
+- **Success:** Green (#34C759) for incoming calls, accept actions
+- **Warning:** Orange (#FF9500) for pending status, alter actions
+- **Error:** Red (#FF3B30) for missed calls, decline actions
+- **Accent Blue:** (#007AFF) for outgoing calls, info chips
+
+#### Typography
+- Large bold titles (DisplaySmall) for screen headers
+- Proper font weights (SemiBold, Medium, Normal)
+- Consistent spacing and line heights
+
+#### Components
+- Circular action buttons with icons
+- Glassmorphic effects on login screen
+- Platform tags as rounded pills
+- Proper shadows and elevations
+- Material 3 with iOS-inspired layouts
+
+### Files Changed
+- `ThreadListScreen.kt` - Messages screen redesign
+- `ThreadCard.kt` - Enhanced thread cards with badges and tags
+- `LoginScreen.kt` - Complete redesign with gradient background
+- `SettingsScreen.kt` - New comprehensive settings screen
+- `ProfileTab.kt` - Simplified to use new settings screen
+- `CallsScreen.kt` - iOS-style title and date grouping
+- `CallLogCard.kt` - Color-coded icons and simplified layout
+- `BookingMessageCard.kt` - Circular action buttons
 
 ---
 
