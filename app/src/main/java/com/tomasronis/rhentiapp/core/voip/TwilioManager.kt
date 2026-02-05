@@ -153,7 +153,7 @@ class TwilioManager @Inject constructor(
             // iOS sends both "to" (lowercase) and "Caller" parameters
             val params = hashMapOf<String, String>().apply {
                 put("to", phoneNumber)  // lowercase "to" - backend reads this
-                put("Caller", "client:${tokenManager.getUserId() ?: "android"}")  // Backend needs this
+                put("Caller", "client:${clientIdentity ?: "android"}")  // Backend needs this
             }
 
             val connectOptions = ConnectOptions.Builder(token)
