@@ -146,8 +146,12 @@ class TwilioManager @Inject constructor(
 
             _callState.value = CallState.Dialing(formattedNumber)
 
+            // Backend workaround: Backend checks request.body.Caller.includes('client')
+            // but Twilio sends caller as "From", not "Caller"
+            // iOS sends both "to" (lowercase) and "Caller" parameters
             val params = hashMapOf<String, String>().apply {
-                put("To", formattedNumber)
+                put("to", phoneNumber)  // lowercase "to" - backend reads this
+                put("Caller", "client:${tokenManager.getUserId() ?: "android"}")  // Backend needs this
             }
 
             val connectOptions = ConnectOptions.Builder(token)
