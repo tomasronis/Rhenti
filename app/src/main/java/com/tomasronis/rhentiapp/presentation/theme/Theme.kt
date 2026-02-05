@@ -8,6 +8,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val RhentiLightColorScheme = lightColorScheme(
@@ -31,9 +32,10 @@ private val RhentiLightColorScheme = lightColorScheme(
     onBackground = LightOnBackground,
     surface = LightSurface,
     onSurface = LightOnSurface,
-    surfaceVariant = LightSurfaceVariant,
+    surfaceVariant = Color(0xFFF2F2F7),  // Light gray for cards
     onSurfaceVariant = LightOnSurfaceVariant,
     outline = LightOutline,
+    outlineVariant = DividerLight,
 )
 
 private val RhentiDarkColorScheme = darkColorScheme(
@@ -53,26 +55,28 @@ private val RhentiDarkColorScheme = darkColorScheme(
     onError = DarkOnError,
     errorContainer = DarkErrorContainer,
     onErrorContainer = DarkOnErrorContainer,
-    background = DarkBackground,
+    background = DarkBackground,  // Pure black
     onBackground = DarkOnBackground,
-    surface = DarkSurface,
+    surface = DarkSurface,  // Dark cards
     onSurface = DarkOnSurface,
-    surfaceVariant = DarkSurfaceVariant,
+    surfaceVariant = DarkSurfaceVariant,  // Lighter dark cards
     onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
+    outlineVariant = Divider,
 )
 
 /**
  * Main theme for the Rhenti App.
  *
- * Features Rhenti's brand identity with the signature blue (#4D65FF) and
- * modern, professional design aesthetic matching rhenti.com.
+ * Features Rhenti's brand identity with the signature coral accent (#E8998D) and
+ * modern, professional design aesthetic matching the iOS app design.
  *
  * Supports:
- * - Light and dark themes
+ * - Light theme with light gray backgrounds (#F5F5F5)
+ * - Dark theme with pure black background (#000000) and dark cards (#1C1C1E)
+ * - Coral primary color for buttons and highlights
+ * - Blue accent for informational elements
  * - Dynamic color on Android 12+ (Material You) - optional
- * - Rhenti brand colors and design system
- * - Poppins typography (matching website)
  *
  * @param darkTheme Whether to use dark theme
  * @param dynamicColor Whether to use dynamic colors (Android 12+) - defaults to false to maintain brand consistency
