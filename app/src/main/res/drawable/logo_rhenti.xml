@@ -1,32 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rhenti Logo: Navy blue circle with coral "r" -->
+<!-- Rhenti Logo for splash screen - "r." with gradient border circle -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="200dp"
     android:height="200dp"
     android:viewportWidth="200"
     android:viewportHeight="200">
 
-    <!-- Navy blue background -->
+    <!-- Gradient border circle -->
     <path
-        android:fillColor="#2C3E50"
-        android:pathData="M100,0 A100,100 0,1 1,100 200 A100,100 0,1 1,100 0 Z"/>
+        android:pathData="M 100,22 A 78,78 0 1,1 100,178 A 78,78 0 1,1 100,22 Z"
+        android:strokeWidth="8.5"
+        android:fillColor="#00000000">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="47.2"
+                android:startY="200"
+                android:endX="183.5"
+                android:endY="5.5">
+                <item android:offset="0" android:color="#FF00D2F3" />
+                <item android:offset="0.3125" android:color="#FF5E9FFF" />
+                <item android:offset="0.591346" android:color="#FFBF7BFF" />
+                <item android:offset="0.850962" android:color="#FFFA9483" />
+            </gradient>
+        </aapt:attr>
+    </path>
 
-    <!-- Coral "r" in modern sans-serif style -->
-    <group>
-        <!-- Vertical stroke of r -->
-        <path
-            android:fillColor="#E8998D"
-            android:pathData="M60,140 L60,70 L75,70 L75,140 Z"/>
-
-        <!-- Top curve of r -->
-        <path
-            android:fillColor="#E8998D"
-            android:pathData="M75,70 L75,85 Q75,95 85,95 L110,95 Q130,95 130,80 Q130,70 120,70 L75,70 Z"/>
-    </group>
-
-    <!-- Text "rhenti" below (optional, can be removed) -->
+    <!-- The "r" letter in coral/salmon color -->
     <path
-        android:fillColor="#E8998D"
-        android:pathData="M55,160 L55,165 L145,165 L145,160 Z"
-        android:fillAlpha="0.5"/>
+        android:fillColor="#FFFA9483"
+        android:pathData="M 106.4,61.8 C 107.6,61.8 109.1,61.9 110.7,62.1 C 112.3,62.3 113.8,62.5 115.4,62.7 C 116.9,63.0 118.3,63.2 119.6,63.5 C 120.7,63.7 121.7,64.0 122.7,64.3 L 119.3,75.5 C 117.5,74.9 115.7,74.5 113.8,74.1 C 110.7,73.5 107.5,73.2 104.3,73.3 C 101.6,73.3 99.0,73.7 96.5,74.1 C 93.9,74.6 92.4,75.0 91.7,75.2 L 91.7,138.2 L 78.9,138.2 L 78.9,66.6 C 82.0,65.4 85.2,64.5 88.5,63.5 C 92.6,62.2 96.8,61.6 101.0,61.8 L 106.4,61.8 Z" />
+
+    <!-- The dot (period) in white -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 122.7,123.3 A 7.6,7.6 0 1,1 122.7,138.5 A 7.6,7.6 0 1,1 122.7,123.3 Z" />
 </vector>

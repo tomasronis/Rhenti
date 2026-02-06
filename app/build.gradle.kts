@@ -120,6 +120,7 @@ dependencies {
     // DataStore & Security
     implementation(libs.datastore.preferences)
     implementation(libs.security.crypto)
+    implementation(libs.androidx.core.splashscreen)
 
     // Coroutines
     implementation(libs.coroutines.core)

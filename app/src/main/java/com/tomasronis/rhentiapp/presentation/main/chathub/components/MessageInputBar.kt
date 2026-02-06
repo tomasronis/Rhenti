@@ -1,21 +1,29 @@
 package com.tomasronis.rhentiapp.presentation.main.chathub.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 
 /**
- * Message input bar with text field and send button.
- * Optionally includes attachment button for images.
+ * iOS-styled message input bar with circular attachment and send buttons.
+ * Features a dark gray pill-shaped input field matching iOS design.
  */
 @Composable
 fun MessageInputBar(
@@ -24,55 +32,84 @@ fun MessageInputBar(
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
+    val hasText = messageText.isNotBlank()
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shadowElevation = 8.dp,
-        tonalElevation = 3.dp
+        color = Color.Transparent
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 2.dp), // 2mm gap above keyboard
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Attachment button (optional)
+            // Attachment button (circular, left side)
             if (onAttachmentClick != null) {
                 IconButton(
                     onClick = onAttachmentClick,
                     modifier = Modifier.size(40.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.AttachFile,
-                        contentDescription = "Attach file",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = CircleShape,
+                        color = Color(0xFF2C2C2E)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Attach file",
+                            tint = Color(0xFF8E8E93),
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(24.dp)
+                        )
+                    }
                 }
             }
 
-            // Text field
-            OutlinedTextField(
-                value = messageText,
-                onValueChange = { messageText = it },
+            // Input field with dark rounded background
+            Surface(
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Type a message...") },
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Send
-                ),
-                keyboardActions = KeyboardActions(
-                    onSend = {
-                        if (messageText.isNotBlank()) {
-                            onSendMessage(messageText.trim())
-                            messageText = ""
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF2C2C2E)
+            ) {
+                BasicTextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color.White
+                    ),
+                    cursorBrush = SolidColor(RhentiCoral),
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Send
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (messageText.isNotBlank()) {
+                                onSendMessage(messageText.trim())
+                                messageText = ""
+                            }
                         }
+                    ),
+                    maxLines = 4,
+                    decorationBox = { innerTextField ->
+                        if (messageText.isEmpty()) {
+                            Text(
+                                text = "Message",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF8E8E93)
+                            )
+                        }
+                        innerTextField()
                     }
-                ),
-                maxLines = 4,
-                shape = MaterialTheme.shapes.large
-            )
+                )
+            }
 
-            // Send button
+            // Send button (circular, right side)
             IconButton(
                 onClick = {
                     if (messageText.isNotBlank()) {
@@ -81,17 +118,22 @@ fun MessageInputBar(
                     }
                 },
                 modifier = Modifier.size(40.dp),
-                enabled = messageText.isNotBlank()
+                enabled = hasText
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Send,
-                    contentDescription = "Send message",
-                    tint = if (messageText.isNotBlank()) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    }
-                )
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = if (hasText) RhentiCoral else Color(0xFF2C2C2E)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowUpward,
+                        contentDescription = "Send message",
+                        tint = if (hasText) Color.White else Color(0xFF8E8E93),
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(24.dp)
+                    )
+                }
             }
         }
     }

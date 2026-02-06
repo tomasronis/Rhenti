@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.chathub.models.ChatThread
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.*
+import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
+import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 
 /**
  * Thread list screen showing all chat conversations.
@@ -31,6 +33,7 @@ fun ThreadListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<ChatThread?>(null) }
+    var showFiltersModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refreshThreads()
@@ -42,13 +45,12 @@ fun ThreadListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(horizontal = 16.dp)
             ) {
-                // Header row with title and menu icon
+                // Header row with title and filter icon
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp),
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -60,57 +62,20 @@ fun ThreadListScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
-                    // Menu icon
-                    IconButton(onClick = { /* TODO: Open menu */ }) {
-                        Icon(
-                            imageVector = Icons.Filled.Menu,
-                            contentDescription = "Menu",
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
+                    // Filter icon
+                    IconButton(onClick = { showFiltersModal = true }) {
+                        FilterIcon(tint = MaterialTheme.colorScheme.onBackground)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Always-visible search bar
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.searchThreads(it) },
+                // Always-visible search bar using RhentiSearchBar
+                RhentiSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { viewModel.searchThreads(it) },
+                    placeholder = "Search by name or email",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    placeholder = {
-                        Text(
-                            "Search by name or email",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.searchThreads("") }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Clear search",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                    )
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
                 )
             }
         }
@@ -197,6 +162,13 @@ fun ThreadListScreen(
                 }
             )
         }
+
+        // Filters modal
+        if (showFiltersModal) {
+            MessageFiltersModal(
+                onDismiss = { showFiltersModal = false }
+            )
+        }
     }
 }
 
@@ -217,7 +189,12 @@ private fun ThreadList(
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 8.dp,
+                bottom = 0.dp  // Minimize gap between last thread and bottom tabs
+            ),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(

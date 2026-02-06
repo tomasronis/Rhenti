@@ -96,47 +96,62 @@ fun MainTabScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            // Rhenti-styled bottom navigation with dark rounded container
+            // iOS-styled bottom navigation with dark rounded pill container
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = if (isSystemInDarkTheme()) DarkSurface else Color(0xFF2C2C2E),
-                tonalElevation = 3.dp
+                    .navigationBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 12.dp),
+                shape = RoundedCornerShape(32.dp),
+                color = Color(0xFF1C1C1E),
+                tonalElevation = 8.dp
             ) {
                 NavigationBar(
+                    modifier = Modifier
+                        .height(72.dp)
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     containerColor = Color.Transparent,
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     NavigationBarItem(
                         icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (unreadCount > 0) {
-                                        Badge(
-                                            containerColor = UnreadBadge,
-                                            contentColor = Color.White
-                                        ) {
-                                            Text(
-                                                unreadCount.toString(),
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                BadgedBox(
+                                    badge = {
+                                        if (unreadCount > 0) {
+                                            Badge(
+                                                containerColor = UnreadBadge,
+                                                contentColor = Color.White
+                                            ) {
+                                                Text(
+                                                    unreadCount.toString(),
+                                                    style = MaterialTheme.typography.labelSmall
+                                                )
+                                            }
                                         }
                                     }
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Chat,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
-                            ) {
-                                Icon(Icons.Filled.Chat, contentDescription = "Messages")
                             }
                         },
-                        label = { Text("Messages") },
+                        label = {
+                            Text(
+                                "Messages",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
                         selected = selectedTab == 0,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = RhentiCoral,
                             selectedTextColor = RhentiCoral,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = Color.Transparent
+                            unselectedIconColor = Color(0xFF8E8E93),
+                            unselectedTextColor = Color(0xFF8E8E93),
+                            indicatorColor = Color(0xFF3A3A3C)
                         ),
                         onClick = {
                             scope.launch {
@@ -146,15 +161,28 @@ fun MainTabScreen(
                     )
 
                     NavigationBarItem(
-                        icon = { Icon(Icons.Filled.People, contentDescription = "Contacts") },
-                        label = { Text("Contacts") },
+                        icon = {
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Filled.People,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        },
+                        label = {
+                            Text(
+                                "Contacts",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
                         selected = selectedTab == 1,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = RhentiCoral,
                             selectedTextColor = RhentiCoral,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = Color.Transparent
+                            unselectedIconColor = Color(0xFF8E8E93),
+                            unselectedTextColor = Color(0xFF8E8E93),
+                            indicatorColor = Color(0xFF3A3A3C)
                         ),
                         onClick = {
                             scope.launch {
@@ -164,15 +192,28 @@ fun MainTabScreen(
                     )
 
                     NavigationBarItem(
-                        icon = { Icon(Icons.Filled.Phone, contentDescription = "Call") },
-                        label = { Text("Call") },
+                        icon = {
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Filled.Phone,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        },
+                        label = {
+                            Text(
+                                "Call",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
                         selected = selectedTab == 2,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = RhentiCoral,
                             selectedTextColor = RhentiCoral,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = Color.Transparent
+                            unselectedIconColor = Color(0xFF8E8E93),
+                            unselectedTextColor = Color(0xFF8E8E93),
+                            indicatorColor = Color(0xFF3A3A3C)
                         ),
                         onClick = {
                             scope.launch {
@@ -182,15 +223,28 @@ fun MainTabScreen(
                     )
 
                     NavigationBarItem(
-                        icon = { Icon(Icons.Filled.Settings, contentDescription = "Settings") },
-                        label = { Text("Settings") },
+                        icon = {
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Filled.Settings,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        },
+                        label = {
+                            Text(
+                                "Settings",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
                         selected = selectedTab == 3,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = RhentiCoral,
                             selectedTextColor = RhentiCoral,
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary,
-                            indicatorColor = Color.Transparent
+                            unselectedIconColor = Color(0xFF8E8E93),
+                            unselectedTextColor = Color(0xFF8E8E93),
+                            indicatorColor = Color(0xFF3A3A3C)
                         ),
                         onClick = {
                             scope.launch {
@@ -209,6 +263,9 @@ fun MainTabScreen(
                     contactToStartChat = contactToStartChat,
                     onContactChatOpened = {
                         viewModel.clearContactToStartChat()
+                    },
+                    onStartCall = { phoneNumber ->
+                        handleMakeCall(phoneNumber)
                     }
                 )
                 1 -> ContactsTabContent(

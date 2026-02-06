@@ -15,7 +15,8 @@ import com.tomasronis.rhentiapp.presentation.main.chathub.ThreadListScreen
 @Composable
 fun ChatsTabContent(
     contactToStartChat: Contact? = null,
-    onContactChatOpened: () -> Unit = {}
+    onContactChatOpened: () -> Unit = {},
+    onStartCall: (String) -> Unit = {}
 ) {
     val viewModel: ChatHubViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
@@ -43,7 +44,8 @@ fun ChatsTabContent(
     if (selectedThread != null) {
         ThreadDetailScreen(
             thread = selectedThread!!,
-            onNavigateBack = { selectedThread = null }
+            onNavigateBack = { selectedThread = null },
+            onCall = onStartCall
         )
     } else {
         ThreadListScreen(

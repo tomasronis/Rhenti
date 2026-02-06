@@ -54,24 +54,23 @@ fun ThreadCard(
                     displayName = thread.displayName
                 )
 
-                // Small badge icons on avatar (bottom right)
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = 4.dp, y = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    // Property icon badge
-                    SmallBadgeIcon(
-                        icon = Icons.Filled.Home,
-                        backgroundColor = RhentiCoral
-                    )
-
-                    // Message status icon badge
-                    SmallBadgeIcon(
-                        icon = Icons.Filled.ChatBubble,
-                        backgroundColor = AccentBlue
-                    )
+                // Status badge icons on avatar (bottom right)
+                // Show viewing/application status if available
+                val badges = getStatusBadges(thread)
+                if (badges.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 4.dp, y = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        badges.forEach { badge ->
+                            SmallBadgeIcon(
+                                icon = badge.icon,
+                                backgroundColor = badge.backgroundColor
+                            )
+                        }
+                    }
                 }
             }
 
@@ -333,4 +332,62 @@ private fun formatTimestamp(timestamp: Long?): String {
             dateFormat.format(Date(timestamp))
         }
     }
+}
+
+/**
+ * Data class representing a status badge.
+ */
+private data class StatusBadge(
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val backgroundColor: Color
+)
+
+/**
+ * Get status badges for thread based on viewing/application status.
+ * Returns list of badges to display on avatar.
+ */
+private fun getStatusBadges(thread: ChatThread): List<StatusBadge> {
+    val badges = mutableListOf<StatusBadge>()
+
+    // TODO: Once booking metadata is added to ChatThread, implement proper status checking
+    // For now, we'll return mock badges based on thread ID for demonstration
+
+    // Mock implementation - replace with actual metadata when available:
+    // if (thread.viewingStatus == "pending") { ... }
+    // if (thread.applicationStatus == "approved") { ... }
+
+    val mockType = thread.id.hashCode().mod(5)
+    when (mockType) {
+        0 -> {
+            // Pending Viewing
+            badges.add(StatusBadge(
+                icon = Icons.Filled.CalendarMonth,
+                backgroundColor = Color(0xFFFF9500) // Orange
+            ))
+        }
+        1 -> {
+            // Approved Viewing
+            badges.add(StatusBadge(
+                icon = Icons.Filled.CalendarMonth,
+                backgroundColor = Color(0xFF34C759) // Green
+            ))
+        }
+        2 -> {
+            // Pending Application
+            badges.add(StatusBadge(
+                icon = Icons.Filled.Description,
+                backgroundColor = Color(0xFFFF9500) // Orange
+            ))
+        }
+        3 -> {
+            // Approved Application
+            badges.add(StatusBadge(
+                icon = Icons.Filled.Description,
+                backgroundColor = Color(0xFF34C759) // Green
+            ))
+        }
+        // 4 -> No badges
+    }
+
+    return badges
 }

@@ -1,23 +1,35 @@
 package com.tomasronis.rhentiapp.presentation.main.contacts
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.ErrorStateView
 import com.tomasronis.rhentiapp.presentation.main.contacts.components.*
+import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
+import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 
 /**
  * Contacts list screen showing all contacts.
- * Includes search and refresh functionality.
+ * iOS-style design with large title, search bar, and alphabetical index.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +40,8 @@ fun ContactsListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    var showSearchBar by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    var showFiltersModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.refreshContacts()
@@ -36,89 +49,41 @@ fun ContactsListScreen(
 
     Scaffold(
         topBar = {
-            if (showSearchBar) {
-                SearchBar(
-                    query = searchQuery,
-                    onQueryChange = { viewModel.searchContacts(it) },
-                    onSearch = { /* Already searching on change */ },
-                    active = true,
-                    onActiveChange = { if (!it) showSearchBar = false },
-                    placeholder = { Text("Search contacts...") },
-                    leadingIcon = {
-                        IconButton(onClick = { showSearchBar = false }) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Close search")
-                        }
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.searchContacts("") }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Clear search")
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                // Header row with title and filter icon
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Search results
-                    if (uiState.contacts.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (searchQuery.isEmpty()) "Start typing to search..." else "No results found",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    } else {
-                        // Group contacts by first letter
-                        val groupedContacts = uiState.contacts.groupBy { it.sectionLetter }.toSortedMap()
+                    // Large title
+                    Text(
+                        text = "Contacts",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
 
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            groupedContacts.forEach { (letter, contactsInSection) ->
-                                // Section header
-                                item(key = "header_$letter") {
-                                    Text(
-                                        text = letter,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    )
-                                }
-
-                                // Contacts in section
-                                items(
-                                    items = contactsInSection,
-                                    key = { it.id }
-                                ) { contact ->
-                                    ContactCard(
-                                        contact = contact,
-                                        onClick = {
-                                            showSearchBar = false
-                                            viewModel.searchContacts("")
-                                            onContactClick(contact)
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                    // Filter icon
+                    IconButton(onClick = { showFiltersModal = true }) {
+                        FilterIcon(tint = MaterialTheme.colorScheme.onBackground)
                     }
                 }
-            } else {
-                TopAppBar(
-                    title = { Text("Contacts") },
-                    actions = {
-                        IconButton(onClick = { viewModel.refreshContacts() }) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                        }
-                        IconButton(onClick = { showSearchBar = true }) {
-                            Icon(Icons.Filled.Search, contentDescription = "Search")
-                        }
-                    }
+
+                // Search bar
+                RhentiSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { viewModel.searchContacts(it) },
+                    placeholder = "Search contacts",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
                 )
             }
         }
@@ -150,12 +115,15 @@ fun ContactsListScreen(
                     EmptyContactsView()
                 }
                 else -> {
-                    // Show contacts
-                    ContactsList(
-                        contacts = uiState.contacts,
-                        onContactClick = onContactClick,
-                        isRefreshing = uiState.isLoading
-                    )
+                    // Show contacts with alphabetical index
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        ContactsListWithIndex(
+                            contacts = uiState.contacts,
+                            onContactClick = onContactClick,
+                            listState = listState,
+                            isRefreshing = uiState.isLoading
+                        )
+                    }
                 }
             }
 
@@ -184,49 +152,173 @@ fun ContactsListScreen(
                 )
             }
         }
+
+        // Filters modal (placeholder for future implementation)
+        if (showFiltersModal) {
+            AlertDialog(
+                onDismissRequest = { showFiltersModal = false },
+                title = { Text("Filters") },
+                text = { Text("Contact filters coming soon") },
+                confirmButton = {
+                    TextButton(onClick = { showFiltersModal = false }) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
     }
 }
 
 /**
- * List of contacts grouped by section letter.
+ * List of contacts with alphabetical index on the right.
+ * iOS-style design with section headers and simplified contact cards.
  */
 @Composable
-private fun ContactsList(
+private fun ContactsListWithIndex(
     contacts: List<Contact>,
     onContactClick: (Contact) -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState,
     isRefreshing: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // Group contacts by first letter of last name
-    val groupedContacts = contacts.groupBy { it.sectionLetter }
-        .toSortedMap()
+    // Group contacts by first letter
+    val groupedContacts = contacts.groupBy { it.sectionLetter }.toSortedMap()
+    val alphabet = listOf("#") + ('A'..'Z').map { it.toString() }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        groupedContacts.forEach { (letter, contactsInSection) ->
-            // Section header
-            item(key = "header_$letter") {
+    Box(modifier = modifier.fillMaxSize()) {
+        // Contacts list
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 40.dp, top = 8.dp, bottom = 8.dp)
+        ) {
+            groupedContacts.forEach { (letter, contactsInSection) ->
+                // Section header
+                item(key = "header_$letter") {
+                    Text(
+                        text = letter,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 8.dp)
+                    )
+                }
+
+                // Contacts in section
+                items(
+                    items = contactsInSection,
+                    key = { it.id }
+                ) { contact ->
+                    IOSContactCard(
+                        contact = contact,
+                        onClick = { onContactClick(contact) }
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 76.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    )
+                }
+            }
+        }
+
+        // Alphabetical index on the right
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            alphabet.forEach { letter ->
                 Text(
                     text = letter,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-
-            // Contacts in section
-            items(
-                items = contactsInSection,
-                key = { it.id }
-            ) { contact ->
-                ContactCard(
-                    contact = contact,
-                    onClick = { onContactClick(contact) }
+                    fontSize = 11.sp,
+                    color = if (groupedContacts.containsKey(letter)) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    },
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .padding(vertical = 1.dp)
+                        .clickable(enabled = groupedContacts.containsKey(letter)) {
+                            // TODO: Scroll to section
+                        }
                 )
             }
         }
+    }
+}
+
+/**
+ * iOS-style contact card with circular avatar, name, and chevron.
+ */
+@Composable
+private fun IOSContactCard(
+    contact: Contact,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Circular avatar
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF3A3A3C)), // Dark gray for initials
+            contentAlignment = Alignment.Center
+        ) {
+            if (contact.avatarUrl != null) {
+                AsyncImage(
+                    model = contact.avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(
+                    text = getInitials(contact.displayName),
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // Contact name
+        Text(
+            text = contact.displayName,
+            color = Color.White,
+            fontSize = 17.sp,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        // Chevron icon
+        Icon(
+            imageVector = Icons.Filled.ChevronRight,
+            contentDescription = "View contact",
+            tint = Color(0xFF8E8E93), // Gray
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+/**
+ * Get initials from display name (first letter of first two words).
+ */
+private fun getInitials(name: String): String {
+    val parts = name.trim().split(" ")
+    return when {
+        parts.size >= 2 -> "${parts[0].firstOrNull()?.uppercaseChar() ?: ""}${parts[1].firstOrNull()?.uppercaseChar() ?: ""}"
+        parts.isNotEmpty() -> parts[0].take(2).uppercase()
+        else -> "?"
     }
 }

@@ -218,17 +218,23 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Sign In button (coral color)
+                    // Sign In button (coral color with dynamic vibrancy)
                     Button(
-                        onClick = { authViewModel.login(email, password) },
-                        enabled = isFormValid && !uiState.isEmailLoginLoading,
+                        onClick = {
+                            if (isFormValid) {
+                                authViewModel.login(email, password)
+                            }
+                        },
+                        enabled = !uiState.isEmailLoginLoading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = RhentiCoral,
-                            contentColor = Color.White
+                            containerColor = if (isFormValid) RhentiCoral else RhentiCoral.copy(alpha = 0.3f),
+                            contentColor = if (isFormValid) Color.White else Color.White.copy(alpha = 0.5f),
+                            disabledContainerColor = RhentiCoral.copy(alpha = 0.3f),
+                            disabledContentColor = Color.White.copy(alpha = 0.5f)
                         )
                     ) {
                         if (uiState.isEmailLoginLoading) {

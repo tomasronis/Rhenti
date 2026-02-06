@@ -1,5 +1,6 @@
 package com.tomasronis.rhentiapp.presentation.calls
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.calls.models.CallLog
@@ -18,6 +20,8 @@ import com.tomasronis.rhentiapp.presentation.calls.components.CallLogCard
 import com.tomasronis.rhentiapp.presentation.calls.components.DialNumberDialog
 import com.tomasronis.rhentiapp.presentation.calls.components.EmptyCallsState
 import com.tomasronis.rhentiapp.presentation.calls.components.FilterSheet
+import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
+import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -34,8 +38,8 @@ fun CallsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val callLogs by viewModel.callLogs.collectAsState()
+    val searchQuery = uiState.searchQuery
 
-    var showSearchBar by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showDialDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -55,52 +59,51 @@ fun CallsScreen(
 
     Scaffold(
         topBar = {
-            // iOS-style centered title with Done button
-            CenterAlignedTopAppBar(
-                title = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                // Header row with title and filter icon
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Large title
                     Text(
-                        text = "Recent Calls",
-                        style = MaterialTheme.typography.titleMedium
+                        text = "Calls",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                },
-                actions = {
-                    if (showSearchBar || uiState.selectedFilter != null) {
-                        TextButton(onClick = {
-                            showSearchBar = false
-                            viewModel.searchCalls("")
-                            viewModel.clearFilters()
-                        }) {
-                            Text(
-                                "Done",
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = { showSearchBar = true }) {
-                            Icon(Icons.Filled.Search, contentDescription = "Search")
-                        }
-                        IconButton(onClick = { showFilterSheet = true }) {
-                            Icon(
-                                imageVector = Icons.Filled.FilterAlt,
-                                contentDescription = "Filter"
-                            )
-                        }
+
+                    // Filter icon
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        FilterIcon(tint = MaterialTheme.colorScheme.onBackground)
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                }
+
+                // Search bar
+                RhentiSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { viewModel.searchCalls(it) },
+                    placeholder = "Search calls",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
                 )
-            )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (!showSearchBar) {
-                FloatingActionButton(
-                    onClick = { showDialDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Filled.Dialpad, contentDescription = "Dial number")
-                }
+            FloatingActionButton(
+                onClick = { showDialDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(Icons.Filled.Dialpad, contentDescription = "Dial number")
             }
         }
     ) { paddingValues ->

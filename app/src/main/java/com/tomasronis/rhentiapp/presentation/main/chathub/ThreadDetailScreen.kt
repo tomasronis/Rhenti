@@ -5,18 +5,26 @@ import android.net.Uri
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.chathub.models.ChatThread
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.*
@@ -31,6 +39,7 @@ import java.io.ByteArrayOutputStream
 fun ThreadDetailScreen(
     thread: ChatThread,
     onNavigateBack: () -> Unit,
+    onCall: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatHubViewModel = hiltViewModel()
 ) {
@@ -38,6 +47,13 @@ fun ThreadDetailScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var showAlternativeTimePicker by remember { mutableStateOf<String?>(null) }
+
+    // Get the most recent property address from messages
+    val propertyAddress = remember(uiState.messages) {
+        uiState.messages
+            .firstOrNull { it.metadata?.propertyAddress != null }
+            ?.metadata?.propertyAddress
+    }
 
     // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -64,39 +80,125 @@ fun ThreadDetailScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), // Handle insets manually
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = thread.displayName,
-                            style = MaterialTheme.typography.titleMedium
+            // iOS-style header with circular buttons and centered text
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Circular back button
+                IconButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = Color(0xFF2C2C2E),
+                            shape = CircleShape
                         )
-                        if (thread.email != null || thread.phone != null) {
-                            Text(
-                                text = thread.email ?: thread.phone ?: "",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Center content - User name, email, and property address
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = thread.displayName,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 17.sp
+                        ),
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    // Renter email (if available)
+                    if (!thread.email.isNullOrBlank()) {
+                        Text(
+                            text = thread.email,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp
+                            ),
+                            color = Color(0xFF8E8E93),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    // Property address from most recent message metadata
+                    if (propertyAddress != null) {
+                        Text(
+                            text = propertyAddress,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 13.sp
+                            ),
+                            color = Color(0xFF8E8E93),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
                     }
                 }
-            )
+
+                // Circular call button
+                IconButton(
+                    onClick = {
+                        thread.phone?.let { phoneNumber ->
+                            onCall(phoneNumber)
+                        }
+                    },
+                    enabled = thread.phone != null,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = if (thread.phone != null) Color(0xFF2C2C2E) else Color(0xFF1C1C1E),
+                            shape = CircleShape
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Phone,
+                        contentDescription = "Call",
+                        tint = if (thread.phone != null) Color.White else Color(0xFF8E8E93),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         },
         bottomBar = {
-            MessageInputBar(
-                onSendMessage = { text ->
-                    viewModel.sendTextMessage(text)
-                },
-                onAttachmentClick = {
-                    imagePickerLauncher.launch("image/*")
-                }
-            )
+            // Detect keyboard visibility for conditional positioning
+            val density = LocalDensity.current
+            val imeBottomPadding = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+            val isKeyboardVisible = imeBottomPadding > 0.dp
+
+            // Offset down when keyboard visible to compensate for over-positioning
+            // Final adjustment: 120dp + 8dp for remaining 2mm = 128dp total
+            val offsetY = if (isKeyboardVisible) 128.dp else 0.dp
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding() // Position above keyboard
+                    .offset(y = offsetY) // Move down when keyboard visible to fix positioning
+                    .padding(bottom = if (isKeyboardVisible) 0.dp else 6.dp)
+            ) {
+                MessageInputBar(
+                    onSendMessage = { text ->
+                        viewModel.sendTextMessage(text)
+                    },
+                    onAttachmentClick = {
+                        imagePickerLauncher.launch("image/*")
+                    }
+                )
+            }
         }
     ) { paddingValues ->
         Box(
