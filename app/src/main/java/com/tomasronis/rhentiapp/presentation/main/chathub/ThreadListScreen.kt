@@ -201,11 +201,10 @@ private fun ThreadList(
                 items = threads,
                 key = { it.id }
             ) { thread ->
-                SwipeableThreadCard(
+                // Temporarily removed swipe functionality for performance testing
+                ThreadCard(
                     thread = thread,
-                    onClick = { onThreadClick(thread) },
-                    onPin = { onPinThread(thread) },
-                    onDelete = { onDeleteThread(thread) }
+                    onClick = { onThreadClick(thread) }
                 )
             }
         }
@@ -223,6 +222,7 @@ private fun ThreadList(
 
 /**
  * Thread card with swipe actions (pin/delete).
+ * Optimized for smooth scrolling performance.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,51 +236,56 @@ private fun SwipeableThreadCard(
         confirmValueChange = { direction ->
             when (direction) {
                 SwipeToDismissBoxValue.StartToEnd -> {
-                    // Right swipe - Pin/Unpin
                     onPin()
-                    false // Don't actually dismiss
+                    false
                 }
                 SwipeToDismissBoxValue.EndToStart -> {
-                    // Left swipe - Delete
                     onDelete()
-                    true // Dismiss (will be removed by ViewModel)
+                    true
                 }
                 else -> false
             }
         }
     )
 
+    // Cache background calculations to avoid recomposition during scroll
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val errorColor = MaterialTheme.colorScheme.error
+
     SwipeToDismissBox(
         state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
         backgroundContent = {
-            val backgroundColor = when (dismissState.dismissDirection) {
-                SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primary
-                SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-                else -> Color.Transparent
-            }
+            // Simplified background - only compose when actually swiping
+            if (dismissState.dismissDirection != SwipeToDismissBoxValue.Settled) {
+                val backgroundColor = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
+                    primaryColor
+                } else {
+                    errorColor
+                }
 
-            val icon = when (dismissState.dismissDirection) {
-                SwipeToDismissBoxValue.StartToEnd -> if (thread.isPinned) Icons.Filled.StarBorder else Icons.Filled.Star
-                SwipeToDismissBoxValue.EndToStart -> Icons.Filled.Delete
-                else -> null
-            }
+                val icon = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
+                    if (thread.isPinned) Icons.Filled.StarBorder else Icons.Filled.Star
+                } else {
+                    Icons.Filled.Delete
+                }
 
-            val alignment = when (dismissState.dismissDirection) {
-                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                else -> Alignment.Center
-            }
+                val alignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
+                    Alignment.CenterStart
+                } else {
+                    Alignment.CenterEnd
+                }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundColor)
-                    .padding(horizontal = 24.dp),
-                contentAlignment = alignment
-            ) {
-                icon?.let {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(backgroundColor)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = alignment
+                ) {
                     Icon(
-                        imageVector = it,
+                        imageVector = icon,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(32.dp)

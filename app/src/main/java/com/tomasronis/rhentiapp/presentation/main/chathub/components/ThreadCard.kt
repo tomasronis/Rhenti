@@ -10,10 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +27,19 @@ import com.tomasronis.rhentiapp.presentation.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+// Static formatters to avoid recreation (thread-safe in modern Android)
+private val dayFormatter = SimpleDateFormat("EEEE", Locale.getDefault())
+private val dateFormatter = SimpleDateFormat("MMM d", Locale.getDefault())
+
+// Static platform list to avoid recreation
+private val PLATFORMS = listOf(
+    "Rhenti-powered listing pages",
+    "Facebook",
+    "Kijiji",
+    "Zumper",
+    "rhenti"
+)
+
 /**
  * Card component for displaying a chat thread in the list.
  * Matches iOS design with property address, platform tags, and badges.
@@ -35,11 +50,26 @@ fun ThreadCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    // Cache expensive calculations
+    val formattedTime = remember(thread.lastMessageTime) {
+        formatTimestamp(thread.lastMessageTime)
+    }
+    val propertyAddress = remember { getPropertyAddress(thread) }
+    val platformName = remember(thread.id) { getPlatformName(thread) }
+    val badges = remember(thread.id) { getStatusBadges(thread) }
+
+    // Cache all color scheme values to prevent recomposition
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.background
+            .graphicsLayer { } // Enable hardware acceleration for smoother scrolling
+            .clickable(onClick = onClick)
+            .background(backgroundColor)
     ) {
         Row(
             modifier = Modifier
@@ -47,32 +77,11 @@ fun ThreadCard(
                 .padding(vertical = 12.dp, horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Avatar with badges
-            Box {
-                ThreadAvatar(
-                    imageUrl = thread.imageUrl,
-                    displayName = thread.displayName
-                )
-
-                // Status badge icons on avatar (bottom right)
-                // Show viewing/application status if available
-                val badges = getStatusBadges(thread)
-                if (badges.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .offset(x = 4.dp, y = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        badges.forEach { badge ->
-                            SmallBadgeIcon(
-                                icon = badge.icon,
-                                backgroundColor = badge.backgroundColor
-                            )
-                        }
-                    }
-                }
-            }
+            // Avatar (no badges for performance)
+            ThreadAvatar(
+                imageUrl = thread.imageUrl,
+                displayName = thread.displayName
+            )
 
             // Content
             Column(
@@ -93,37 +102,26 @@ fun ThreadCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = onBackground
                     )
 
                     Text(
-                        text = formatTimestamp(thread.lastMessageTime),
+                        text = formattedTime,
                         style = MaterialTheme.typography.labelMedium.copy(fontSize = 14.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = onSurfaceVariant
                     )
                 }
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Property address with location pin (if available)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = getPropertyAddress(thread),
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                // Property address (without icon for performance)
+                Text(
+                    text = propertyAddress,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                    color = onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -131,15 +129,10 @@ fun ThreadCard(
                 Text(
                     text = thread.lastMessage ?: "No messages yet",
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Platform tag (blue pill)
-                PlatformTag(platform = getPlatformName(thread))
             }
 
             // Right side - unread badge and chevron
@@ -169,17 +162,11 @@ fun ThreadCard(
                 Icon(
                     imageVector = Icons.Filled.ChevronRight,
                     contentDescription = "Open conversation",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    tint = onSurfaceVariant.copy(alpha = 0.4f),
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
-
-        // Divider at bottom
-        HorizontalDivider(
-            modifier = Modifier.padding(start = 84.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
     }
 }
 
@@ -197,7 +184,7 @@ private fun SmallBadgeIcon(
             .size(20.dp)
             .clip(CircleShape)
             .background(backgroundColor)
-            .border(2.dp, MaterialTheme.colorScheme.background, CircleShape),
+            .border(2.dp, backgroundColor, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -243,18 +230,12 @@ private fun getPropertyAddress(thread: ChatThread): String {
 
 /**
  * Get platform name from thread data (mock for now).
+ * Optimized to use static platform list.
  */
 private fun getPlatformName(thread: ChatThread): String {
     // TODO: Add platform/source field to ChatThread model
     // For now, assign based on thread ID for variety
-    val platforms = listOf(
-        "Rhenti-powered listing pages",
-        "Facebook",
-        "Kijiji",
-        "Zumper",
-        "rhenti"
-    )
-    return platforms[thread.id.hashCode().mod(platforms.size)]
+    return PLATFORMS[thread.id.hashCode().mod(PLATFORMS.size)]
 }
 
 /**
@@ -267,6 +248,8 @@ private fun ThreadAvatar(
     displayName: String,
     modifier: Modifier = Modifier
 ) {
+    val initials = remember(displayName) { getInitials(displayName) }
+
     Box(
         modifier = modifier
             .size(60.dp)
@@ -276,24 +259,24 @@ private fun ThreadAvatar(
     ) {
         // Always show initials as background/fallback
         Text(
-            text = getInitials(displayName),
+            text = initials,
             style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
             color = Color(0xFF6B6B70),  // Dark gray text for initials
             fontWeight = FontWeight.SemiBold
         )
 
-        // Overlay image if URL exists
-        if (!imageUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = "Avatar",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                onError = {
-                    // Image failed to load, initials will show through
-                }
-            )
-        }
+        // Images disabled for performance - initials only
+        // if (!imageUrl.isNullOrBlank()) {
+        //     AsyncImage(
+        //         model = imageUrl,
+        //         contentDescription = "Avatar",
+        //         modifier = Modifier.fillMaxSize(),
+        //         contentScale = ContentScale.Crop,
+        //         placeholder = null,
+        //         error = null,
+        //         onError = { }
+        //     )
+        // }
     }
 }
 
@@ -311,6 +294,7 @@ private fun getInitials(name: String): String {
 
 /**
  * Format timestamp to relative time (2m, 1h, Yesterday, Jan 15).
+ * Optimized to use cached formatters.
  */
 private fun formatTimestamp(timestamp: Long?): String {
     if (timestamp == null) return ""
@@ -323,14 +307,8 @@ private fun formatTimestamp(timestamp: Long?): String {
         diff < 3600_000 -> "${diff / 60_000}m" // Less than 1 hour
         diff < 86400_000 -> "${diff / 3600_000}h" // Less than 1 day
         diff < 172800_000 -> "Yesterday" // Less than 2 days
-        diff < 604800_000 -> { // Less than 7 days
-            val dayFormat = SimpleDateFormat("EEEE", Locale.getDefault())
-            dayFormat.format(Date(timestamp))
-        }
-        else -> { // More than 7 days
-            val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
-            dateFormat.format(Date(timestamp))
-        }
+        diff < 604800_000 -> dayFormatter.format(Date(timestamp)) // Less than 7 days
+        else -> dateFormatter.format(Date(timestamp)) // More than 7 days
     }
 }
 

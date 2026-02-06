@@ -201,10 +201,23 @@ fun ThreadDetailScreen(
             }
         }
     ) { paddingValues ->
+        // Detect keyboard visibility for conditional content padding
+        val density = LocalDensity.current
+        val imeBottomPadding = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+        val isKeyboardVisible = imeBottomPadding > 0.dp
+
+        // Bottom padding: 3mm gap when keyboard visible, 12mm higher when hidden
+        val contentBottomPadding = if (isKeyboardVisible) 12.dp else 57.dp
+
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(
+                    top = paddingValues.calculateTopPadding(),
+                    start = paddingValues.calculateLeftPadding(layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr),
+                    end = paddingValues.calculateRightPadding(layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr),
+                    bottom = contentBottomPadding
+                )
         ) {
             when {
                 uiState.isLoading && uiState.messages.isEmpty() -> {
