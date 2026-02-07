@@ -292,6 +292,11 @@ class CallsRepositoryImpl @Inject constructor(
             val id = (response["id"] ?: response["_id"]) as? String ?: return null
             val contactId = (response["contactId"] ?: response["contact_id"]) as? String
 
+            // Extract customer object which contains the contact's phone number
+            @Suppress("UNCHECKED_CAST")
+            val customer = response["customer"] as? Map<String, Any>
+            val customerPhone = customer?.get("phone") as? String
+
             // Extract "from" number (the caller)
             val callerNumber = (response["callerNumber"]
                 ?: response["caller_number"]
@@ -302,6 +307,7 @@ class CallsRepositoryImpl @Inject constructor(
                 ?: response["from_phone_number"]) as? String
 
             // Extract "to" number (the recipient) - try many variations
+            // NOTE: The API doesn't actually provide a "to" field, but keep this for backwards compatibility
             val receiverNumber = (response["to"]
                 ?: response["toNumber"]
                 ?: response["to_number"]
@@ -347,17 +353,17 @@ class CallsRepositoryImpl @Inject constructor(
             }
 
             // Determine the contact's phone number based on call direction:
-            // - For OUTGOING calls: the contact is the receiver (the "to" number)
-            // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
+            // - For OUTGOING calls: the contact is in customer.phone (the person being called)
+            // - For INCOMING/MISSED calls: the contact is the caller (the "from" number, also in customer.phone)
             val contactPhone = when (parsedCallType) {
                 CallType.OUTGOING -> {
-                    val phone = receiverNumber ?: genericPhoneNumber ?: ""
-                    if (phone.isEmpty() && callerNumber != null) {
-                        Log.w(TAG, "WARNING: No receiver number found for outgoing call, API may not be providing 'to' field. Response keys: ${response.keys}")
-                    }
-                    phone
+                    // For outgoing calls, the API provides the contact's phone in customer.phone
+                    customerPhone ?: receiverNumber ?: genericPhoneNumber ?: ""
                 }
-                CallType.INCOMING, CallType.MISSED -> callerNumber ?: genericPhoneNumber ?: receiverNumber ?: ""
+                CallType.INCOMING, CallType.MISSED -> {
+                    // For incoming calls, use callerNumber or customer.phone as fallback
+                    callerNumber ?: customerPhone ?: genericPhoneNumber ?: receiverNumber ?: ""
+                }
             }
 
             if (BuildConfig.DEBUG) {
