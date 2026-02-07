@@ -180,7 +180,7 @@ class CallsRepositoryImpl @Inject constructor(
                 // - For OUTGOING calls: the contact is the receiver (the "to" number)
                 // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
                 val rawContactPhone = when (parsedCallType) {
-                    CallType.OUTGOING -> cachedLog.receiverNumber ?: cachedLog.callerNumber
+                    CallType.OUTGOING -> cachedLog.receiverNumber // Don't fall back to caller number for outgoing calls
                     CallType.INCOMING, CallType.MISSED -> cachedLog.callerNumber ?: cachedLog.receiverNumber
                 }
 
@@ -286,6 +286,7 @@ class CallsRepositoryImpl @Inject constructor(
         return try {
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Parsing call log response: $response")
+                Log.d(TAG, "Available keys: ${response.keys}")
             }
 
             val id = (response["id"] ?: response["_id"]) as? String ?: return null
@@ -296,20 +297,32 @@ class CallsRepositoryImpl @Inject constructor(
                 ?: response["caller_number"]
                 ?: response["from"]
                 ?: response["fromNumber"]
-                ?: response["from_number"]) as? String
+                ?: response["from_number"]
+                ?: response["fromPhoneNumber"]
+                ?: response["from_phone_number"]) as? String
 
-            // Extract "to" number (the recipient)
+            // Extract "to" number (the recipient) - try many variations
             val receiverNumber = (response["to"]
                 ?: response["toNumber"]
                 ?: response["to_number"]
                 ?: response["receiverNumber"]
                 ?: response["receiver_number"]
                 ?: response["calledNumber"]
-                ?: response["called_number"]) as? String
+                ?: response["called_number"]
+                ?: response["toPhoneNumber"]
+                ?: response["to_phone_number"]
+                ?: response["dialedNumber"]
+                ?: response["dialed_number"]
+                ?: response["destination"]
+                ?: response["destinationNumber"]
+                ?: response["destination_number"]
+                ?: response["called"]
+                ?: response["callee"]) as? String
 
             // Generic phone number field (legacy fallback)
             val genericPhoneNumber = (response["phoneNumber"]
                 ?: response["phone_number"]
+                ?: response["phone"]
                 ?: response["number"]) as? String
 
             // Try multiple name field variations
@@ -319,10 +332,10 @@ class CallsRepositoryImpl @Inject constructor(
                 ?: response["caller_name"]
                 ?: response["name"]) as? String
 
-            val callType = (response["callType"] ?: response["call_type"]) as? String
+            val callType = (response["callType"] ?: response["call_type"] ?: response["direction"]) as? String
             val parsedCallType = parseCallType(callType)
             val duration = (response["duration"] as? Number)?.toInt() ?: 0
-            val twilioCallSid = (response["twilioCallSid"] ?: response["twilio_call_sid"]) as? String
+            val twilioCallSid = (response["twilioCallSid"] ?: response["twilio_call_sid"] ?: response["callSid"] ?: response["call_sid"]) as? String
             val status = response["status"] as? String
 
             // Parse timestamp
@@ -337,13 +350,19 @@ class CallsRepositoryImpl @Inject constructor(
             // - For OUTGOING calls: the contact is the receiver (the "to" number)
             // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
             val contactPhone = when (parsedCallType) {
-                CallType.OUTGOING -> receiverNumber ?: genericPhoneNumber ?: callerNumber ?: ""
+                CallType.OUTGOING -> {
+                    val phone = receiverNumber ?: genericPhoneNumber ?: ""
+                    if (phone.isEmpty() && callerNumber != null) {
+                        Log.w(TAG, "WARNING: No receiver number found for outgoing call, API may not be providing 'to' field. Response keys: ${response.keys}")
+                    }
+                    phone
+                }
                 CallType.INCOMING, CallType.MISSED -> callerNumber ?: genericPhoneNumber ?: receiverNumber ?: ""
             }
 
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Parsed call log - id: $id, callerNumber: $callerNumber, receiverNumber: $receiverNumber, " +
-                        "genericPhone: $genericPhoneNumber, resolvedContactPhone: $contactPhone, name: $contactName, type: $callType")
+                Log.d(TAG, "Parsed call log - id: $id, type: $parsedCallType, callerNumber: $callerNumber, receiverNumber: $receiverNumber, " +
+                        "genericPhone: $genericPhoneNumber, resolvedContactPhone: $contactPhone, name: $contactName")
             }
 
             CallLog(
@@ -396,7 +415,7 @@ class CallsRepositoryImpl @Inject constructor(
         // - For OUTGOING calls: the contact is the receiver (the "to" number)
         // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
         val contactPhone = when (parsedCallType) {
-            CallType.OUTGOING -> cachedLog.receiverNumber ?: cachedLog.callerNumber ?: ""
+            CallType.OUTGOING -> cachedLog.receiverNumber ?: "" // Don't fall back to caller number for outgoing
             CallType.INCOMING, CallType.MISSED -> cachedLog.callerNumber ?: cachedLog.receiverNumber ?: ""
         }
 
