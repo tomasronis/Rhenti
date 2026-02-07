@@ -19,6 +19,12 @@ interface ContactDao {
     @Query("SELECT * FROM cached_contacts WHERE id = :contactId")
     suspend fun getContactByIdOnce(contactId: String): CachedContact?
 
+    @Query("SELECT * FROM cached_contacts WHERE email = :email LIMIT 1")
+    suspend fun getContactByEmail(email: String): CachedContact?
+
+    @Query("SELECT * FROM cached_contacts WHERE phone = :phone LIMIT 1")
+    suspend fun getContactByPhone(phone: String): CachedContact?
+
     @Query("""
         SELECT * FROM cached_contacts
         WHERE firstName LIKE '%' || :query || '%'

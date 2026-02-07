@@ -25,6 +25,11 @@ data class CachedThread(
     val ownerId: String?,
     val isPinned: Boolean,
     val members: Map<String, Int>?,
+    val address: String?, // Property address
+    val propertyId: String?, // Property ID
+    val applicationStatus: String?, // Application status
+    val bookingStatus: String?, // Booking/viewing status
+    val channel: String?, // Channel/platform source
     val createdAt: Long,
     val updatedAt: Long
 )

@@ -9,6 +9,7 @@ import com.tomasronis.rhentiapp.core.network.ApiClient
 import com.tomasronis.rhentiapp.core.network.NetworkResult
 import com.tomasronis.rhentiapp.data.chathub.models.*
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,7 +18,9 @@ import javax.inject.Singleton
 class ChatHubRepositoryImpl @Inject constructor(
     private val apiClient: ApiClient,
     private val threadDao: ThreadDao,
-    private val messageDao: MessageDao
+    private val messageDao: MessageDao,
+    private val tokenManager: com.tomasronis.rhentiapp.core.security.TokenManager,
+    private val contactDao: com.tomasronis.rhentiapp.core.database.dao.ContactDao
 ) : ChatHubRepository {
 
     override suspend fun getThreads(superAccountId: String, search: String?): NetworkResult<List<ChatThread>> {
@@ -56,6 +59,9 @@ class ChatHubRepositoryImpl @Inject constructor(
             if (BuildConfig.DEBUG) {
                 android.util.Log.d("ChatHubRepository", "Cached ${cachedThreads.size} threads to database")
             }
+
+            // Update contacts with channel data from threads
+            updateContactsChannelFromThreads(threads)
 
             NetworkResult.Success(threads)
         } catch (e: Exception) {
@@ -210,7 +216,47 @@ class ChatHubRepositoryImpl @Inject constructor(
 
     override suspend fun clearBadge(threadId: String): NetworkResult<Unit> {
         return try {
-            apiClient.clearBadge(threadId)
+            // Get the thread to access its members and legacyChatSessionId
+            val thread = threadDao.getThreadById(threadId)
+                .map { it?.toDomainModel() }
+                .firstOrNull()
+
+            if (thread == null) {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.e("ChatHubRepository", "Clear badge failed: Thread not found")
+                }
+                return NetworkResult.Error(
+                    exception = IllegalStateException("Thread not found"),
+                    cachedData = null
+                )
+            }
+
+            // Get super account ID from token manager
+            val superAccountId = tokenManager.getSuperAccountId()
+
+            if (superAccountId == null || thread.legacyChatSessionId == null) {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.e("ChatHubRepository", "Clear badge failed: Missing superAccountId or legacyChatSessionId")
+                }
+                return NetworkResult.Error(
+                    exception = IllegalStateException("Missing required data"),
+                    cachedData = null
+                )
+            }
+
+            // Build request matching iOS implementation
+            val memberIds = thread.membersObject.keys.toList()
+            val request = mapOf(
+                "allMembersObjArr" to memberIds.map { mapOf("uid" to it) },
+                "chatSessionId" to thread.legacyChatSessionId,
+                "currentUserId" to superAccountId
+            )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Clearing badge with request: $request")
+            }
+
+            apiClient.clearBadge(request)
 
             // Update local cache
             threadDao.clearUnreadCount(threadId)
@@ -363,6 +409,16 @@ class ChatHubRepositoryImpl @Inject constructor(
                     (value as? Number)?.toInt() ?: 0
                 }
 
+                // Parse new fields from iOS implementation
+                val address = threadData["address"] as? String
+                val propertyId = (threadData["property_id"] as? String)
+                    ?: (threadData["propertyId"] as? String)
+                val applicationStatus = (threadData["application_status"] as? String)
+                    ?: (threadData["applicationStatus"] as? String)
+                val bookingStatus = (threadData["booking_status"] as? String)
+                    ?: (threadData["bookingStatus"] as? String)
+                val channel = threadData["channel"] as? String
+
                 threads.add(
                     ChatThread(
                         id = id,
@@ -377,7 +433,12 @@ class ChatHubRepositoryImpl @Inject constructor(
                         renterId = renterId,
                         ownerId = ownerId,
                         isPinned = isPinned,
-                        members = members
+                        members = members,
+                        address = address,
+                        propertyId = propertyId,
+                        applicationStatus = applicationStatus,
+                        bookingStatus = bookingStatus,
+                        channel = channel
                     )
                 )
             } catch (e: Exception) {
@@ -464,6 +525,101 @@ class ChatHubRepositoryImpl @Inject constructor(
             createdAt = createdAt
         )
     }
+
+    /**
+     * Update contacts with channel data from threads.
+     * This syncs the channel information from chat threads to contacts.
+     */
+    private suspend fun updateContactsChannelFromThreads(threads: List<ChatThread>) {
+        try {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "=== SYNCING CHANNEL DATA FROM THREADS TO CONTACTS ===")
+                android.util.Log.d("ChatHubRepository", "Processing ${threads.size} threads")
+            }
+
+            var updatedCount = 0
+            for (thread in threads) {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "ChatHubRepository",
+                        "Thread: id=${thread.id}, name=${thread.displayName}, email=${thread.email}, phone=${thread.phone}, channel=${thread.channel}"
+                    )
+                }
+
+                // Only process threads with channel or image data
+                if (thread.channel.isNullOrBlank() && thread.imageUrl.isNullOrBlank()) {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("ChatHubRepository", "  -> Skipping: no channel or image data")
+                    }
+                    continue
+                }
+
+                // Try to find contact by email or phone (renterId is often null)
+                val existingContact = if (!thread.renterId.isNullOrBlank()) {
+                    // Try by renter ID first
+                    contactDao.getContactByIdOnce(thread.renterId)
+                } else if (!thread.email.isNullOrBlank()) {
+                    // Try by email
+                    contactDao.getContactByEmail(thread.email)
+                } else if (!thread.phone.isNullOrBlank()) {
+                    // Try by phone
+                    contactDao.getContactByPhone(thread.phone)
+                } else {
+                    null
+                }
+
+                if (existingContact == null) {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("ChatHubRepository", "  -> Contact not found (tried ID, email, phone)")
+                    }
+                    continue
+                }
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "ChatHubRepository",
+                        "  -> Found contact: ${existingContact.firstName} ${existingContact.lastName}, current channel: ${existingContact.channel}, avatarUrl: ${existingContact.avatarUrl}"
+                    )
+                }
+
+                // Check if we need to update the contact
+                val needsChannelUpdate = existingContact.channel.isNullOrBlank() && !thread.channel.isNullOrBlank()
+                val needsImageUpdate = existingContact.avatarUrl.isNullOrBlank() && !thread.imageUrl.isNullOrBlank()
+
+                if (needsChannelUpdate || needsImageUpdate) {
+                    val updatedContact = existingContact.copy(
+                        channel = if (needsChannelUpdate) thread.channel else existingContact.channel,
+                        avatarUrl = if (needsImageUpdate) thread.imageUrl else existingContact.avatarUrl,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    contactDao.insertContact(updatedContact)
+                    updatedCount++
+
+                    if (BuildConfig.DEBUG) {
+                        val updates = mutableListOf<String>()
+                        if (needsChannelUpdate) updates.add("channel: ${thread.channel}")
+                        if (needsImageUpdate) updates.add("avatarUrl: ${thread.imageUrl}")
+                        android.util.Log.d(
+                            "ChatHubRepository",
+                            "  -> ✅ Updated contact with ${updates.joinToString(", ")}"
+                        )
+                    }
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("ChatHubRepository", "  -> Already has channel and image, skipping")
+                    }
+                }
+            }
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "=== SYNC COMPLETE: Updated $updatedCount contacts ===")
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Failed to update contacts with channel data", e)
+            }
+            // Don't throw - this is not critical, just log the error
+        }
+    }
 }
 
 // Extension functions to convert between domain and cache models
@@ -483,6 +639,11 @@ private fun ChatThread.toCachedThread(): CachedThread {
         ownerId = ownerId,
         isPinned = isPinned,
         members = members,
+        address = address,
+        propertyId = propertyId,
+        applicationStatus = applicationStatus,
+        bookingStatus = bookingStatus,
+        channel = channel,
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis()
     )
@@ -502,7 +663,12 @@ private fun CachedThread.toDomainModel(): ChatThread {
         renterId = renterId,
         ownerId = ownerId,
         isPinned = isPinned,
-        members = members
+        members = members,
+        address = address,
+        propertyId = propertyId,
+        applicationStatus = applicationStatus,
+        bookingStatus = bookingStatus,
+        channel = channel
     )
 }
 

@@ -22,6 +22,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
+import coil.size.Scale
 import com.tomasronis.rhentiapp.data.chathub.models.ChatThread
 import com.tomasronis.rhentiapp.presentation.theme.*
 import java.text.SimpleDateFormat
@@ -31,18 +34,10 @@ import java.util.*
 private val dayFormatter = SimpleDateFormat("EEEE", Locale.getDefault())
 private val dateFormatter = SimpleDateFormat("MMM d", Locale.getDefault())
 
-// Static platform list to avoid recreation
-private val PLATFORMS = listOf(
-    "Rhenti-powered listing pages",
-    "Facebook",
-    "Kijiji",
-    "Zumper",
-    "rhenti"
-)
-
 /**
  * Card component for displaying a chat thread in the list.
- * Matches iOS design with property address, platform tags, and badges.
+ * Matches iOS design with address, snippet, and status indicators.
+ * Optimized for smooth scrolling performance.
  */
 @Composable
 fun ThreadCard(
@@ -50,122 +45,223 @@ fun ThreadCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Cache expensive calculations
-    val formattedTime = remember(thread.lastMessageTime) {
-        formatTimestamp(thread.lastMessageTime)
+    // CRITICAL: Pre-compute ALL expensive operations outside composition
+    val initials = remember(thread.displayName) { getInitials(thread.displayName) }
+    val propertyAddress = remember(thread.id) { getPropertyAddress(thread) }
+    val messageSnippet = remember(thread.lastMessage) {
+        thread.lastMessage?.take(50) ?: "No messages yet"
     }
-    val propertyAddress = remember { getPropertyAddress(thread) }
+    val timestamp = remember(thread.lastMessageTime) { formatTimestamp(thread.lastMessageTime) }
+    val statusBadges = remember(thread.id) { getStatusBadges(thread) }
     val platformName = remember(thread.id) { getPlatformName(thread) }
-    val badges = remember(thread.id) { getStatusBadges(thread) }
+    val unreadBadgeText = remember(thread.unreadCount) {
+        if (thread.unreadCount > 9) "9+" else thread.unreadCount.toString()
+    }
 
-    // Cache all color scheme values to prevent recomposition
-    val backgroundColor = MaterialTheme.colorScheme.background
-    val onBackground = MaterialTheme.colorScheme.onBackground
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-    val outlineVariant = MaterialTheme.colorScheme.outlineVariant
+    // CRITICAL: Pre-compute colors to avoid .copy() allocations on every recomposition
+    val iconTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    val addressColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+    val snippetColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val timestampColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    val chevronTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer { } // Enable hardware acceleration for smoother scrolling
-            .clickable(onClick = onClick)
-            .background(backgroundColor)
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .height(130.dp) // CRITICAL: Fixed height for smooth scrolling (tall enough for all content + platform tag)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically // Center chevron vertically
         ) {
-            // Avatar (no badges for performance)
-            ThreadAvatar(
+        // Avatar with unread indicator ring and status badges
+        Box {
+            AvatarWithIndicator(
                 imageUrl = thread.imageUrl,
-                displayName = thread.displayName
+                initials = initials,
+                hasUnread = thread.unreadCount > 0
             )
 
-            // Content
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .align(Alignment.CenterVertically)
-            ) {
-                // Name and timestamp row
+            // Status badges (viewing/application indicators)
+            if (statusBadges.isNotEmpty()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 4.dp, y = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(
-                        text = thread.displayName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                        color = onBackground
-                    )
-
-                    Text(
-                        text = formattedTime,
-                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 14.sp),
-                        color = onSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Property address (without icon for performance)
-                Text(
-                    text = propertyAddress,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-                    color = onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Last message
-                Text(
-                    text = thread.lastMessage ?: "No messages yet",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
-                    color = onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Right side - unread badge and chevron
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                if (thread.unreadCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1C2B3A)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (thread.unreadCount > 9) "9+" else thread.unreadCount.toString(),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                    statusBadges.forEach { badge ->
+                        SmallBadgeIcon(
+                            icon = badge.icon,
+                            backgroundColor = badge.backgroundColor
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
+            }
+        }
 
+        // Content column (name, address, snippet)
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp) // Tighter spacing to prevent cutoff
+        ) {
+            // Name
+            Text(
+                text = thread.displayName,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Property address with location icon
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
-                    imageVector = Icons.Filled.ChevronRight,
-                    contentDescription = "Open conversation",
-                    tint = onSurfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.size(20.dp)
+                    imageVector = Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    tint = iconTint, // Pre-computed
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = propertyAddress,
+                    color = addressColor, // Pre-computed
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+
+            // Message snippet
+            Text(
+                text = messageSnippet,
+                color = snippetColor, // Pre-computed
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // Source channel tag
+            Spacer(modifier = Modifier.height(4.dp))
+            PlatformTag(platform = platformName)
+        }
+
+        // Right side (timestamp and badge)
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Timestamp
+            Text(
+                text = timestamp,
+                color = timestampColor, // Pre-computed
+                fontSize = 13.sp
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Unread badge
+            if (thread.unreadCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1C2B3A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = unreadBadgeText, // Pre-computed
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // Chevron - vertically centered
+        Icon(
+            imageVector = Icons.Filled.ChevronRight,
+            contentDescription = "View conversation",
+            tint = chevronTint, // Pre-computed
+            modifier = Modifier.size(20.dp)
+        )
+    }
+
+        // Divider
+        HorizontalDivider(
+            modifier = Modifier.padding(start = 80.dp),
+            color = dividerColor, // Pre-computed
+            thickness = 0.5.dp
+        )
+    }
+}
+
+/**
+ * Avatar with coral/pink ring indicator for unread messages.
+ * CRITICAL: Uses FIXED sizing for smooth scrolling performance.
+ */
+@Composable
+private fun AvatarWithIndicator(
+    imageUrl: String?,
+    initials: String,
+    hasUnread: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.size(60.dp), // FIXED size
+        contentAlignment = Alignment.Center
+    ) {
+        // Avatar circle - ALWAYS 60dp (fixed size)
+        Box(
+            modifier = Modifier
+                .size(60.dp) // FIXED size - never changes
+                .clip(CircleShape)
+                .background(Color(0xFFE0E0E5)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Always show initials as fallback
+            Text(
+                text = initials,
+                color = Color(0xFF6B6B70),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // Load image if available - FIXED decode size for performance
+            if (!imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(imageUrl)
+                        .crossfade(false) // No animation for instant display
+                        .size(120) // FIXED size - always 60dp * 2
+                        .scale(Scale.FILL)
+                        // Hardware bitmaps are FASTER - don't disable them!
+                        // Memory and disk caching enabled by default in Coil
+                        .build(),
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+
+        // Coral/pink ring overlay for unread (drawn on top, doesn't affect sizing)
+        if (hasUnread) {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .border(3.dp, RhentiCoral, CircleShape)
+            )
         }
     }
 }
@@ -197,45 +293,49 @@ private fun SmallBadgeIcon(
 }
 
 /**
- * Platform tag pill (e.g., "Rhenti-powered listing pages").
+ * Simplified platform tag for better scroll performance.
+ * Uses Box instead of Surface to reduce composition overhead.
  */
 @Composable
 private fun PlatformTag(
     platform: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = AccentBlue,
-        contentColor = Color.White
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(AccentBlue)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
             text = platform,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            color = Color.White
         )
     }
 }
 
 /**
- * Get property address from thread data (mock for now).
+ * Get property address from thread data.
  */
 private fun getPropertyAddress(thread: ChatThread): String {
-    // TODO: Add property address field to ChatThread model
-    // For now, generate a mock address
-    return "88 Queen St E, Unit 4B, Toronto"
+    return thread.address ?: "Address not available"
 }
 
 /**
- * Get platform name from thread data (mock for now).
- * Optimized to use static platform list.
+ * Get platform name from thread data.
+ * Maps channel names to display names.
  */
 private fun getPlatformName(thread: ChatThread): String {
-    // TODO: Add platform/source field to ChatThread model
-    // For now, assign based on thread ID for variety
-    return PLATFORMS[thread.id.hashCode().mod(PLATFORMS.size)]
+    return when (thread.channel?.lowercase()) {
+        "facebook" -> "Facebook"
+        "kijiji" -> "Kijiji"
+        "zumper" -> "Zumper"
+        "rhenti" -> "rhenti"
+        "facebook-listing-page", "facebook_listing_page" -> "Rhenti-powered listing pages"
+        else -> thread.channel?.replaceFirstChar { it.uppercase() } ?: "Rhenti"
+    }
 }
 
 /**
@@ -249,6 +349,7 @@ private fun ThreadAvatar(
     modifier: Modifier = Modifier
 ) {
     val initials = remember(displayName) { getInitials(displayName) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Box(
         modifier = modifier
@@ -265,18 +366,8 @@ private fun ThreadAvatar(
             fontWeight = FontWeight.SemiBold
         )
 
-        // Images disabled for performance - initials only
-        // if (!imageUrl.isNullOrBlank()) {
-        //     AsyncImage(
-        //         model = imageUrl,
-        //         contentDescription = "Avatar",
-        //         modifier = Modifier.fillMaxSize(),
-        //         contentScale = ContentScale.Crop,
-        //         placeholder = null,
-        //         error = null,
-        //         onError = { }
-        //     )
-        // }
+        // Images disabled - even with optimizations they cause scroll jank
+        // Avatars show colored initials only for best performance
     }
 }
 
@@ -323,48 +414,43 @@ private data class StatusBadge(
 /**
  * Get status badges for thread based on viewing/application status.
  * Returns list of badges to display on avatar.
+ *
+ * Orange = Pending, Green = Confirmed/Approved
+ * Calendar icon = Viewing/Booking, Document icon = Application
  */
 private fun getStatusBadges(thread: ChatThread): List<StatusBadge> {
     val badges = mutableListOf<StatusBadge>()
 
-    // TODO: Once booking metadata is added to ChatThread, implement proper status checking
-    // For now, we'll return mock badges based on thread ID for demonstration
-
-    // Mock implementation - replace with actual metadata when available:
-    // if (thread.viewingStatus == "pending") { ... }
-    // if (thread.applicationStatus == "approved") { ... }
-
-    val mockType = thread.id.hashCode().mod(5)
-    when (mockType) {
-        0 -> {
-            // Pending Viewing
+    // Booking/Viewing status badge
+    when (thread.bookingStatus?.lowercase()) {
+        "pending" -> {
             badges.add(StatusBadge(
                 icon = Icons.Filled.CalendarMonth,
-                backgroundColor = Color(0xFFFF9500) // Orange
+                backgroundColor = Color(0xFFFF9500) // Orange for pending
             ))
         }
-        1 -> {
-            // Approved Viewing
+        "confirmed", "approved" -> {
             badges.add(StatusBadge(
                 icon = Icons.Filled.CalendarMonth,
-                backgroundColor = Color(0xFF34C759) // Green
+                backgroundColor = Color(0xFF34C759) // Green for confirmed/approved
             ))
         }
-        2 -> {
-            // Pending Application
+    }
+
+    // Application status badge
+    when (thread.applicationStatus?.lowercase()) {
+        "pending" -> {
             badges.add(StatusBadge(
                 icon = Icons.Filled.Description,
-                backgroundColor = Color(0xFFFF9500) // Orange
+                backgroundColor = Color(0xFFFF9500) // Orange for pending
             ))
         }
-        3 -> {
-            // Approved Application
+        "approved" -> {
             badges.add(StatusBadge(
                 icon = Icons.Filled.Description,
-                backgroundColor = Color(0xFF34C759) // Green
+                backgroundColor = Color(0xFF34C759) // Green for approved
             ))
         }
-        // 4 -> No badges
     }
 
     return badges

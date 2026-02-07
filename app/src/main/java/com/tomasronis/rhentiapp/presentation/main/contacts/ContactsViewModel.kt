@@ -143,7 +143,8 @@ class ContactsViewModel @Inject constructor(
                     totalMessages = contact.totalMessages,
                     totalCalls = contact.totalCalls,
                     lastActivity = contact.lastActivity,
-                    createdAt = System.currentTimeMillis()
+                    createdAt = System.currentTimeMillis(),
+                    channel = contact.channel
                 )
                 _uiState.update {
                     it.copy(

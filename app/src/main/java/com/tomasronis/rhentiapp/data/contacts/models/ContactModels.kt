@@ -16,7 +16,8 @@ data class Contact(
     val propertyIds: List<String>,
     val totalMessages: Int,
     val totalCalls: Int,
-    val lastActivity: Long?
+    val lastActivity: Long?,
+    val channel: String? // Channel/platform source (e.g., "facebook", "kijiji", "rhenti")
 ) {
     /**
      * Display name combining first and last name.
@@ -49,7 +50,8 @@ data class ContactProfile(
     val totalMessages: Int,
     val totalCalls: Int,
     val lastActivity: Long?,
-    val createdAt: Long
+    val createdAt: Long,
+    val channel: String? // Channel/platform source (e.g., "facebook", "kijiji", "rhenti")
 ) {
     val displayName: String
         get() = listOfNotNull(firstName, lastName)

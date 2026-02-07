@@ -51,8 +51,8 @@ interface ApiClient {
         @Body message: Map<String, @JvmSuppressWildcards Any>
     ): Map<String, @JvmSuppressWildcards Any>
 
-    @PUT("/chat-hub/threads/{threadId}/badge")
-    suspend fun clearBadge(@Path("threadId") threadId: String): Map<String, @JvmSuppressWildcards Any>
+    @POST("/clearMessageBadge/")
+    suspend fun clearBadge(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
 
     @POST("/chat-hub/bookings/{bookingId}")
     suspend fun handleBooking(

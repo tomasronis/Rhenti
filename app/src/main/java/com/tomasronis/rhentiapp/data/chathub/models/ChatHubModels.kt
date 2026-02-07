@@ -1,11 +1,14 @@
 package com.tomasronis.rhentiapp.data.chathub.models
 
+import androidx.compose.runtime.Immutable
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
  * Domain model for a chat thread.
+ * Marked @Immutable for Compose stability and performance.
  */
+@Immutable
 data class ChatThread(
     val id: String,
     val displayName: String,
@@ -19,7 +22,14 @@ data class ChatThread(
     val renterId: String?,
     val ownerId: String?,
     val isPinned: Boolean,
-    val members: Map<String, Int>? // CRITICAL: Member IDs mapped to badge counts
+    val members: Map<String, Int>?, // CRITICAL: Member IDs mapped to badge counts
+
+    // New fields from iOS implementation
+    val address: String?, // Property address
+    val propertyId: String?, // Property ID
+    val applicationStatus: String?, // Application status (e.g., "pending", "approved")
+    val bookingStatus: String?, // Viewing/booking status (e.g., "pending", "confirmed")
+    val channel: String? // Channel/platform source (e.g., "facebook", "kijiji", "rhenti")
 ) {
     /**
      * Get the members object for sending messages.
@@ -31,7 +41,9 @@ data class ChatThread(
 
 /**
  * Domain model for a chat message.
+ * Marked @Immutable for Compose stability and performance.
  */
+@Immutable
 data class ChatMessage(
     val id: String,
     val threadId: String,
@@ -46,7 +58,9 @@ data class ChatMessage(
 
 /**
  * Metadata for booking messages.
+ * Marked @Immutable for Compose stability and performance.
  */
+@Immutable
 data class MessageMetadata(
     val bookingId: String?,
     val propertyAddress: String?,
@@ -108,4 +122,27 @@ data class AlternativeTimesRequest(
     val alternativeTimes: List<String>,
     @Json(name = "super_account_id")
     val superAccountId: String
+)
+
+/**
+ * Chat member for clear badge request.
+ */
+@JsonClass(generateAdapter = true)
+data class ChatMember(
+    @Json(name = "uid")
+    val uid: String
+)
+
+/**
+ * Request to clear unread message badge.
+ * Matches iOS implementation for proper badge clearing.
+ */
+@JsonClass(generateAdapter = true)
+data class ClearBadgeRequest(
+    @Json(name = "allMembersObjArr")
+    val allMembersObjArr: List<ChatMember>,
+    @Json(name = "chatSessionId")
+    val chatSessionId: String,
+    @Json(name = "currentUserId")
+    val currentUserId: String
 )

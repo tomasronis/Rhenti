@@ -6,6 +6,8 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -41,6 +44,7 @@ fun ThreadDetailScreen(
     onNavigateBack: () -> Unit,
     onCall: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateToContact: (ChatThread) -> Unit = {},
     viewModel: ChatHubViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -121,7 +125,13 @@ fun ThreadDetailScreen(
                             fontSize = 17.sp
                         ),
                         color = Color.White,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onNavigateToContact(thread)
+                        }
                     )
                     // Renter email (if available)
                     if (!thread.email.isNullOrBlank()) {
@@ -150,24 +160,35 @@ fun ThreadDetailScreen(
                 }
 
                 // Circular call button
-                IconButton(
-                    onClick = {
-                        thread.phone?.let { phoneNumber ->
-                            onCall(phoneNumber)
-                        }
-                    },
-                    enabled = thread.phone != null,
+                val hasPhone = !thread.phone.isNullOrBlank()
+                Box(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            color = if (thread.phone != null) Color(0xFF2C2C2E) else Color(0xFF1C1C1E),
+                            color = if (hasPhone) Color(0xFF2C2C2E) else Color(0xFF1C1C1E),
                             shape = CircleShape
                         )
+                        .then(
+                            if (hasPhone) {
+                                Modifier.clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    thread.phone?.let { phoneNumber ->
+                                        onCall(phoneNumber)
+                                    }
+                                }
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .alpha(if (hasPhone) 1f else 0.4f),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Phone,
-                        contentDescription = "Call",
-                        tint = if (thread.phone != null) Color.White else Color(0xFF8E8E93),
+                        contentDescription = if (hasPhone) "Call" else "No phone number",
+                        tint = if (hasPhone) Color.White else Color(0xFF8E8E93),
                         modifier = Modifier.size(20.dp)
                     )
                 }

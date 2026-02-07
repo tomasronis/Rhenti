@@ -70,6 +70,12 @@ android {
     }
 }
 
+// Compose Compiler Configuration - generates stability reports
+composeCompiler {
+    reportsDestination = layout.buildDirectory.dir("compose_reports")
+    metricsDestination = layout.buildDirectory.dir("compose_metrics")
+}
+
 dependencies {
     // Core Android
     implementation(libs.androidx.core.ktx)

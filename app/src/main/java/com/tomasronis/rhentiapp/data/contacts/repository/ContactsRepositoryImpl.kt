@@ -79,7 +79,8 @@ class ContactsRepositoryImpl @Inject constructor(
                 totalMessages = cachedContact.totalMessages,
                 totalCalls = cachedContact.totalCalls,
                 lastActivity = cachedContact.lastActivity,
-                createdAt = cachedContact.createdAt
+                createdAt = cachedContact.createdAt,
+                channel = cachedContact.channel
             )
 
             NetworkResult.Success(profile)
@@ -166,8 +167,11 @@ class ContactsRepositoryImpl @Inject constructor(
                 if (BuildConfig.DEBUG && email.isNullOrBlank()) {
                     android.util.Log.w("ContactsRepository", "Contact $id ($firstName $lastName) has no email: $contactData")
                 }
-                val avatarUrl = contactData["avatar_url"] as? String
+                val avatarUrlRaw = contactData["avatar_url"] as? String
                     ?: contactData["avatarUrl"] as? String
+                    ?: contactData["image"] as? String
+                    ?: contactData["imageUrl"] as? String
+                val avatarUrl = avatarUrlRaw?.let { buildFullImageUrl(it) }
 
                 @Suppress("UNCHECKED_CAST")
                 val propertyIds = (contactData["property_ids"] as? List<String>)
@@ -185,6 +189,15 @@ class ContactsRepositoryImpl @Inject constructor(
                 val lastActivity = (contactData["last_activity"] as? Number
                     ?: contactData["lastActivity"] as? Number)?.toLong()
 
+                val channel = contactData["channel"] as? String
+
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "ContactsRepository",
+                        "Parsed contact: id=$id, name=$firstName $lastName, avatarUrl=$avatarUrl, channel=$channel"
+                    )
+                }
+
                 contacts.add(
                     Contact(
                         id = id,
@@ -196,7 +209,8 @@ class ContactsRepositoryImpl @Inject constructor(
                         propertyIds = propertyIds,
                         totalMessages = totalMessages,
                         totalCalls = totalCalls,
-                        lastActivity = lastActivity
+                        lastActivity = lastActivity,
+                        channel = channel
                     )
                 )
             } catch (e: Exception) {
@@ -220,8 +234,11 @@ class ContactsRepositoryImpl @Inject constructor(
             ?: response["lastName"] as? String
         val email = response["email"] as? String
         val phone = response["phone"] as? String
-        val avatarUrl = response["avatar_url"] as? String
+        val avatarUrlRaw = response["avatar_url"] as? String
             ?: response["avatarUrl"] as? String
+            ?: response["image"] as? String
+            ?: response["imageUrl"] as? String
+        val avatarUrl = avatarUrlRaw?.let { buildFullImageUrl(it) }
         val role = response["role"] as? String
         val notes = response["notes"] as? String
 
@@ -261,6 +278,8 @@ class ContactsRepositoryImpl @Inject constructor(
             }
         }
 
+        val channel = response["channel"] as? String
+
         return ContactProfile(
             id = id,
             firstName = firstName,
@@ -274,7 +293,8 @@ class ContactsRepositoryImpl @Inject constructor(
             totalMessages = totalMessages,
             totalCalls = totalCalls,
             lastActivity = lastActivity,
-            createdAt = createdAt
+            createdAt = createdAt,
+            channel = channel
         )
     }
 }
@@ -294,7 +314,8 @@ private fun Contact.toCachedContact(): CachedContact {
         totalCalls = totalCalls,
         lastActivity = lastActivity,
         createdAt = System.currentTimeMillis(),
-        updatedAt = System.currentTimeMillis()
+        updatedAt = System.currentTimeMillis(),
+        channel = channel
     )
 }
 
@@ -309,6 +330,21 @@ private fun CachedContact.toDomainModel(): Contact {
         propertyIds = propertyIds?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
         totalMessages = totalMessages,
         totalCalls = totalCalls,
-        lastActivity = lastActivity
+        lastActivity = lastActivity,
+        channel = channel
     )
+}
+
+/**
+ * Build full image URL from partial path.
+ * If the URL is already complete (starts with http), return as-is.
+ * Otherwise, prepend the UAT image base URL.
+ */
+private fun buildFullImageUrl(imagePath: String): String {
+    return if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+        imagePath
+    } else {
+        // UAT image base URL
+        "https://uatimgs.rhenti.com/images/${imagePath.trimStart('/')}"
+    }
 }

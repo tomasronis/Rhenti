@@ -20,7 +20,8 @@ data class CachedContact(
     val totalCalls: Int,
     val lastActivity: Long?,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val channel: String? = null // Channel/platform source (e.g., "facebook", "kijiji", "rhenti")
 ) {
     /**
      * Returns the first letter of the contact's last name for section grouping.

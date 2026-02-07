@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -174,6 +176,7 @@ fun ThreadListScreen(
 
 /**
  * List of threads with swipe actions.
+ * Optimized for smooth scrolling performance.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,21 +193,24 @@ private fun ThreadList(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp,
-                bottom = 0.dp  // Minimize gap between last thread and bottom tabs
+                start = 0.dp,
+                end = 0.dp,
+                top = 0.dp,
+                bottom = 16.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp) // No spacing for better performance
         ) {
             items(
                 items = threads,
-                key = { it.id }
+                key = { it.id },
+                contentType = { "thread" } // Helps with composition reuse
             ) { thread ->
-                // Temporarily removed swipe functionality for performance testing
+                // CRITICAL: Remember the lambda to avoid allocation on every recomposition
+                val onClick = remember(thread.id) { { onThreadClick(thread) } }
+
                 ThreadCard(
                     thread = thread,
-                    onClick = { onThreadClick(thread) }
+                    onClick = onClick
                 )
             }
         }

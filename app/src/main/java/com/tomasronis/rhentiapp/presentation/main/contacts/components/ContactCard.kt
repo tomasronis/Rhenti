@@ -30,6 +30,12 @@ fun ContactCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Debug logging
+    android.util.Log.d(
+        "ContactCard",
+        "Contact: ${contact.displayName}, avatarUrl=${contact.avatarUrl}, channel=${contact.channel}"
+    )
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -168,6 +174,22 @@ fun ContactCard(
                         )
                     }
                 }
+
+                // Channel tag
+                if (contact.channel != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = getPlatformName(contact.channel),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
 
             // Chevron icon
@@ -196,20 +218,21 @@ private fun ContactAvatar(
             .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center
     ) {
-        if (avatarUrl != null) {
+        // Always show initials as background/fallback
+        Text(
+            text = getInitials(displayName),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold
+        )
+
+        // Show image if available (overlays initials)
+        if (!avatarUrl.isNullOrBlank()) {
             AsyncImage(
                 model = avatarUrl,
                 contentDescription = "Avatar",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
-            )
-        } else {
-            // Show initials
-            Text(
-                text = getInitials(displayName),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -246,5 +269,20 @@ private fun formatTimestamp(timestamp: Long): String {
             val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
             dateFormat.format(Date(timestamp))
         }
+    }
+}
+
+/**
+ * Get platform name from channel data.
+ * Maps channel names to display names.
+ */
+private fun getPlatformName(channel: String?): String {
+    return when (channel?.lowercase()) {
+        "facebook" -> "Facebook"
+        "kijiji" -> "Kijiji"
+        "zumper" -> "Zumper"
+        "rhenti" -> "rhenti"
+        "facebook-listing-page", "facebook_listing_page" -> "Rhenti-powered listing pages"
+        else -> channel?.replaceFirstChar { it.uppercase() } ?: "Unknown"
     }
 }

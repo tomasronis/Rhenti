@@ -17,6 +17,8 @@ import com.tomasronis.rhentiapp.core.database.entities.*
  *
  * Version 1 - Initial schema
  * Version 2 - Added members field to CachedThread
+ * Version 3 - Added address, propertyId, applicationStatus, bookingStatus, channel to CachedThread
+ * Version 4 - Added channel field to CachedContact
  */
 @Database(
     entities = [
@@ -26,7 +28,7 @@ import com.tomasronis.rhentiapp.core.database.entities.*
         CachedContact::class,
         CachedCallLog::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
