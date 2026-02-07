@@ -19,7 +19,7 @@ import com.tomasronis.rhentiapp.data.calls.models.CallType
 import com.tomasronis.rhentiapp.presentation.calls.components.CallLogCard
 import com.tomasronis.rhentiapp.presentation.calls.components.DialNumberDialog
 import com.tomasronis.rhentiapp.presentation.calls.components.EmptyCallsState
-import com.tomasronis.rhentiapp.presentation.calls.components.FilterSheet
+import com.tomasronis.rhentiapp.presentation.calls.components.CallFiltersModal
 import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
 import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 import java.text.SimpleDateFormat
@@ -80,9 +80,12 @@ fun CallsScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
-                    // Filter icon
+                    // Filter icon with badge when filter is active
                     IconButton(onClick = { showFilterSheet = true }) {
-                        FilterIcon(tint = MaterialTheme.colorScheme.onBackground)
+                        FilterIcon(
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            showBadge = uiState.selectedFilter != null
+                        )
                     }
                 }
 
@@ -90,7 +93,7 @@ fun CallsScreen(
                 RhentiSearchBar(
                     query = searchQuery,
                     onQueryChange = { viewModel.searchCalls(it) },
-                    placeholder = "Search calls",
+                    placeholder = "Search by name or number",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
@@ -147,39 +150,12 @@ fun CallsScreen(
                     }
                 }
             }
-
-            // Active filter chips
-            if (uiState.selectedFilter != null || uiState.startDate != null) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Filters active",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        TextButton(
-                            onClick = { viewModel.clearFilters() }
-                        ) {
-                            Text("Clear")
-                        }
-                    }
-                }
-            }
         }
     }
 
-    // Filter sheet
+    // Filter modal
     if (showFilterSheet) {
-        FilterSheet(
+        CallFiltersModal(
             selectedType = uiState.selectedFilter,
             onTypeSelected = { viewModel.filterByType(it) },
             onDismiss = { showFilterSheet = false }
@@ -218,14 +194,21 @@ private fun CallLogsList(
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         groupedCalls.forEach { (dateHeader, calls) ->
-            // Date header - iOS style
+            // Date header - iOS style with more visual separation
             item(key = "header_$dateHeader") {
-                Text(
-                    text = dateHeader,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 8.dp)
+                ) {
+                    Text(
+                        text = dateHeader,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
             }
 
             // Call logs for this date
@@ -244,6 +227,11 @@ private fun CallLogsList(
                     },
                     onCallClick = { onCallClick(callLog.contactPhone) }
                 )
+            }
+
+            // Add spacing after each date group for visual separation
+            item(key = "spacer_$dateHeader") {
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }

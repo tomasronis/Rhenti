@@ -28,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import com.tomasronis.rhentiapp.data.contacts.models.ContactProperty
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -504,7 +505,7 @@ private fun ContactInfoRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF8E8E93),
+                tint = RhentiCoral,
                 modifier = Modifier.size(20.dp)
             )
             Text(
@@ -569,7 +570,7 @@ private fun ExpandableSection(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = Color(0xFF8E8E93),
+                        tint = RhentiCoral,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
@@ -742,7 +743,7 @@ private fun PropertyCard(
             Icon(
                 imageVector = Icons.Filled.Home,
                 contentDescription = null,
-                tint = Color(0xFF8E8E93),
+                tint = RhentiCoral,
                 modifier = Modifier.size(20.dp)
             )
 

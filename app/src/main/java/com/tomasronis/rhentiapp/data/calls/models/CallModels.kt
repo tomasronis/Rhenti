@@ -10,13 +10,15 @@ data class CallLog(
     val id: String,
     val contactId: String?,
     val contactName: String?,
-    val contactPhone: String,
+    val contactPhone: String, // The contact's phone number (resolved based on call direction)
     val contactAvatar: String?,
     val callType: CallType,
     val duration: Int, // seconds
     val timestamp: Long, // milliseconds
     val twilioCallSid: String?,
-    val status: CallStatus
+    val status: CallStatus,
+    val callerNumber: String? = null, // The "from" number (raw from API)
+    val receiverNumber: String? = null // The "to" number (raw from API)
 )
 
 /**

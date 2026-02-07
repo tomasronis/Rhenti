@@ -28,10 +28,10 @@ data class Contact(
             .ifBlank { email ?: phone ?: "Unknown Contact" }
 
     /**
-     * Section letter for grouped list (first letter of last name).
+     * Section letter for grouped list (first letter of first name).
      */
     val sectionLetter: String
-        get() = lastName?.firstOrNull()?.uppercaseChar()?.toString() ?: "#"
+        get() = firstName?.firstOrNull()?.uppercaseChar()?.toString() ?: "#"
 }
 
 /**

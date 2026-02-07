@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -40,8 +41,10 @@ fun ContactsListScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val hideContactsWithoutName by viewModel.hideContactsWithoutName.collectAsState()
     val listState = rememberLazyListState()
     var showFiltersModal by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         viewModel.refreshContacts()
@@ -70,9 +73,12 @@ fun ContactsListScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
-                    // Filter icon
+                    // Filter icon with badge when filter is active
                     IconButton(onClick = { showFiltersModal = true }) {
-                        FilterIcon(tint = MaterialTheme.colorScheme.onBackground)
+                        FilterIcon(
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            showBadge = hideContactsWithoutName
+                        )
                     }
                 }
 
@@ -121,7 +127,8 @@ fun ContactsListScreen(
                             contacts = uiState.contacts,
                             onContactClick = onContactClick,
                             listState = listState,
-                            isRefreshing = uiState.isLoading
+                            isRefreshing = uiState.isLoading,
+                            coroutineScope = coroutineScope
                         )
                     }
                 }
@@ -153,17 +160,12 @@ fun ContactsListScreen(
             }
         }
 
-        // Filters modal (placeholder for future implementation)
+        // Filters modal
         if (showFiltersModal) {
-            AlertDialog(
-                onDismissRequest = { showFiltersModal = false },
-                title = { Text("Filters") },
-                text = { Text("Contact filters coming soon") },
-                confirmButton = {
-                    TextButton(onClick = { showFiltersModal = false }) {
-                        Text("OK")
-                    }
-                }
+            ContactFiltersModal(
+                hideContactsWithoutName = hideContactsWithoutName,
+                onHideContactsWithoutNameChange = { viewModel.setHideContactsWithoutName(it) },
+                onDismiss = { showFiltersModal = false }
             )
         }
     }
@@ -179,11 +181,24 @@ private fun ContactsListWithIndex(
     onContactClick: (Contact) -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState,
     isRefreshing: Boolean,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
     modifier: Modifier = Modifier
 ) {
     // Group contacts by first letter
     val groupedContacts = contacts.groupBy { it.sectionLetter }.toSortedMap()
     val alphabet = listOf("#") + ('A'..'Z').map { it.toString() }
+
+    // Build a map of section letter to list index
+    val sectionIndices = remember(groupedContacts) {
+        val indices = mutableMapOf<String, Int>()
+        var currentIndex = 0
+        groupedContacts.forEach { (letter, contactsInSection) ->
+            indices[letter] = currentIndex
+            // +1 for header, +size for contacts
+            currentIndex += 1 + contactsInSection.size
+        }
+        indices
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         // Contacts list
@@ -221,30 +236,44 @@ private fun ContactsListWithIndex(
             }
         }
 
-        // Alphabetical index on the right
+        // Alphabetical index on the right - iOS style with tap to scroll
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 8.dp),
+                .fillMaxHeight() // Fill height to show all letters
+                .wrapContentWidth()
+                .padding(end = 4.dp, top = 0.dp, bottom = 0.dp), // No top/bottom padding
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.SpaceEvenly // Distribute evenly to fill height
         ) {
             alphabet.forEach { letter ->
-                Text(
-                    text = letter,
-                    fontSize = 11.sp,
-                    color = if (groupedContacts.containsKey(letter)) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                    },
-                    fontWeight = FontWeight.SemiBold,
+                // Wider touch target for easier selection
+                Box(
                     modifier = Modifier
-                        .padding(vertical = 1.dp)
+                        .width(24.dp) // Wider touch target
+                        .weight(1f) // Equal weight for each letter - fills available space
                         .clickable(enabled = groupedContacts.containsKey(letter)) {
-                            // TODO: Scroll to section
-                        }
-                )
+                            // Scroll to the section
+                            val index = sectionIndices[letter]
+                            if (index != null) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index)
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = letter,
+                        fontSize = 8.sp, // Even smaller to ensure all 27 fit
+                        color = if (groupedContacts.containsKey(letter)) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        },
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

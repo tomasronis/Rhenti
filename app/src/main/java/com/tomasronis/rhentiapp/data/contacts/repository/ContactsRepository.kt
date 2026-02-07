@@ -41,4 +41,9 @@ interface ContactsRepository {
      * Refresh contacts from API.
      */
     suspend fun refreshContacts(superAccountId: String): NetworkResult<Unit>
+
+    /**
+     * Update a contact in the cache (e.g., to add imageUrl and channel from thread).
+     */
+    suspend fun updateContact(contact: Contact)
 }

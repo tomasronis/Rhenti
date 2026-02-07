@@ -95,6 +95,7 @@ fun MainTabScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             // iOS-styled bottom navigation with dark rounded pill container
             Surface(
@@ -203,7 +204,7 @@ fun MainTabScreen(
                         },
                         label = {
                             Text(
-                                "Call",
+                                "Calls",
                                 style = MaterialTheme.typography.labelSmall
                             )
                         },

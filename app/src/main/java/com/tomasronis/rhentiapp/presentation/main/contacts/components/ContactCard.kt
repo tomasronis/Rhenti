@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -84,7 +85,7 @@ fun ContactCard(
                                 imageVector = Icons.Filled.Email,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = RhentiCoral
                             )
                             Text(
                                 text = contact.email,
@@ -108,7 +109,7 @@ fun ContactCard(
                                 imageVector = Icons.Filled.Phone,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = RhentiCoral
                             )
                             Text(
                                 text = contact.phone,
@@ -137,7 +138,7 @@ fun ContactCard(
                                 imageVector = Icons.Filled.Chat,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = RhentiCoral
                             )
                             Text(
                                 text = "${contact.totalMessages}",
@@ -156,7 +157,7 @@ fun ContactCard(
                                 imageVector = Icons.Filled.Phone,
                                 contentDescription = null,
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = RhentiCoral
                             )
                             Text(
                                 text = "${contact.totalCalls}",

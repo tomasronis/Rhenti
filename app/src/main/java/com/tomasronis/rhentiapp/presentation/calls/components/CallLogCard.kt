@@ -1,7 +1,6 @@
 package com.tomasronis.rhentiapp.presentation.calls.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -11,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,70 +37,186 @@ fun CallLogCard(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Call type icon (green incoming, blue outgoing, red missed)
-            Icon(
-                imageVector = when (callLog.callType) {
-                    CallType.INCOMING -> Icons.Filled.PhoneInTalk
-                    CallType.OUTGOING -> Icons.Filled.PhoneForwarded
-                    CallType.MISSED -> Icons.Filled.PhoneMissed
-                },
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = when (callLog.callType) {
-                    CallType.INCOMING -> Success
-                    CallType.OUTGOING -> AccentBlue
-                    CallType.MISSED -> MaterialTheme.colorScheme.error
-                }
-            )
-
-            // Name and time
-            Column(
-                modifier = Modifier.weight(1f)
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = callLog.contactName ?: callLog.contactPhone,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
-                    fontWeight = FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                // Avatar or call type icon
+                Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!callLog.contactAvatar.isNullOrBlank()) {
+                        // Show contact avatar
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Fallback icon shown behind the image
+                            Icon(
+                                imageVector = Icons.Filled.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            AsyncImage(
+                                model = callLog.contactAvatar,
+                                contentDescription = "Contact avatar",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
 
-                Spacer(modifier = Modifier.height(2.dp))
+                        // Call type badge indicator (small icon overlay at bottom-right)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.background),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = when (callLog.callType) {
+                                    CallType.INCOMING -> Icons.Filled.CallReceived
+                                    CallType.OUTGOING -> Icons.Filled.CallMade
+                                    CallType.MISSED -> Icons.Filled.CallMissed
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = when (callLog.callType) {
+                                    CallType.INCOMING -> Success
+                                    CallType.OUTGOING -> AccentBlue
+                                    CallType.MISSED -> MaterialTheme.colorScheme.error
+                                }
+                            )
+                        }
+                    } else if (!callLog.contactName.isNullOrBlank()) {
+                        // Show initials avatar
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = getInitials(callLog.contactName),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
 
+                        // Call type badge indicator
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.background),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = when (callLog.callType) {
+                                    CallType.INCOMING -> Icons.Filled.CallReceived
+                                    CallType.OUTGOING -> Icons.Filled.CallMade
+                                    CallType.MISSED -> Icons.Filled.CallMissed
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = when (callLog.callType) {
+                                    CallType.INCOMING -> Success
+                                    CallType.OUTGOING -> AccentBlue
+                                    CallType.MISSED -> MaterialTheme.colorScheme.error
+                                }
+                            )
+                        }
+                    } else {
+                        // No avatar or name - show call type icon only (original behavior)
+                        Icon(
+                            imageVector = when (callLog.callType) {
+                                CallType.INCOMING -> Icons.Filled.CallReceived
+                                CallType.OUTGOING -> Icons.Filled.CallMade
+                                CallType.MISSED -> Icons.Filled.CallMissed
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = when (callLog.callType) {
+                                CallType.INCOMING -> Success
+                                CallType.OUTGOING -> AccentBlue
+                                CallType.MISSED -> MaterialTheme.colorScheme.error
+                            }
+                        )
+                    }
+                }
+
+                // Name and time
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Display name if available, otherwise phone number, otherwise "Unknown"
+                    val displayName = when {
+                        !callLog.contactName.isNullOrBlank() -> callLog.contactName
+                        callLog.contactPhone.isNotBlank() -> callLog.contactPhone
+                        else -> "Unknown"
+                    }
+
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    // Show phone number as subtitle if we're showing the name
+                    if (!callLog.contactName.isNullOrBlank() && callLog.contactPhone.isNotBlank()) {
+                        Text(
+                            text = callLog.contactPhone,
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
+
+                    Text(
+                        text = formatCallTime(callLog.timestamp),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Duration
                 Text(
-                    text = formatCallTime(callLog.timestamp),
+                    text = if (callLog.duration > 0) formatDuration(callLog.duration) else "0:00",
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                // Chevron
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = "View details",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
-            // Duration
-            Text(
-                text = if (callLog.duration > 0) formatDuration(callLog.duration) else "0:00",
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // Chevron
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = "View details",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                modifier = Modifier.size(20.dp)
+            // Divider at bottom
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 68.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
         }
-
-        // Divider at bottom
-        HorizontalDivider(
-            modifier = Modifier.padding(start = 52.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        )
     }
 }
 

@@ -9,10 +9,12 @@ import com.tomasronis.rhentiapp.core.utils.PhoneNumberFormatter
 import com.tomasronis.rhentiapp.data.calls.models.CallStatus
 import com.tomasronis.rhentiapp.data.calls.models.CallType
 import com.tomasronis.rhentiapp.data.calls.repository.CallsRepository
+import com.tomasronis.rhentiapp.data.chathub.repository.ChatHubRepository
 import com.twilio.voice.*
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,14 +28,25 @@ import javax.inject.Singleton
  */
 sealed class CallState {
     object Idle : CallState()
-    data class Ringing(val phoneNumber: String, val callSid: String?) : CallState()
-    data class Dialing(val phoneNumber: String) : CallState()
+    data class Ringing(
+        val phoneNumber: String,
+        val callSid: String?,
+        val contactName: String? = null,
+        val contactAvatar: String? = null
+    ) : CallState()
+    data class Dialing(
+        val phoneNumber: String,
+        val contactName: String? = null,
+        val contactAvatar: String? = null
+    ) : CallState()
     data class Active(
         val phoneNumber: String,
         val callSid: String?,
         val duration: Int = 0,
         val isMuted: Boolean = false,
-        val isSpeakerOn: Boolean = false
+        val isSpeakerOn: Boolean = false,
+        val contactName: String? = null,
+        val contactAvatar: String? = null
     ) : CallState()
     data class Ended(val reason: String?) : CallState()
     data class Failed(val error: String) : CallState()
@@ -47,7 +60,9 @@ sealed class CallState {
 class TwilioManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val callsRepository: CallsRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val contactsRepository: com.tomasronis.rhentiapp.data.contacts.repository.ContactsRepository,
+    private val chatHubRepository: ChatHubRepository
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val audioManager = VoipAudioManager(context)
@@ -62,6 +77,131 @@ class TwilioManager @Inject constructor(
 
     private var callStartTime: Long = 0
     private var durationTimerJob: kotlinx.coroutines.Job? = null
+
+    // Store the phone number and call type for logging after call ends
+    private var currentCallPhoneNumber: String? = null
+    private var currentCallType: CallType? = null
+    private var currentContactName: String? = null
+    private var currentContactAvatar: String? = null
+    private var currentContactId: String? = null
+
+    /**
+     * Contact info data class for lookup results from contacts or threads.
+     */
+    data class ContactInfo(
+        val id: String?,
+        val displayName: String,
+        val avatarUrl: String?
+    )
+
+    /**
+     * Look up contact by phone number from contacts list and chat threads.
+     * Returns a ContactInfo with the best available name and avatar.
+     */
+    private suspend fun lookupContactInfoByPhone(phoneNumber: String): ContactInfo? {
+        val normalizedSearch = phoneNumber.replace(Regex("[^0-9+]"), "")
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Looking up contact info for: $phoneNumber (normalized: $normalizedSearch)")
+        }
+
+        // First try: look up from contacts repository
+        val contactInfo = lookupFromContacts(normalizedSearch)
+        if (contactInfo != null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Found contact from contacts repo: ${contactInfo.displayName}, avatar: ${contactInfo.avatarUrl}")
+            }
+            return contactInfo
+        }
+
+        // Second try: look up from chat threads (message threads may have contact info)
+        val threadInfo = lookupFromThreads(normalizedSearch)
+        if (threadInfo != null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Found contact from threads: ${threadInfo.displayName}, avatar: ${threadInfo.avatarUrl}")
+            }
+            return threadInfo
+        }
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "No contact info found for $phoneNumber in contacts or threads")
+        }
+        return null
+    }
+
+    /**
+     * Look up contact by phone number from contacts repository.
+     */
+    private suspend fun lookupFromContacts(normalizedSearch: String): ContactInfo? {
+        return try {
+            val superAccountId = tokenManager.getSuperAccountId() ?: return null
+
+            when (val result = contactsRepository.getContacts(superAccountId)) {
+                is NetworkResult.Success -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Got ${result.data.size} contacts to search")
+                    }
+
+                    val contact = result.data.firstOrNull { contact ->
+                        val contactPhone = contact.phone?.replace(Regex("[^0-9+]"), "") ?: ""
+                        contactPhone == normalizedSearch ||
+                        contactPhone.endsWith(normalizedSearch.takeLast(10)) ||
+                        normalizedSearch.endsWith(contactPhone.takeLast(10))
+                    }
+
+                    contact?.let {
+                        ContactInfo(
+                            id = it.id,
+                            displayName = it.displayName,
+                            avatarUrl = it.avatarUrl
+                        )
+                    }
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.e(TAG, "Failed to lookup from contacts", e)
+            }
+            null
+        }
+    }
+
+    /**
+     * Look up contact by phone number from cached chat threads.
+     * Threads store phone, displayName, and imageUrl for each participant.
+     */
+    private suspend fun lookupFromThreads(normalizedSearch: String): ContactInfo? {
+        return try {
+            val threads = chatHubRepository.observeThreads().firstOrNull() ?: return null
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Searching ${threads.size} cached threads for phone match")
+            }
+
+            val matchingThread = threads.firstOrNull { thread ->
+                val threadPhone = thread.phone?.replace(Regex("[^0-9+]"), "") ?: ""
+                threadPhone.isNotBlank() && (
+                    threadPhone == normalizedSearch ||
+                    threadPhone.endsWith(normalizedSearch.takeLast(10)) ||
+                    normalizedSearch.endsWith(threadPhone.takeLast(10))
+                )
+            }
+
+            matchingThread?.let {
+                ContactInfo(
+                    id = it.renterId ?: it.id,
+                    displayName = it.displayName,
+                    avatarUrl = it.imageUrl
+                )
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.e(TAG, "Failed to lookup from threads", e)
+            }
+            null
+        }
+    }
 
     companion object {
         private const val TAG = "TwilioManager"
@@ -146,13 +286,54 @@ class TwilioManager @Inject constructor(
                 Log.d(TAG, "Making outgoing call to: $phoneNumber (formatted: $formattedNumber)")
             }
 
+            // Store for call logging
+            currentCallPhoneNumber = formattedNumber
+            currentCallType = CallType.OUTGOING
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Stored for logging - phoneNumber: $currentCallPhoneNumber, callType: $currentCallType")
+            }
+
+            // Look up contact information before setting state (from contacts AND threads)
+            scope.launch {
+                val contactInfo = lookupContactInfoByPhone(formattedNumber)
+
+                if (contactInfo != null) {
+                    currentContactId = contactInfo.id
+                    currentContactName = contactInfo.displayName
+                    currentContactAvatar = contactInfo.avatarUrl
+
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Found contact info: ${contactInfo.displayName}, avatar: ${contactInfo.avatarUrl}")
+                    }
+
+                    // Update state with contact info
+                    if (_callState.value is CallState.Dialing) {
+                        _callState.value = CallState.Dialing(
+                            phoneNumber = formattedNumber,
+                            contactName = contactInfo.displayName,
+                            contactAvatar = contactInfo.avatarUrl
+                        )
+                    }
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "No contact info found for $formattedNumber in contacts or threads")
+                    }
+                }
+            }
+
+            // Set initial state (contact info will be added by lookup above)
             _callState.value = CallState.Dialing(formattedNumber)
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Set Dialing state with phoneNumber: $formattedNumber")
+            }
 
             // Backend workaround: Backend checks request.body.Caller.includes('client')
             // but Twilio sends caller as "From", not "Caller"
             // iOS sends both "to" (lowercase) and "Caller" parameters
             val params = hashMapOf<String, String>().apply {
-                put("to", phoneNumber)  // lowercase "to" - backend reads this
+                put("to", formattedNumber)  // Use formatted E.164 number - backend reads this
                 put("Caller", "client:${clientIdentity ?: "android"}")  // Backend needs this
             }
 
@@ -194,6 +375,45 @@ class TwilioManager @Inject constructor(
         try {
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Accepting incoming call from: ${invite.from}")
+            }
+
+            // Store for call logging
+            currentCallPhoneNumber = invite.from
+            currentCallType = CallType.INCOMING
+
+            // Look up contact info for the caller (from contacts AND threads)
+            val callerNumber = invite.from
+            if (callerNumber != null) {
+                scope.launch {
+                    val contactInfo = lookupContactInfoByPhone(callerNumber)
+                    if (contactInfo != null) {
+                        currentContactId = contactInfo.id
+                        currentContactName = contactInfo.displayName
+                        currentContactAvatar = contactInfo.avatarUrl
+
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Found incoming caller info: ${contactInfo.displayName}, avatar: ${contactInfo.avatarUrl}")
+                        }
+
+                        // Update call state with contact info
+                        val currentState = _callState.value
+                        when (currentState) {
+                            is CallState.Ringing -> {
+                                _callState.value = currentState.copy(
+                                    contactName = contactInfo.displayName,
+                                    contactAvatar = contactInfo.avatarUrl
+                                )
+                            }
+                            is CallState.Active -> {
+                                _callState.value = currentState.copy(
+                                    contactName = contactInfo.displayName,
+                                    contactAvatar = contactInfo.avatarUrl
+                                )
+                            }
+                            else -> {} // Do nothing for other states
+                        }
+                    }
+                }
             }
 
             val acceptOptions = AcceptOptions.Builder()
@@ -336,25 +556,49 @@ class TwilioManager @Inject constructor(
 
         override fun onRinging(call: Call) {
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Call ringing")
+                Log.d(TAG, "Call ringing - call.to: ${call.to}, call.from: ${call.from}")
             }
 
-            val phoneNumber = call.to ?: "Unknown"
-            _callState.value = CallState.Ringing(phoneNumber, call.sid)
+            // Preserve the phone number and contact info from Dialing state
+            val currentState = _callState.value
+            val (phoneNumber, contactName, contactAvatar) = if (currentState is CallState.Dialing) {
+                Triple(currentState.phoneNumber, currentState.contactName, currentState.contactAvatar)
+            } else {
+                Triple(call.from ?: "Unknown", null, null) // For incoming calls
+            }
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Call ringing - using phoneNumber: $phoneNumber, contactName: $contactName")
+            }
+
+            _callState.value = CallState.Ringing(phoneNumber, call.sid, contactName, contactAvatar)
         }
 
         override fun onConnected(call: Call) {
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Call connected")
+                Log.d(TAG, "Call connected - call.to: ${call.to}, call.from: ${call.from}")
             }
 
-            val phoneNumber = call.to ?: call.from ?: "Unknown"
+            // Preserve the phone number and contact info from previous state
+            val currentState = _callState.value
+            val (phoneNumber, contactName, contactAvatar) = when (currentState) {
+                is CallState.Dialing -> Triple(currentState.phoneNumber, currentState.contactName, currentState.contactAvatar)
+                is CallState.Ringing -> Triple(currentState.phoneNumber, currentState.contactName, currentState.contactAvatar)
+                else -> Triple(call.from ?: "Unknown", null, null) // For incoming calls
+            }
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Call connected - using phoneNumber: $phoneNumber, contactName: $contactName")
+            }
+
             _callState.value = CallState.Active(
                 phoneNumber = phoneNumber,
                 callSid = call.sid,
                 duration = 0,
                 isMuted = call.isMuted ?: false,
-                isSpeakerOn = false
+                isSpeakerOn = false,
+                contactName = contactName,
+                contactAvatar = contactAvatar
             )
 
             callStartTime = System.currentTimeMillis()
@@ -425,34 +669,59 @@ class TwilioManager @Inject constructor(
 
     /**
      * Record call log after call ends
+     * IMPORTANT: Must capture stored values immediately before they're cleared by cleanup()
      */
     private fun recordCallLog(call: Call, status: CallStatus) {
+        // CRITICAL: Capture values NOW before cleanup() clears them
+        val capturedPhoneNumber = currentCallPhoneNumber
+        val capturedCallType = currentCallType
+        val capturedContactId = currentContactId
+        val capturedDuration = if (callStartTime > 0) {
+            ((System.currentTimeMillis() - callStartTime) / 1000).toInt()
+        } else 0
+
         scope.launch {
             try {
-                val phoneNumber = call.to ?: call.from ?: return@launch
-                val duration = if (callStartTime > 0) {
-                    ((System.currentTimeMillis() - callStartTime) / 1000).toInt()
-                } else {
-                    0
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "=== RECORD CALL LOG START ===")
+                    Log.d(TAG, "Call object - to: ${call.to}, from: ${call.from}")
+                    Log.d(TAG, "Captured values - phone: $capturedPhoneNumber, type: $capturedCallType, contactId: $capturedContactId")
                 }
 
-                val callType = if (call.to != null) CallType.OUTGOING else CallType.INCOMING
+                // Use captured values (not current variables which may be cleared)
+                val phoneNumber = if (capturedPhoneNumber != null) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "✓ Using captured phone: $capturedPhoneNumber")
+                    }
+                    capturedPhoneNumber
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.e(TAG, "✗ WARNING: No captured phone! Using call.from: ${call.from}")
+                    }
+                    call.from ?: return@launch
+                }
+
+                val callType = capturedCallType ?: CallType.INCOMING
+
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Recording: phone=$phoneNumber, type=$callType, duration=$capturedDuration, contactId=$capturedContactId")
+                }
 
                 callsRepository.recordCallLog(
-                    contactId = null, // TODO: Look up contact by phone number
+                    contactId = capturedContactId,
                     phoneNumber = phoneNumber,
                     callType = callType,
-                    duration = duration,
+                    duration = capturedDuration,
                     twilioCallSid = call.sid,
                     status = status
                 )
 
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Call log recorded: $phoneNumber, duration: $duration")
+                    Log.d(TAG, "=== CALL LOG RECORDED ===")
                 }
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) {
-                    Log.e(TAG, "Failed to record call log", e)
+                    Log.e(TAG, "=== RECORD FAILED ===", e)
                 }
             }
         }
@@ -465,6 +734,11 @@ class TwilioManager @Inject constructor(
         activeCall = null
         callInvite = null
         callStartTime = 0
+        currentCallPhoneNumber = null
+        currentCallType = null
+        currentContactId = null
+        currentContactName = null
+        currentContactAvatar = null
         stopDurationTimer()
         audioManager.cleanup()
     }

@@ -7,6 +7,7 @@ import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.core.voip.TwilioManager
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,10 @@ import javax.inject.Inject
 @HiltViewModel
 class MainTabViewModel @Inject constructor(
     private val preferencesManager: PreferencesManager,
-    private val twilioManager: TwilioManager
+    private val twilioManager: TwilioManager,
+    private val chatHubRepository: com.tomasronis.rhentiapp.data.chathub.repository.ChatHubRepository,
+    private val contactsRepository: com.tomasronis.rhentiapp.data.contacts.repository.ContactsRepository,
+    private val tokenManager: com.tomasronis.rhentiapp.core.security.TokenManager
 ) : ViewModel() {
 
     private val _selectedTab = MutableStateFlow(0)
@@ -50,6 +54,52 @@ class MainTabViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesManager.selectedTab.collect { tab ->
                 _selectedTab.value = tab
+            }
+        }
+
+        // Preload data in background to sync contact avatars and channel tags
+        preloadDataForSync()
+    }
+
+    /**
+     * Preload threads and contacts in the background at app startup.
+     * This ensures profile pictures and channel tags are cached before user navigation.
+     */
+    private fun preloadDataForSync() {
+        viewModelScope.launch {
+            try {
+                val superAccountId = tokenManager.getSuperAccountId()
+                if (superAccountId != null) {
+                    android.util.Log.d("MainTabViewModel", "Starting background data sync...")
+
+                    // Fetch both threads and contacts in parallel for faster sync
+                    val threadsJob = async {
+                        try {
+                            chatHubRepository.getThreads(superAccountId, search = null)
+                            android.util.Log.d("MainTabViewModel", "Background threads sync completed")
+                        } catch (e: Exception) {
+                            android.util.Log.w("MainTabViewModel", "Background threads sync failed: ${e.message}")
+                        }
+                    }
+
+                    val contactsJob = async {
+                        try {
+                            contactsRepository.refreshContacts(superAccountId)
+                            android.util.Log.d("MainTabViewModel", "Background contacts sync completed")
+                        } catch (e: Exception) {
+                            android.util.Log.w("MainTabViewModel", "Background contacts sync failed: ${e.message}")
+                        }
+                    }
+
+                    // Wait for both to complete
+                    threadsJob.await()
+                    contactsJob.await()
+
+                    android.util.Log.d("MainTabViewModel", "Background data sync completed")
+                }
+            } catch (e: Exception) {
+                // Silent failure - this is just for background sync
+                android.util.Log.d("MainTabViewModel", "Background data sync failed: ${e.message}")
             }
         }
     }

@@ -70,16 +70,64 @@ fun ChatsTabContent(
                 onNavigateBack = { selectedThread = null },
                 onCall = onStartCall,
                 onNavigateToContact = { thread ->
-                    // Find matching contact by email or phone
+                    android.util.Log.d("ChatsPlaceholder", "=== NAVIGATE TO CONTACT ===")
+                    android.util.Log.d("ChatsPlaceholder", "Thread: ${thread.displayName}")
+                    android.util.Log.d("ChatsPlaceholder", "Thread imageUrl: ${thread.imageUrl}")
+                    android.util.Log.d("ChatsPlaceholder", "Thread channel: ${thread.channel}")
+                    android.util.Log.d("ChatsPlaceholder", "Thread email: ${thread.email}")
+                    android.util.Log.d("ChatsPlaceholder", "Thread phone: ${thread.phone}")
+                    android.util.Log.d("ChatsPlaceholder", "Thread renterId: ${thread.renterId}")
+                    android.util.Log.d("ChatsPlaceholder", "Available contacts: ${contactsUiState.contacts.size}")
+
+                    // Find matching contact - prioritize ID, then email, then phone
                     val matchingContact = contactsUiState.contacts.find { contact ->
-                        (!thread.email.isNullOrBlank() && contact.email == thread.email) ||
-                        (!thread.phone.isNullOrBlank() && contact.phone == thread.phone) ||
-                        (thread.renterId != null && contact.id == thread.renterId)
+                        // Prioritize ID matching (most reliable)
+                        (thread.renterId != null && contact.id == thread.renterId) ||
+                        // Fall back to email matching
+                        (!thread.email.isNullOrBlank() && !contact.email.isNullOrBlank() &&
+                         contact.email.equals(thread.email, ignoreCase = true)) ||
+                        // Fall back to phone matching
+                        (!thread.phone.isNullOrBlank() && !contact.phone.isNullOrBlank() &&
+                         contact.phone == thread.phone)
                     }
 
-                    if (matchingContact != null) {
-                        selectedContactFromThread = matchingContact
+                    val contactToShow = if (matchingContact != null) {
+                        android.util.Log.d("ChatsPlaceholder", "Found matching contact: ${matchingContact.displayName}")
+                        android.util.Log.d("ChatsPlaceholder", "Contact avatarUrl BEFORE merge: ${matchingContact.avatarUrl}")
+                        android.util.Log.d("ChatsPlaceholder", "Contact channel BEFORE merge: ${matchingContact.channel}")
+
+                        // Merge thread data (imageUrl, channel) with contact data
+                        // This ensures profile pic and channel show immediately
+                        matchingContact.copy(
+                            avatarUrl = thread.imageUrl ?: matchingContact.avatarUrl,
+                            channel = thread.channel ?: matchingContact.channel
+                        )
+                    } else {
+                        android.util.Log.w("ChatsPlaceholder", "No matching contact found - creating from thread")
+
+                        // Create a contact from thread data
+                        Contact(
+                            id = thread.renterId ?: thread.id,
+                            firstName = thread.displayName.split(" ").firstOrNull(),
+                            lastName = thread.displayName.split(" ").drop(1).joinToString(" ").takeIf { it.isNotEmpty() },
+                            email = thread.email,
+                            phone = thread.phone,
+                            avatarUrl = thread.imageUrl,
+                            propertyIds = listOfNotNull(thread.propertyId),
+                            totalMessages = 0,
+                            totalCalls = 0,
+                            lastActivity = thread.lastMessageTime,
+                            channel = thread.channel
+                        )
                     }
+
+                    android.util.Log.d("ChatsPlaceholder", "Final contact avatarUrl: ${contactToShow.avatarUrl}")
+                    android.util.Log.d("ChatsPlaceholder", "Final contact channel: ${contactToShow.channel}")
+
+                    selectedContactFromThread = contactToShow
+
+                    // Persist the contact data to database for future use
+                    contactsViewModel.updateContact(contactToShow)
                 }
             )
         }

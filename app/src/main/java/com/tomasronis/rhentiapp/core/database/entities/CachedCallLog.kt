@@ -15,8 +15,9 @@ data class CachedCallLog(
     val callType: String, // "incoming", "outgoing"
     val startTime: Long,
     val callDuration: Int, // in seconds
-    val callerNumber: String?,
+    val callerNumber: String?, // The "from" number (caller)
     val callerName: String?,
+    val receiverNumber: String?, // The "to" number (recipient) - used for outgoing calls
     val contactId: String?,
     val createdAt: Long,
     val updatedAt: Long

@@ -27,14 +27,18 @@ import androidx.compose.ui.window.DialogProperties
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageFiltersModal(
+    unreadOnly: Boolean,
+    onUnreadOnlyChange: (Boolean) -> Unit,
+    noActivity: Boolean,
+    onNoActivityChange: (Boolean) -> Unit,
+    applicationStatus: String,
+    onApplicationStatusChange: (String) -> Unit,
+    viewingStatus: String,
+    onViewingStatusChange: (String) -> Unit,
+    onResetFilters: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Filter state
-    var unreadOnly by remember { mutableStateOf(false) }
-    var noActivity by remember { mutableStateOf(false) }
-    var applicationStatus by remember { mutableStateOf("All") }
-    var viewingStatus by remember { mutableStateOf("All") }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -62,7 +66,7 @@ fun MessageFiltersModal(
                 modifier = modifier
                     .fillMaxWidth()
                     .wrapContentHeight()
-                    .heightIn(max = 700.dp) // Increased max height
+                    .heightIn(max = 680.dp) // Reduced by 20dp
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                     .background(Color(0xFF1C1C1E)) // Dark background
                     .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp) // Reduced top padding
@@ -124,7 +128,7 @@ fun MessageFiltersModal(
 
                     Switch(
                         checked = unreadOnly,
-                        onCheckedChange = { unreadOnly = it },
+                        onCheckedChange = onUnreadOnlyChange,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = Color(0xFF34C759), // iOS green
@@ -148,7 +152,7 @@ fun MessageFiltersModal(
 
                     Switch(
                         checked = noActivity,
-                        onCheckedChange = { noActivity = it },
+                        onCheckedChange = onNoActivityChange,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = Color(0xFF34C759),
@@ -171,7 +175,7 @@ fun MessageFiltersModal(
                 FilterDropdown(
                     label = "Status",
                     selectedValue = applicationStatus,
-                    onValueChange = { applicationStatus = it },
+                    onValueChange = onApplicationStatusChange,
                     options = listOf("All", "Pending", "Approved")
                 )
 
@@ -188,7 +192,7 @@ fun MessageFiltersModal(
                 FilterDropdown(
                     label = "Status",
                     selectedValue = viewingStatus,
-                    onValueChange = { viewingStatus = it },
+                    onValueChange = onViewingStatusChange,
                     options = listOf("All", "Pending", "Approved")
                 )
 
@@ -196,12 +200,7 @@ fun MessageFiltersModal(
 
                 // Reset Filters button
                 TextButton(
-                    onClick = {
-                        unreadOnly = false
-                        noActivity = false
-                        applicationStatus = "All"
-                        viewingStatus = "All"
-                    },
+                    onClick = onResetFilters,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(

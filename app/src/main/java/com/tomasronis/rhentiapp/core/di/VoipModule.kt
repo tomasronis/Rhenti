@@ -4,6 +4,8 @@ import android.content.Context
 import com.tomasronis.rhentiapp.core.security.TokenManager
 import com.tomasronis.rhentiapp.core.voip.TwilioManager
 import com.tomasronis.rhentiapp.data.calls.repository.CallsRepository
+import com.tomasronis.rhentiapp.data.chathub.repository.ChatHubRepository
+import com.tomasronis.rhentiapp.data.contacts.repository.ContactsRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,8 +25,10 @@ object VoipModule {
     fun provideTwilioManager(
         @ApplicationContext context: Context,
         callsRepository: CallsRepository,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        contactsRepository: ContactsRepository,
+        chatHubRepository: ChatHubRepository
     ): TwilioManager {
-        return TwilioManager(context, callsRepository, tokenManager)
+        return TwilioManager(context, callsRepository, tokenManager, contactsRepository, chatHubRepository)
     }
 }

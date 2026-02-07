@@ -64,9 +64,12 @@ fun ThreadListScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
-                    // Filter icon
+                    // Filter icon with badge when any filter is active
                     IconButton(onClick = { showFiltersModal = true }) {
-                        FilterIcon(tint = MaterialTheme.colorScheme.onBackground)
+                        FilterIcon(
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            showBadge = uiState.hasActiveFilters
+                        )
                     }
                 }
 
@@ -168,6 +171,15 @@ fun ThreadListScreen(
         // Filters modal
         if (showFiltersModal) {
             MessageFiltersModal(
+                unreadOnly = uiState.unreadOnly,
+                onUnreadOnlyChange = { viewModel.setUnreadOnly(it) },
+                noActivity = uiState.noActivity,
+                onNoActivityChange = { viewModel.setNoActivity(it) },
+                applicationStatus = uiState.applicationStatus,
+                onApplicationStatusChange = { viewModel.setApplicationStatus(it) },
+                viewingStatus = uiState.viewingStatus,
+                onViewingStatusChange = { viewModel.setViewingStatus(it) },
+                onResetFilters = { viewModel.resetFilters() },
                 onDismiss = { showFiltersModal = false }
             )
         }

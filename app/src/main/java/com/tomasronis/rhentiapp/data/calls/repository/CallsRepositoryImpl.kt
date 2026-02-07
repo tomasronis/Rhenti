@@ -4,6 +4,7 @@ import android.util.Log
 import com.tomasronis.rhentiapp.BuildConfig
 import com.tomasronis.rhentiapp.core.database.dao.CallLogDao
 import com.tomasronis.rhentiapp.core.database.dao.ContactDao
+import com.tomasronis.rhentiapp.core.database.dao.ThreadDao
 import com.tomasronis.rhentiapp.core.database.entities.CachedCallLog
 import com.tomasronis.rhentiapp.core.network.ApiClient
 import com.tomasronis.rhentiapp.core.network.NetworkResult
@@ -18,7 +19,8 @@ import javax.inject.Singleton
 class CallsRepositoryImpl @Inject constructor(
     private val apiClient: ApiClient,
     private val callLogDao: CallLogDao,
-    private val contactDao: ContactDao
+    private val contactDao: ContactDao,
+    private val threadDao: ThreadDao
 ) : CallsRepository {
 
     companion object {
@@ -156,30 +158,81 @@ class CallsRepositoryImpl @Inject constructor(
     }
 
     override fun observeCallLogs(): Flow<List<CallLog>> {
-        return callLogDao.getAllCallLogs()
-            .combine(contactDao.getAllContacts()) { callLogs, contacts ->
-                // Create a contact lookup map
-                val contactMap = contacts.associateBy { it.id }
+        return combine(
+            callLogDao.getAllCallLogs(),
+            contactDao.getAllContacts(),
+            threadDao.getAllThreads()
+        ) { callLogs, contacts, threads ->
+            // Create contact lookup maps by ID and by phone number
+            val contactMap = contacts.associateBy { it.id }
+            val phoneMap = contacts.filter { it.phone != null }
+                .associateBy { normalizePhoneNumber(it.phone!!) }
 
-                // Enrich call logs with contact data
-                callLogs.map { cachedLog ->
-                    val contact = cachedLog.contactId?.let { contactMap[it] }
-                    CallLog(
-                        id = cachedLog.id,
-                        contactId = cachedLog.contactId,
-                        contactName = contact?.let {
-                            "${it.firstName ?: ""} ${it.lastName ?: ""}".trim()
-                        } ?: cachedLog.callerName,
-                        contactPhone = cachedLog.callerNumber ?: "",
-                        contactAvatar = contact?.avatarUrl,
-                        callType = parseCallType(cachedLog.callType),
-                        duration = cachedLog.callDuration,
-                        timestamp = cachedLog.startTime,
-                        twilioCallSid = cachedLog.callSid,
-                        status = parseCallStatus(cachedLog.callStatus)
-                    )
+            // Create thread lookup map by phone number (for fallback contact info)
+            val threadPhoneMap = threads.filter { !it.phone.isNullOrBlank() }
+                .associateBy { normalizePhoneNumber(it.phone!!) }
+
+            // Enrich call logs with contact data (from contacts first, then threads as fallback)
+            callLogs.map { cachedLog ->
+                val parsedCallType = parseCallType(cachedLog.callType)
+
+                // Determine the contact's phone number based on call direction:
+                // - For OUTGOING calls: the contact is the receiver (the "to" number)
+                // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
+                val rawContactPhone = when (parsedCallType) {
+                    CallType.OUTGOING -> cachedLog.receiverNumber ?: cachedLog.callerNumber
+                    CallType.INCOMING, CallType.MISSED -> cachedLog.callerNumber ?: cachedLog.receiverNumber
                 }
+
+                // Look up contact by ID first, then by the correct phone number
+                val contact = cachedLog.contactId?.let { contactMap[it] }
+                    ?: rawContactPhone?.let { phoneMap[normalizePhoneNumber(it)] }
+
+                // If no contact found, try looking up from threads
+                val thread = if (contact == null) {
+                    rawContactPhone?.let { threadPhoneMap[normalizePhoneNumber(it)] }
+                } else null
+
+                // Resolve name: contact name > thread name > cached caller name
+                val resolvedName = contact?.let {
+                    "${it.firstName ?: ""} ${it.lastName ?: ""}".trim()
+                }?.takeIf { it.isNotBlank() }
+                    ?: thread?.displayName?.takeIf { it.isNotBlank() }
+                    ?: cachedLog.callerName
+
+                // Resolve avatar: contact avatar > thread image
+                val resolvedAvatar = contact?.avatarUrl ?: thread?.imageUrl
+
+                CallLog(
+                    id = cachedLog.id,
+                    contactId = cachedLog.contactId ?: contact?.id,
+                    contactName = resolvedName,
+                    // Use contact's phone number if available, otherwise use the direction-resolved number
+                    contactPhone = contact?.phone ?: rawContactPhone ?: "",
+                    contactAvatar = resolvedAvatar,
+                    callType = parsedCallType,
+                    duration = cachedLog.callDuration,
+                    timestamp = cachedLog.startTime,
+                    twilioCallSid = cachedLog.callSid,
+                    status = parseCallStatus(cachedLog.callStatus),
+                    callerNumber = cachedLog.callerNumber,
+                    receiverNumber = cachedLog.receiverNumber
+                )
             }
+        }
+    }
+
+    /**
+     * Normalize phone number for matching (remove formatting, keep only digits and +)
+     */
+    private fun normalizePhoneNumber(phone: String): String {
+        val normalized = phone.replace(Regex("[^0-9+]"), "")
+        // If it has 10 digits and no country code, assume North America (+1)
+        return if (normalized.length == 10 && !normalized.startsWith("+")) {
+            "+1$normalized"
+        } else {
+            normalized
+        }
     }
 
     override fun observeFilteredCallLogs(filter: CallFilter): Flow<List<CallLog>> {
@@ -231,10 +284,43 @@ class CallsRepositoryImpl @Inject constructor(
 
     private fun parseCallLogResponse(response: Map<String, Any>): CallLog? {
         return try {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Parsing call log response: $response")
+            }
+
             val id = (response["id"] ?: response["_id"]) as? String ?: return null
             val contactId = (response["contactId"] ?: response["contact_id"]) as? String
-            val phoneNumber = (response["phoneNumber"] ?: response["phone_number"]) as? String ?: ""
+
+            // Extract "from" number (the caller)
+            val callerNumber = (response["callerNumber"]
+                ?: response["caller_number"]
+                ?: response["from"]
+                ?: response["fromNumber"]
+                ?: response["from_number"]) as? String
+
+            // Extract "to" number (the recipient)
+            val receiverNumber = (response["to"]
+                ?: response["toNumber"]
+                ?: response["to_number"]
+                ?: response["receiverNumber"]
+                ?: response["receiver_number"]
+                ?: response["calledNumber"]
+                ?: response["called_number"]) as? String
+
+            // Generic phone number field (legacy fallback)
+            val genericPhoneNumber = (response["phoneNumber"]
+                ?: response["phone_number"]
+                ?: response["number"]) as? String
+
+            // Try multiple name field variations
+            val contactName = (response["contactName"]
+                ?: response["contact_name"]
+                ?: response["callerName"]
+                ?: response["caller_name"]
+                ?: response["name"]) as? String
+
             val callType = (response["callType"] ?: response["call_type"]) as? String
+            val parsedCallType = parseCallType(callType)
             val duration = (response["duration"] as? Number)?.toInt() ?: 0
             val twilioCallSid = (response["twilioCallSid"] ?: response["twilio_call_sid"]) as? String
             val status = response["status"] as? String
@@ -247,17 +333,32 @@ class CallsRepositoryImpl @Inject constructor(
                 else -> System.currentTimeMillis()
             }
 
+            // Determine the contact's phone number based on call direction:
+            // - For OUTGOING calls: the contact is the receiver (the "to" number)
+            // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
+            val contactPhone = when (parsedCallType) {
+                CallType.OUTGOING -> receiverNumber ?: genericPhoneNumber ?: callerNumber ?: ""
+                CallType.INCOMING, CallType.MISSED -> callerNumber ?: genericPhoneNumber ?: receiverNumber ?: ""
+            }
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Parsed call log - id: $id, callerNumber: $callerNumber, receiverNumber: $receiverNumber, " +
+                        "genericPhone: $genericPhoneNumber, resolvedContactPhone: $contactPhone, name: $contactName, type: $callType")
+            }
+
             CallLog(
                 id = id,
                 contactId = contactId,
-                contactName = null, // Will be enriched from contacts
-                contactPhone = phoneNumber,
+                contactName = contactName,
+                contactPhone = contactPhone,
                 contactAvatar = null, // Will be enriched from contacts
-                callType = parseCallType(callType),
+                callType = parsedCallType,
                 duration = duration,
                 timestamp = timestamp,
                 twilioCallSid = twilioCallSid,
-                status = parseCallStatus(status)
+                status = parseCallStatus(status),
+                callerNumber = callerNumber ?: genericPhoneNumber,
+                receiverNumber = receiverNumber
             )
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
@@ -277,8 +378,9 @@ class CallsRepositoryImpl @Inject constructor(
                 callType = log.callType.toApiString(),
                 startTime = log.timestamp,
                 callDuration = log.duration,
-                callerNumber = log.contactPhone,
+                callerNumber = log.callerNumber ?: log.contactPhone,
                 callerName = log.contactName,
+                receiverNumber = log.receiverNumber,
                 contactId = log.contactId,
                 createdAt = currentTime,
                 updatedAt = currentTime
@@ -288,17 +390,29 @@ class CallsRepositoryImpl @Inject constructor(
     }
 
     private fun convertCachedCallLog(cachedLog: CachedCallLog): CallLog {
+        val parsedCallType = parseCallType(cachedLog.callType)
+
+        // Determine the contact's phone number based on call direction:
+        // - For OUTGOING calls: the contact is the receiver (the "to" number)
+        // - For INCOMING/MISSED calls: the contact is the caller (the "from" number)
+        val contactPhone = when (parsedCallType) {
+            CallType.OUTGOING -> cachedLog.receiverNumber ?: cachedLog.callerNumber ?: ""
+            CallType.INCOMING, CallType.MISSED -> cachedLog.callerNumber ?: cachedLog.receiverNumber ?: ""
+        }
+
         return CallLog(
             id = cachedLog.id,
             contactId = cachedLog.contactId,
             contactName = cachedLog.callerName,
-            contactPhone = cachedLog.callerNumber ?: "",
+            contactPhone = contactPhone,
             contactAvatar = null,
-            callType = parseCallType(cachedLog.callType),
+            callType = parsedCallType,
             duration = cachedLog.callDuration,
             timestamp = cachedLog.startTime,
             twilioCallSid = cachedLog.callSid,
-            status = parseCallStatus(cachedLog.callStatus)
+            status = parseCallStatus(cachedLog.callStatus),
+            callerNumber = cachedLog.callerNumber,
+            receiverNumber = cachedLog.receiverNumber
         )
     }
 

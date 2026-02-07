@@ -27,6 +27,9 @@ class ChatHubViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatHubUiState())
     val uiState: StateFlow<ChatHubUiState> = _uiState.asStateFlow()
 
+    // Job for observing messages - cancel old one when selecting new thread
+    private var messagesObserverJob: kotlinx.coroutines.Job? = null
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -99,10 +102,13 @@ class ChatHubViewModel @Inject constructor(
      * Select a thread to view details.
      */
     fun selectThread(thread: ChatThread) {
+        // Cancel previous observer to avoid conflicts
+        messagesObserverJob?.cancel()
+
         _uiState.update { it.copy(currentThread = thread, messages = emptyList()) }
 
-        // Load messages for the selected thread
-        viewModelScope.launch {
+        // Start observing messages for the selected thread
+        messagesObserverJob = viewModelScope.launch {
             repository.observeMessages(thread.id).collect { messages ->
                 _uiState.update { it.copy(messages = messages) }
             }
@@ -119,6 +125,8 @@ class ChatHubViewModel @Inject constructor(
      * Clear the selected thread (go back to list).
      */
     fun clearSelectedThread() {
+        messagesObserverJob?.cancel()
+        messagesObserverJob = null
         _uiState.update { it.copy(currentThread = null, messages = emptyList()) }
     }
 
@@ -360,6 +368,48 @@ class ChatHubViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
+    /**
+     * Update filter: Unread Only
+     */
+    fun setUnreadOnly(enabled: Boolean) {
+        _uiState.update { it.copy(unreadOnly = enabled) }
+    }
+
+    /**
+     * Update filter: No Activity
+     */
+    fun setNoActivity(enabled: Boolean) {
+        _uiState.update { it.copy(noActivity = enabled) }
+    }
+
+    /**
+     * Update filter: Application Status
+     */
+    fun setApplicationStatus(status: String) {
+        _uiState.update { it.copy(applicationStatus = status) }
+    }
+
+    /**
+     * Update filter: Viewing Status
+     */
+    fun setViewingStatus(status: String) {
+        _uiState.update { it.copy(viewingStatus = status) }
+    }
+
+    /**
+     * Reset all filters to default state
+     */
+    fun resetFilters() {
+        _uiState.update {
+            it.copy(
+                unreadOnly = false,
+                noActivity = false,
+                applicationStatus = "All",
+                viewingStatus = "All"
+            )
+        }
+    }
 }
 
 /**
@@ -371,5 +421,18 @@ data class ChatHubUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
-    val totalUnreadCount: Int = 0
-)
+    val totalUnreadCount: Int = 0,
+    // Filter state
+    val unreadOnly: Boolean = false,
+    val noActivity: Boolean = false,
+    val applicationStatus: String = "All",
+    val viewingStatus: String = "All"
+) {
+    /**
+     * Check if any filters are currently active.
+     */
+    val hasActiveFilters: Boolean
+        get() = unreadOnly || noActivity ||
+                applicationStatus != "All" ||
+                viewingStatus != "All"
+}

@@ -146,6 +146,23 @@ class ContactsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateContact(contact: Contact) {
+        try {
+            val cachedContact = contact.toCachedContact()
+            contactDao.insertContact(cachedContact)
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d(
+                    "ContactsRepository",
+                    "Updated contact: ${contact.displayName} (avatarUrl: ${contact.avatarUrl}, channel: ${contact.channel})"
+                )
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ContactsRepository", "Failed to update contact", e)
+            }
+        }
+    }
+
     // Helper functions to parse API responses
 
     private fun parseContactsResponse(response: List<Map<String, Any>>): List<Contact> {

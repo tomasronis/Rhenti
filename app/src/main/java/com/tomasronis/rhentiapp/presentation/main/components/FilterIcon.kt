@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.main.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -13,15 +14,18 @@ import androidx.compose.ui.unit.dp
 /**
  * Custom filter icon with three horizontal lines that decrease in width.
  * Lines are center-justified to create a funnel/filter appearance.
+ * Shows a coral badge indicator when filters are active.
  */
 @Composable
 fun FilterIcon(
     modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.onBackground
+    tint: Color = MaterialTheme.colorScheme.onBackground,
+    showBadge: Boolean = false
 ) {
-    Canvas(
-        modifier = modifier.size(24.dp)
-    ) {
+    Box(modifier = modifier) {
+        Canvas(
+            modifier = Modifier.size(24.dp)
+        ) {
         val canvasWidth = size.width
         val canvasHeight = size.height
         val strokeWidth = 2.dp.toPx()
@@ -66,5 +70,25 @@ fun FilterIcon(
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
         )
+    }
+
+        // Badge indicator (coral dot in bottom-right corner)
+        if (showBadge) {
+            Canvas(
+                modifier = Modifier
+                    .size(24.dp)
+            ) {
+                val badgeRadius = 3.dp.toPx()
+                val badgeX = size.width - badgeRadius - 1.dp.toPx()
+                val badgeY = size.height - badgeRadius - 1.dp.toPx()
+
+                // Draw coral badge
+                drawCircle(
+                    color = Color(0xFFE8998D), // Coral color
+                    radius = badgeRadius,
+                    center = Offset(badgeX, badgeY)
+                )
+            }
+        }
     }
 }
