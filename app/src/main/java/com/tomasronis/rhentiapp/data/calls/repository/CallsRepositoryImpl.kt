@@ -405,7 +405,9 @@ class CallsRepositoryImpl @Inject constructor(
                 callDuration = log.duration,
                 callerNumber = log.callerNumber ?: log.contactPhone,
                 callerName = log.contactName,
-                receiverNumber = log.receiverNumber,
+                // For outgoing calls, store the contactPhone in receiverNumber
+                // For incoming calls, receiverNumber will be null (not used)
+                receiverNumber = if (log.callType == CallType.OUTGOING) log.contactPhone else log.receiverNumber,
                 contactId = log.contactId,
                 createdAt = currentTime,
                 updatedAt = currentTime
