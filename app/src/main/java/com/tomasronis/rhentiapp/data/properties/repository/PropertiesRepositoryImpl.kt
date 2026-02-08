@@ -6,6 +6,9 @@ import com.tomasronis.rhentiapp.core.network.ApiClient
 import com.tomasronis.rhentiapp.core.network.NetworkResult
 import com.tomasronis.rhentiapp.data.properties.models.Property
 import com.tomasronis.rhentiapp.data.properties.models.PropertyDto
+import com.tomasronis.rhentiapp.data.properties.models.ChatHubBuilding
+import com.tomasronis.rhentiapp.data.properties.models.ChatHubUnit
+import com.tomasronis.rhentiapp.data.properties.models.ChatHubProperty
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -23,73 +26,86 @@ class PropertiesRepositoryImpl @Inject constructor(
 
     override suspend fun getProperties(): NetworkResult<List<Property>> {
         return try {
-            // Fetch from API
-            val response = apiClient.getProperties(status = "active")
+            android.util.Log.d("PropertiesRepository", "Fetching properties from /getAddressesForChatHub...")
 
-            // Parse response
-            val propertiesData = response["properties"] as? List<*>
-            if (propertiesData == null) {
-                // Return cached if API fails
-                val cached = propertyDao.getProperties()
-                return if (cached.isNotEmpty()) {
-                    NetworkResult.Success(cached.map { it.toProperty() })
-                } else {
-                    NetworkResult.Error(Exception("No properties found"))
-                }
-            }
+            // Fetch buildings from API (matches iOS implementation)
+            val response = apiClient.getAddressesForChatHub()
 
-            // Map to Property objects
-            val properties = propertiesData.mapNotNull { item ->
+            android.util.Log.d("PropertiesRepository", "API response received: ${response.size} buildings")
+
+            // Parse buildings and units
+            val buildings = response.mapNotNull { buildingData ->
                 try {
-                    val map = item as? Map<*, *> ?: return@mapNotNull null
-                    val id = map["_id"] as? String ?: return@mapNotNull null
-                    val address = map["address"] as? String ?: return@mapNotNull null
-                    val unit = map["unit"] as? String
-                    val city = map["city"] as? String
-                    val province = map["province"] as? String
-                    val postalCode = (map["postal_code"] ?: map["postalCode"]) as? String
-                    val country = map["country"] as? String
-                    val status = (map["status"] as? String) ?: "active"
+                    val buildingMap = buildingData as? Map<*, *> ?: return@mapNotNull null
+                    val buildingId = buildingMap["_id"] as? String ?: return@mapNotNull null
+                    val address = buildingMap["address"] as? String ?: return@mapNotNull null
+                    val unitsData = buildingMap["units"] as? List<*> ?: emptyList<Any?>()
 
-                    // Parse property owner if available
-                    val ownerMap = (map["property_owner"] ?: map["propertyOwner"]) as? Map<*, *>
-                    val propertyOwner = if (ownerMap != null) {
-                        com.tomasronis.rhentiapp.data.properties.models.PropertyOwner(
-                            name = ownerMap["name"] as? String ?: "",
-                            email = ownerMap["email"] as? String ?: "",
-                            phone = ownerMap["phone"] as? String
-                        )
-                    } else null
+                    val units = unitsData.mapNotNull { unitData ->
+                        try {
+                            val unitMap = unitData as? Map<*, *> ?: return@mapNotNull null
+                            val unitId = unitMap["_id"] as? String ?: return@mapNotNull null
+                            val unitName = unitMap["unit"] as? String
 
-                    Property(
-                        id = id,
+                            ChatHubUnit(
+                                id = unitId,
+                                unit = unitName
+                            )
+                        } catch (e: Exception) {
+                            android.util.Log.w("PropertiesRepository", "Error parsing unit: ${e.message}")
+                            null
+                        }
+                    }
+
+                    ChatHubBuilding(
+                        id = buildingId,
                         address = address,
-                        unit = unit,
-                        city = city,
-                        province = province,
-                        postalCode = postalCode,
-                        country = country,
-                        status = status,
-                        propertyOwner = propertyOwner
+                        units = units
                     )
                 } catch (e: Exception) {
-                    android.util.Log.e("PropertiesRepository", "Error parsing property: ${e.message}")
+                    android.util.Log.e("PropertiesRepository", "Error parsing building: ${e.message}")
                     null
                 }
             }
 
+            android.util.Log.d("PropertiesRepository", "Parsed ${buildings.size} buildings")
+
+            // Flatten buildings + units into individual properties (matches iOS implementation)
+            val flattenedProperties = buildings.flatMap { building ->
+                building.units.map { unit ->
+                    ChatHubProperty(
+                        id = unit.id,
+                        address = building.address,
+                        unitName = unit.unit,
+                        buildingId = building.id
+                    )
+                }
+            }.sortedWith(compareBy({ it.address }, { it.unitName ?: "" }))
+
+            // Convert to Property model for compatibility
+            val properties = flattenedProperties.map { it.toProperty() }
+
+            android.util.Log.d("PropertiesRepository", "Flattened to ${properties.size} properties")
+
             // Cache in Room
             propertyDao.insertProperties(properties.map { CachedProperty.from(it) })
 
+            android.util.Log.d("PropertiesRepository", "Successfully fetched and cached ${properties.size} properties")
+            properties.forEachIndexed { index, property ->
+                android.util.Log.d("PropertiesRepository", "  [$index] ${property.address}${property.unit?.let { ", Unit $it" } ?: ""}")
+            }
+
             NetworkResult.Success(properties)
         } catch (e: Exception) {
-            android.util.Log.e("PropertiesRepository", "Error fetching properties: ${e.message}")
+            android.util.Log.e("PropertiesRepository", "Error fetching properties: ${e.message}", e)
 
             // Return cached properties if available
             val cached = propertyDao.getProperties()
             if (cached.isNotEmpty()) {
+                android.util.Log.d("PropertiesRepository", "Returning ${cached.size} cached properties")
                 NetworkResult.Success(cached.map { it.toProperty() })
             } else {
+                android.util.Log.e("PropertiesRepository", "No cached properties available")
                 NetworkResult.Error(e)
             }
         }
@@ -165,7 +181,7 @@ class PropertiesRepositoryImpl @Inject constructor(
         return when (val result = getProperties()) {
             is NetworkResult.Success -> NetworkResult.Success(Unit)
             is NetworkResult.Error -> NetworkResult.Error(result.exception)
-            is NetworkResult.Loading -> NetworkResult.Loading
+            is NetworkResult.Loading -> NetworkResult.Loading()
         }
     }
 

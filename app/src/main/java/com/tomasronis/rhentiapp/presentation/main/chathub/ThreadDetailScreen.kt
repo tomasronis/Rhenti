@@ -62,6 +62,20 @@ fun ThreadDetailScreen(
     // Get all properties from ViewModel
     val allProperties by propertiesViewModel.properties.collectAsState()
 
+    // Refresh properties when screen loads
+    LaunchedEffect(Unit) {
+        android.util.Log.d("ThreadDetailScreen", "Screen loaded, refreshing properties...")
+        propertiesViewModel.refreshProperties()
+    }
+
+    // Debug logging
+    LaunchedEffect(allProperties) {
+        android.util.Log.d("ThreadDetailScreen", "Properties updated: ${allProperties.size} properties available")
+        allProperties.forEachIndexed { index, property ->
+            android.util.Log.d("ThreadDetailScreen", "  [$index] ${property.address}")
+        }
+    }
+
     // Get the most recent property address from messages
     val propertyAddress = remember(uiState.messages) {
         uiState.messages
