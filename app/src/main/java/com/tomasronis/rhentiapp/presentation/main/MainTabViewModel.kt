@@ -44,6 +44,9 @@ class MainTabViewModel @Inject constructor(
     private val _contactIdToOpen = MutableStateFlow<String?>(null)
     val contactIdToOpen: StateFlow<String?> = _contactIdToOpen.asStateFlow()
 
+    private val _contactThreadIdToOpen = MutableStateFlow<String?>(null)
+    val contactThreadIdToOpen: StateFlow<String?> = _contactThreadIdToOpen.asStateFlow()
+
     private val _isTwilioInitialized = MutableStateFlow(false)
     val isTwilioInitialized: StateFlow<Boolean> = _isTwilioInitialized.asStateFlow()
 
@@ -160,8 +163,9 @@ class MainTabViewModel @Inject constructor(
      * Set contact ID to open (from Calls tab).
      * This triggers navigation to a specific contact detail.
      */
-    fun setContactIdToOpen(contactId: String?) {
+    fun setContactIdToOpen(contactId: String?, threadId: String? = null) {
         _contactIdToOpen.value = contactId
+        _contactThreadIdToOpen.value = threadId
     }
 
     /**
@@ -169,6 +173,7 @@ class MainTabViewModel @Inject constructor(
      */
     fun clearContactIdToOpen() {
         _contactIdToOpen.value = null
+        _contactThreadIdToOpen.value = null
     }
 
     /**

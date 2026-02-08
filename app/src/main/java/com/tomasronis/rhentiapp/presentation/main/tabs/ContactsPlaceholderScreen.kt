@@ -19,6 +19,7 @@ import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel
 @Composable
 fun ContactsTabContent(
     contactIdToOpen: String? = null,
+    threadIdToOpen: String? = null, // Thread ID for loading viewings/applications
     onStartChat: (Contact) -> Unit = {},
     onContactOpened: () -> Unit = {},
     isTwilioInitialized: Boolean = false
@@ -28,10 +29,11 @@ fun ContactsTabContent(
     val contactsUiState by contactsViewModel.uiState.collectAsState()
 
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
+    var selectedThreadId by remember { mutableStateOf<String?>(null) }
     var pendingCallNumber by remember { mutableStateOf<String?>(null) }
 
     // Auto-open contact by ID when coming from Calls tab
-    LaunchedEffect(contactIdToOpen) {
+    LaunchedEffect(contactIdToOpen, threadIdToOpen) {
         if (!contactIdToOpen.isNullOrBlank()) {
             // Find contact by ID
             val matchingContact = contactsUiState.contacts.find { contact ->
@@ -40,6 +42,7 @@ fun ContactsTabContent(
 
             if (matchingContact != null) {
                 selectedContact = matchingContact
+                selectedThreadId = threadIdToOpen // Store threadId for loading viewings/applications
             }
 
             // Clear the contact ID state
@@ -76,11 +79,16 @@ fun ContactsTabContent(
     if (selectedContact != null) {
         ContactDetailScreen(
             contact = selectedContact!!,
-            onNavigateBack = { selectedContact = null },
+            threadId = selectedThreadId, // Pass thread ID to load viewings/applications
+            onNavigateBack = {
+                selectedContact = null
+                selectedThreadId = null // Clear threadId when navigating back
+            },
             onStartChat = { contact ->
                 // Navigate to chats tab with this contact
                 onStartChat(contact)
                 selectedContact = null
+                selectedThreadId = null
             },
             onCall = { contact ->
                 // Check if Twilio is initialized

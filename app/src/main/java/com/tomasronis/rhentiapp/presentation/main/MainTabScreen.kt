@@ -39,6 +39,7 @@ fun MainTabScreen(
     val contactToStartChat by viewModel.contactToStartChat.collectAsState()
     val threadIdToOpen by viewModel.threadIdToOpen.collectAsState()
     val contactIdToOpen by viewModel.contactIdToOpen.collectAsState()
+    val contactThreadIdToOpen by viewModel.contactThreadIdToOpen.collectAsState()
     val callState by viewModel.callState.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -284,6 +285,7 @@ fun MainTabScreen(
                 )
                 1 -> ContactsTabContent(
                     contactIdToOpen = contactIdToOpen,
+                    threadIdToOpen = contactThreadIdToOpen,
                     onStartChat = { contact ->
                         // Set the contact and switch to Chats tab
                         viewModel.setContactToStartChat(contact)
@@ -309,10 +311,10 @@ fun MainTabScreen(
                             viewModel.setSelectedTab(0)
                         }
                     },
-                    onViewContact = { contactId ->
-                        // Navigate to Contacts tab with specific contact ID
+                    onViewContact = { contactId, threadId ->
+                        // Navigate to Contacts tab with specific contact ID and thread ID
                         if (contactId.isNotBlank()) {
-                            viewModel.setContactIdToOpen(contactId)
+                            viewModel.setContactIdToOpen(contactId, threadId)
                         }
                         scope.launch {
                             viewModel.setSelectedTab(1)

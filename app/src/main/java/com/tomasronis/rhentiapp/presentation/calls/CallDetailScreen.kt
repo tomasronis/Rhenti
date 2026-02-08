@@ -44,7 +44,7 @@ fun CallDetailScreen(
     onNavigateBack: () -> Unit,
     onCallClick: (String) -> Unit,
     onMessageContact: (String) -> Unit,
-    onViewContact: (String) -> Unit,
+    onViewContact: (String, String?) -> Unit, // (contactId, threadId)
     modifier: Modifier = Modifier,
     viewModel: CallsViewModel = hiltViewModel(),
     contactsViewModel: ContactsViewModel = hiltViewModel(),
@@ -239,12 +239,12 @@ fun CallDetailScreen(
                         // View Contact button
                         Surface(
                             onClick = {
-                                // Navigate with contact if available
+                                // Navigate with contact and thread ID if available
                                 if (matchingContact != null) {
-                                    onViewContact(matchingContact.id)
+                                    onViewContact(matchingContact.id, matchingThread?.id)
                                 } else {
                                     // Fallback to just switching tabs
-                                    onViewContact("")
+                                    onViewContact("", null)
                                 }
                             },
                             color = Color.Transparent
