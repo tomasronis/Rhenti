@@ -146,3 +146,59 @@ data class ClearBadgeRequest(
     @Json(name = "currentUserId")
     val currentUserId: String
 )
+
+/**
+ * Represents a message that's pending send to the server.
+ * Tracks local state until confirmed by server.
+ */
+@Immutable
+data class PendingMessage(
+    val localId: String,
+    val text: String?,
+    val imageData: String?, // Base64 or data URI
+    val createdAt: Long,
+    val status: MessageStatus,
+    val serverMessageId: String? = null, // Matched server message ID once sent
+    val uploadProgress: Float? = null // For large file uploads
+)
+
+/**
+ * Status of a pending message.
+ */
+enum class MessageStatus {
+    SENDING,
+    SENT,
+    FAILED
+}
+
+/**
+ * Display message combining server and pending messages.
+ * Sealed class for type-safe message display.
+ */
+sealed class DisplayMessage {
+    abstract val id: String
+    abstract val createdAt: Long
+    abstract val sender: String
+    abstract val text: String?
+    abstract val type: String
+
+    data class Server(val message: ChatMessage) : DisplayMessage() {
+        override val id: String = message.id
+        override val createdAt: Long = message.createdAt
+        override val sender: String = message.sender
+        override val text: String? = message.text
+        override val type: String = message.type
+    }
+
+    data class Pending(val pendingMessage: PendingMessage) : DisplayMessage() {
+        override val id: String = pendingMessage.serverMessageId ?: pendingMessage.localId
+        override val createdAt: Long = pendingMessage.createdAt
+        override val sender: String = "owner" // Pending messages are always from us
+        override val text: String? = pendingMessage.text
+        override val type: String = if (pendingMessage.imageData != null) "image" else "text"
+
+        val isPending: Boolean = true
+        val status: MessageStatus = pendingMessage.status
+        val uploadProgress: Float? = pendingMessage.uploadProgress
+    }
+}

@@ -352,6 +352,53 @@ class ChatHubRepositoryImpl @Inject constructor(
 
     // Helper functions to parse API responses
 
+    /**
+     * Parse timestamp from API - handles both Unix timestamp (Number) and ISO 8601 string (String).
+     */
+    private fun parseTimestamp(value: Any?, messageId: String): Long {
+        return when (value) {
+            is Number -> {
+                value.toLong()
+            }
+            is String -> {
+                try {
+                    // Try parsing ISO 8601 format: "2026-02-08T12:00:00Z" or "2026-02-08T12:00:00.000Z"
+                    val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }
+                    val isoFormatWithMillis = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }
+
+                    val cleanedValue = value.replace("Z", "").replace("+00:00", "")
+                    val date = try {
+                        isoFormatWithMillis.parse(cleanedValue)
+                    } catch (e: Exception) {
+                        isoFormat.parse(cleanedValue)
+                    }
+
+                    date?.time ?: run {
+                        if (BuildConfig.DEBUG) {
+                            android.util.Log.w("ChatHubRepository", "⚠️ Failed to parse ISO date string: $value for message $messageId")
+                        }
+                        System.currentTimeMillis()
+                    }
+                } catch (e: Exception) {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.w("ChatHubRepository", "⚠️ Failed to parse timestamp string: $value for message $messageId", e)
+                    }
+                    System.currentTimeMillis()
+                }
+            }
+            else -> {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.w("ChatHubRepository", "⚠️ No timestamp found for message $messageId (value: $value, type: ${value?.javaClass?.simpleName}), using current time")
+                }
+                System.currentTimeMillis()
+            }
+        }
+    }
+
     private fun parseThreadsResponse(response: Map<String, Any>): List<ChatThread> {
         val threads = mutableListOf<ChatThread>()
 
@@ -460,13 +507,44 @@ class ChatHubRepositoryImpl @Inject constructor(
         for (messageData in messagesData) {
             try {
                 val id = messageData["_id"] as? String ?: continue
+
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d("ChatHubRepository", "Message data keys: ${messageData.keys}")
+                    android.util.Log.d("ChatHubRepository", "  _id: ${messageData["_id"]}")
+                    android.util.Log.d("ChatHubRepository", "  sentAt: ${messageData["sentAt"]} (${messageData["sentAt"]?.javaClass?.simpleName})")
+                    android.util.Log.d("ChatHubRepository", "  createdAt: ${messageData["createdAt"]} (${messageData["createdAt"]?.javaClass?.simpleName})")
+                }
+
                 val sender = messageData["sender"] as? String ?: "system"
                 val text = messageData["text"] as? String
                 val type = messageData["type"] as? String ?: "text"
                 val attachmentUrl = (messageData["attachment_url"] as? String)
                     ?: (messageData["attachmentUrl"] as? String)
-                val createdAt = ((messageData["created_at"] as? Number)
-                    ?: (messageData["createdAt"] as? Number))?.toLong() ?: System.currentTimeMillis()
+
+                // Parse timestamp - can be Number (Unix timestamp) or String (ISO 8601)
+                val createdAtRaw = parseTimestamp(
+                    messageData["sentAt"]
+                        ?: messageData["sent_at"]
+                        ?: messageData["createdAt"]
+                        ?: messageData["created_at"],
+                    id
+                )
+
+                // Check if timestamp is in seconds (10 digits) or milliseconds (13 digits)
+                val createdAt = if (createdAtRaw < 10000000000L) {
+                    // Timestamp is in seconds, convert to milliseconds
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("ChatHubRepository", "Converting timestamp from seconds to milliseconds: $createdAtRaw -> ${createdAtRaw * 1000}")
+                    }
+                    createdAtRaw * 1000
+                } else {
+                    // Already in milliseconds
+                    createdAtRaw
+                }
+
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d("ChatHubRepository", "  Final timestamp: $createdAt (${java.util.Date(createdAt)})")
+                }
 
                 // Parse metadata for booking messages
                 val metadata = if (type == "booking") {
@@ -502,7 +580,26 @@ class ChatHubRepositoryImpl @Inject constructor(
             }
         }
 
-        return messages
+        // API returns messages newest-first, reverse to oldest-first (matches iOS)
+        val reversed = messages.reversed()
+
+        if (BuildConfig.DEBUG && reversed.isNotEmpty()) {
+            android.util.Log.d("ChatHubRepository", "Parsed ${reversed.size} messages:")
+            android.util.Log.d("ChatHubRepository", "  First (oldest): id=${reversed.first().id}, createdAt=${reversed.first().createdAt}, text=${reversed.first().text?.take(30)}")
+            android.util.Log.d("ChatHubRepository", "  Last (newest): id=${reversed.last().id}, createdAt=${reversed.last().createdAt}, text=${reversed.last().text?.take(30)}")
+
+            // Check if timestamps are in correct order
+            val sorted = reversed.sortedBy { it.createdAt }
+            if (sorted != reversed) {
+                android.util.Log.w("ChatHubRepository", "⚠️ Messages are NOT in chronological order after reversal!")
+                android.util.Log.w("ChatHubRepository", "First timestamp: ${reversed.first().createdAt}")
+                android.util.Log.w("ChatHubRepository", "Last timestamp: ${reversed.last().createdAt}")
+            } else {
+                android.util.Log.d("ChatHubRepository", "✓ Messages are in correct chronological order")
+            }
+        }
+
+        return reversed
     }
 
     private fun parseSendMessageResponse(response: Map<String, Any>, threadId: String): ChatMessage {
@@ -511,7 +608,22 @@ class ChatHubRepositoryImpl @Inject constructor(
         val text = response["text"] as? String
         val type = response["type"] as? String ?: "text"
         val attachmentUrl = response["attachment_url"] as? String
-        val createdAt = (response["created_at"] as? Number)?.toLong() ?: System.currentTimeMillis()
+
+        // Parse timestamp - can be Number (Unix timestamp) or String (ISO 8601)
+        val createdAtRaw = parseTimestamp(
+            response["sentAt"]
+                ?: response["sent_at"]
+                ?: response["createdAt"]
+                ?: response["created_at"],
+            id
+        )
+
+        // Check if timestamp is in seconds or milliseconds
+        val createdAt = if (createdAtRaw < 10000000000L) {
+            createdAtRaw * 1000
+        } else {
+            createdAtRaw
+        }
 
         return ChatMessage(
             id = id,

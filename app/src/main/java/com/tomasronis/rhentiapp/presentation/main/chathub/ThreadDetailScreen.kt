@@ -241,7 +241,7 @@ fun ThreadDetailScreen(
                 )
         ) {
             when {
-                uiState.isLoading && uiState.messages.isEmpty() -> {
+                uiState.isLoading && uiState.displayMessages.isEmpty() -> {
                     // Initial loading
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -250,16 +250,16 @@ fun ThreadDetailScreen(
                         CircularProgressIndicator()
                     }
                 }
-                uiState.messages.isEmpty() -> {
+                uiState.displayMessages.isEmpty() -> {
                     // No messages
                     EmptyMessagesView()
                 }
                 else -> {
                     // Show messages
                     MessageList(
-                        messages = uiState.messages,
-                        onRetryMessage = { message ->
-                            viewModel.retryMessage(message)
+                        messages = uiState.displayMessages,
+                        onRetryMessage = { localId ->
+                            viewModel.retryPendingMessage(localId)
                         },
                         onLoadMore = {
                             viewModel.loadMoreMessages()
@@ -273,13 +273,14 @@ fun ThreadDetailScreen(
                         onProposeAlternative = { bookingId ->
                             showAlternativeTimePicker = bookingId
                         },
-                        listState = listState
+                        listState = listState,
+                        hasMoreMessages = uiState.hasMoreMessages
                     )
                 }
             }
 
-            // Loading indicator for pagination
-            if (uiState.isLoading && uiState.messages.isNotEmpty()) {
+            // Loading indicator for pagination (only show when loading more, not initial load)
+            if (uiState.isLoadingMore && uiState.displayMessages.isNotEmpty()) {
                 LinearProgressIndicator(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -341,71 +342,133 @@ private fun convertImageToBase64(context: Context, uri: Uri): String? {
 
 /**
  * List of messages with pagination support.
+ * Updated to use DisplayMessage (matches iOS implementation).
  */
 @Composable
 private fun MessageList(
-    messages: List<com.tomasronis.rhentiapp.data.chathub.models.ChatMessage>,
-    onRetryMessage: (com.tomasronis.rhentiapp.data.chathub.models.ChatMessage) -> Unit,
+    messages: List<com.tomasronis.rhentiapp.data.chathub.models.DisplayMessage>,
+    onRetryMessage: (String) -> Unit, // Pass local ID for retry
     onLoadMore: () -> Unit,
     onApproveBooking: (String) -> Unit,
     onDeclineBooking: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
-    listState: androidx.compose.foundation.lazy.LazyListState
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    hasMoreMessages: Boolean
 ) {
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp),
-        reverseLayout = false // Messages oldest to newest (top to bottom)
+        reverseLayout = false // Messages display oldest first, newest at bottom
     ) {
         items(
             items = messages,
             key = { it.id }
-        ) { message ->
-            // System messages get special treatment (e.g., "Conversation about: [address]")
-            if (message.sender == "system") {
-                SystemMessageView(message = message)
-            } else {
-                when (message.type) {
-                    "image" -> {
-                        ImageMessageView(message = message)
+        ) { displayMessage ->
+            when (displayMessage) {
+                is com.tomasronis.rhentiapp.data.chathub.models.DisplayMessage.Server -> {
+                    val message = displayMessage.message
+                    // System messages get special treatment
+                    if (message.sender == "system") {
+                        SystemMessageView(message = message)
+                    } else {
+                        when (message.type) {
+                            "image" -> {
+                                ImageMessageView(message = message)
+                            }
+                            "booking" -> {
+                                BookingMessageCard(
+                                    message = message,
+                                    onApprove = onApproveBooking,
+                                    onDecline = onDeclineBooking,
+                                    onProposeAlternative = onProposeAlternative
+                                )
+                            }
+                            else -> {
+                                MessageBubble(
+                                    message = message,
+                                    onRetry = null // Server messages don't need retry
+                                )
+                            }
+                        }
                     }
-                    "booking" -> {
-                        BookingMessageCard(
-                            message = message,
-                            onApprove = onApproveBooking,
-                            onDecline = onDeclineBooking,
-                            onProposeAlternative = onProposeAlternative
-                        )
-                    }
-                    else -> {
-                        MessageBubble(
-                            message = message,
-                            onRetry = if (message.status == "failed") {
-                                { onRetryMessage(message) }
-                            } else null
-                        )
+                }
+                is com.tomasronis.rhentiapp.data.chathub.models.DisplayMessage.Pending -> {
+                    val pending = displayMessage.pendingMessage
+                    // Convert pending message to ChatMessage for display
+                    val chatMessage = com.tomasronis.rhentiapp.data.chathub.models.ChatMessage(
+                        id = pending.localId,
+                        threadId = "", // Not used in UI
+                        sender = "owner",
+                        text = pending.text,
+                        type = if (pending.imageData != null) "image" else "text",
+                        attachmentUrl = pending.imageData,
+                        metadata = null,
+                        status = when (displayMessage.status) {
+                            com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING -> "sending"
+                            com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENT -> "sent"
+                            com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.FAILED -> "failed"
+                        },
+                        createdAt = pending.createdAt
+                    )
+
+                    when (chatMessage.type) {
+                        "image" -> {
+                            ImageMessageView(message = chatMessage)
+                        }
+                        else -> {
+                            MessageBubble(
+                                message = chatMessage,
+                                onRetry = if (displayMessage.status == com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.FAILED) {
+                                    { onRetryMessage(pending.localId) }
+                                } else null
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    // Detect scroll to top for pagination
+    // Track previous message count to detect NEW messages vs pagination
+    val previousMessageCount = remember { mutableStateOf(0) }
+    val isInitialLoad = remember { mutableStateOf(true) }
+
+    // Detect scroll to top for loading older messages (only if hasMoreMessages)
     val firstVisibleItemIndex by remember {
         derivedStateOf { listState.firstVisibleItemIndex }
     }
 
-    LaunchedEffect(firstVisibleItemIndex) {
-        if (firstVisibleItemIndex == 0 && messages.isNotEmpty()) {
+    LaunchedEffect(firstVisibleItemIndex, hasMoreMessages) {
+        // Load more when scrolled to top (first 3 items visible) and more messages available
+        if (firstVisibleItemIndex <= 2 && messages.isNotEmpty() && hasMoreMessages) {
             onLoadMore()
         }
     }
 
-    // Auto-scroll to bottom when new message is added
+    // Smart auto-scroll: scroll to bottom for new messages, not for pagination
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            val currentCount = messages.size
+            val previousCount = previousMessageCount.value
+
+            when {
+                // Initial load - instant scroll to bottom (newest message)
+                isInitialLoad.value -> {
+                    listState.scrollToItem(messages.size - 1)
+                    isInitialLoad.value = false
+                    previousMessageCount.value = currentCount
+                }
+                // New message added (small increase) - smooth scroll to bottom
+                currentCount > previousCount && currentCount - previousCount <= 3 -> {
+                    listState.animateScrollToItem(messages.size - 1)
+                    previousMessageCount.value = currentCount
+                }
+                // Pagination (large increase) - maintain current position, don't scroll
+                else -> {
+                    previousMessageCount.value = currentCount
+                }
+            }
         }
     }
 }

@@ -76,8 +76,8 @@ fun MessageBubble(
             ) {
                 Text(
                     text = formatTimestamp(message.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
 
                 // Status indicator
@@ -130,24 +130,28 @@ fun MessageBubble(
 }
 
 /**
- * Format timestamp to readable time.
+ * Format timestamp to always show full date and time.
+ * Format: "MMM d, h:mm a" (e.g., "Jan 8, 2:30 PM")
  */
 private fun formatTimestamp(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-
-    return when {
-        diff < 86400_000 -> { // Less than 24 hours - show time
-            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-            timeFormat.format(Date(timestamp))
-        }
-        diff < 604800_000 -> { // Less than 7 days - show day and time
-            val dayTimeFormat = SimpleDateFormat("EEE h:mm a", Locale.getDefault())
-            dayTimeFormat.format(Date(timestamp))
-        }
-        else -> { // More than 7 days - show date and time
-            val dateTimeFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
-            dateTimeFormat.format(Date(timestamp))
-        }
+    val calendar = Calendar.getInstance()
+    val now = Calendar.getInstance()
+    val messageDate = Calendar.getInstance().apply {
+        timeInMillis = timestamp
     }
+
+    val monthDayTimeFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+    val fullDateTimeFormat = SimpleDateFormat("MMM d, yyyy, h:mm a", Locale.getDefault())
+
+    return if (isSameYear(messageDate, now)) {
+        // This year: "Jan 8, 2:30 PM"
+        monthDayTimeFormat.format(Date(timestamp))
+    } else {
+        // Different year: "Jan 8, 2024, 2:30 PM"
+        fullDateTimeFormat.format(Date(timestamp))
+    }
+}
+
+private fun isSameYear(date: Calendar, now: Calendar): Boolean {
+    return date.get(Calendar.YEAR) == now.get(Calendar.YEAR)
 }
