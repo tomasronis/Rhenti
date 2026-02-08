@@ -7,6 +7,16 @@ val RhentiCoral = Color(0xFFE8998D)  // Primary coral/salmon accent
 val RhentiCoralLight = Color(0xFFF5BDB3)
 val RhentiCoralDark = Color(0xFFD67A6D)
 
+// Ocean Theme Colors
+val OceanBlue = Color(0xFF007AFF)  // Primary ocean blue
+val OceanBlueLight = Color(0xFF5AC8FA)
+val OceanBlueDark = Color(0xFF0056B3)
+
+// Earth Theme Colors
+val EarthTeal = Color(0xFF5AC8A8)  // Primary earth teal/green
+val EarthTealLight = Color(0xFF8EDEC8)
+val EarthTealDark = Color(0xFF3FA888)
+
 // Background Colors
 val DarkBackground = Color(0xFF000000)  // Pure black for dark theme
 val DarkSurface = Color(0xFF1C1C1E)  // Dark cards

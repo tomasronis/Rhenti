@@ -16,6 +16,8 @@ import com.tomasronis.rhentiapp.presentation.calls.CallsViewModel
 @Composable
 fun CallsTab(
     onStartCall: (String) -> Unit,
+    onMessageContact: (String) -> Unit, // threadId
+    onViewContact: (String) -> Unit, // contactId
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -49,6 +51,14 @@ fun CallsTab(
                     onNavigateBack = { navController.popBackStack() },
                     onCallClick = { phoneNumber: String ->
                         onStartCall(phoneNumber)
+                    },
+                    onMessageContact = { threadId: String ->
+                        // Pass thread ID to navigate to specific thread
+                        onMessageContact(threadId)
+                    },
+                    onViewContact = { contactId: String ->
+                        // Pass contact ID to navigate to specific contact
+                        onViewContact(contactId)
                     }
                 )
             }

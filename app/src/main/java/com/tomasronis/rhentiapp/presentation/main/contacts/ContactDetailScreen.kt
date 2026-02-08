@@ -3,6 +3,7 @@ package com.tomasronis.rhentiapp.presentation.main.contacts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -61,24 +62,25 @@ fun ContactDetailScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFF000000),
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             // iOS-style header with circular back button and centered title
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF000000))
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Circular back button
+                // Circular back button - iOS style (dark circle in light mode)
+                val isDarkTheme = isSystemInDarkTheme()
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            color = Color(0xFF2C2C2E),
+                            color = if (isDarkTheme) MaterialTheme.colorScheme.surfaceVariant else Color(0xFF2C2C2E),
                             shape = CircleShape
                         )
                         .clickable(
@@ -90,7 +92,7 @@ fun ContactDetailScreen(
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White,
+                        tint = if (isDarkTheme) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -102,7 +104,7 @@ fun ContactDetailScreen(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 17.sp
                     ),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
@@ -183,7 +185,7 @@ private fun ContactDetailContent(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -200,7 +202,7 @@ private fun ContactDetailContent(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF3A3A3C)),
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     // Always show initials as background/fallback
@@ -209,7 +211,7 @@ private fun ContactDetailContent(
                         style = MaterialTheme.typography.displaySmall.copy(
                             fontSize = 36.sp
                         ),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.Bold
                     )
 
@@ -233,7 +235,7 @@ private fun ContactDetailContent(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     ),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 // Role badge
@@ -296,8 +298,8 @@ private fun ContactDetailContent(
                         .height(48.dp)
                         .alpha(if (contact.phone != null) 1f else 0.5f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (contact.phone != null) Color(0xFF34C759) else Color(0xFF2C2C2E), // Green when enabled
-                        disabledContainerColor = Color(0xFF1C1C1E)
+                        containerColor = if (contact.phone != null) Color(0xFF34C759) else MaterialTheme.colorScheme.surfaceVariant,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -317,12 +319,12 @@ private fun ContactDetailContent(
             }
         }
 
-        // Contact information - iOS dark card
+        // Contact information card
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                color = Color(0xFF1C1C1E)
+                color = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -331,7 +333,7 @@ private fun ContactDetailContent(
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -347,7 +349,7 @@ private fun ContactDetailContent(
                     if (contact.phone != null) {
                         if (contact.email != null) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                            Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                             Spacer(modifier = Modifier.height(12.dp))
                         }
                         ContactInfoRow(
@@ -361,7 +363,7 @@ private fun ContactDetailContent(
                     if (contact.channel != null) {
                         if (contact.email != null || contact.phone != null) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                            Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                             Spacer(modifier = Modifier.height(12.dp))
                         }
                         ContactInfoRow(
@@ -389,13 +391,13 @@ private fun ContactDetailContent(
                     dateTime = "Feb 10, 2026 at 2:00 PM",
                     status = "Confirmed"
                 )
-                Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
                 ViewingItem(
                     propertyAddress = "456 Oak Ave, Unit 12",
                     dateTime = "Feb 12, 2026 at 10:00 AM",
                     status = "Pending"
                 )
-                Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
                 ViewingItem(
                     propertyAddress = "789 Elm St, Unit 3",
                     dateTime = "Feb 8, 2026 at 3:30 PM",
@@ -419,7 +421,7 @@ private fun ContactDetailContent(
                     submittedDate = "Feb 1, 2026",
                     status = "Under Review"
                 )
-                Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
+                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
                 ApplicationItem(
                     propertyAddress = "456 Oak Ave, Unit 12",
                     submittedDate = "Jan 28, 2026",
@@ -513,7 +515,7 @@ private fun ContactInfoRow(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontSize = 15.sp
                 ),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
         Text(
@@ -521,7 +523,7 @@ private fun ContactInfoRow(
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 15.sp
             ),
-            color = Color(0xFF8E8E93)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -548,7 +550,7 @@ private fun ExpandableSection(
             .fillMaxWidth()
             .animateContentSize(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1C1C1E)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column {
             // Header
@@ -579,7 +581,7 @@ private fun ExpandableSection(
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     // Count badge
                     Surface(
@@ -609,7 +611,7 @@ private fun ExpandableSection(
 
             // Expanded content
             if (expanded) {
-                Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
@@ -732,7 +734,7 @@ private fun PropertyCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF1C1C1E)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
@@ -764,7 +766,7 @@ private fun PropertyCard(
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 13.sp
                         ),
-                        color = Color(0xFF8E8E93)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

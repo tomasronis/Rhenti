@@ -124,7 +124,7 @@ fun ThreadDetailScreen(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 17.sp
                         ),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },

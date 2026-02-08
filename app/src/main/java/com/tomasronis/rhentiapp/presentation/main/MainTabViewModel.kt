@@ -38,6 +38,12 @@ class MainTabViewModel @Inject constructor(
     private val _contactToStartChat = MutableStateFlow<Contact?>(null)
     val contactToStartChat: StateFlow<Contact?> = _contactToStartChat.asStateFlow()
 
+    private val _threadIdToOpen = MutableStateFlow<String?>(null)
+    val threadIdToOpen: StateFlow<String?> = _threadIdToOpen.asStateFlow()
+
+    private val _contactIdToOpen = MutableStateFlow<String?>(null)
+    val contactIdToOpen: StateFlow<String?> = _contactIdToOpen.asStateFlow()
+
     private val _isTwilioInitialized = MutableStateFlow(false)
     val isTwilioInitialized: StateFlow<Boolean> = _isTwilioInitialized.asStateFlow()
 
@@ -133,6 +139,36 @@ class MainTabViewModel @Inject constructor(
      */
     fun clearContactToStartChat() {
         _contactToStartChat.value = null
+    }
+
+    /**
+     * Set thread ID to open (from Calls tab).
+     * This triggers navigation to a specific message thread.
+     */
+    fun setThreadIdToOpen(threadId: String?) {
+        _threadIdToOpen.value = threadId
+    }
+
+    /**
+     * Clear the thread ID to open (after navigation completes).
+     */
+    fun clearThreadIdToOpen() {
+        _threadIdToOpen.value = null
+    }
+
+    /**
+     * Set contact ID to open (from Calls tab).
+     * This triggers navigation to a specific contact detail.
+     */
+    fun setContactIdToOpen(contactId: String?) {
+        _contactIdToOpen.value = contactId
+    }
+
+    /**
+     * Clear the contact ID to open (after navigation completes).
+     */
+    fun clearContactIdToOpen() {
+        _contactIdToOpen.value = null
     }
 
     /**

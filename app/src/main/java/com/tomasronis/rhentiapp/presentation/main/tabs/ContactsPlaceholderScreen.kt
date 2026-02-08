@@ -5,10 +5,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.core.voip.CallService
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactDetailScreen
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
+import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel
 
 /**
  * Contacts tab content - manages navigation between contact list and detail.
@@ -16,12 +18,34 @@ import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
  */
 @Composable
 fun ContactsTabContent(
+    contactIdToOpen: String? = null,
     onStartChat: (Contact) -> Unit = {},
+    onContactOpened: () -> Unit = {},
     isTwilioInitialized: Boolean = false
 ) {
     val context = LocalContext.current
+    val contactsViewModel: ContactsViewModel = hiltViewModel()
+    val contactsUiState by contactsViewModel.uiState.collectAsState()
+
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
     var pendingCallNumber by remember { mutableStateOf<String?>(null) }
+
+    // Auto-open contact by ID when coming from Calls tab
+    LaunchedEffect(contactIdToOpen) {
+        if (!contactIdToOpen.isNullOrBlank()) {
+            // Find contact by ID
+            val matchingContact = contactsUiState.contacts.find { contact ->
+                contact.id == contactIdToOpen
+            }
+
+            if (matchingContact != null) {
+                selectedContact = matchingContact
+            }
+
+            // Clear the contact ID state
+            onContactOpened()
+        }
+    }
 
     // Audio permission launcher
     val audioPermissionLauncher = rememberLauncherForActivityResult(

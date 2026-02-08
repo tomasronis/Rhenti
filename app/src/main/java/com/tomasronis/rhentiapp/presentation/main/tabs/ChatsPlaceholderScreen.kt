@@ -12,13 +12,15 @@ import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel
 
 /**
  * Chats tab content - manages navigation between thread list and detail.
- * Can automatically open a thread when coming from Contacts tab.
+ * Can automatically open a thread when coming from Contacts tab or Calls tab.
  * Can navigate to contact detail from thread detail.
  */
 @Composable
 fun ChatsTabContent(
     contactToStartChat: Contact? = null,
+    threadIdToOpen: String? = null,
     onContactChatOpened: () -> Unit = {},
+    onThreadOpened: () -> Unit = {},
     onStartCall: (String) -> Unit = {}
 ) {
     val chatViewModel: ChatHubViewModel = hiltViewModel()
@@ -28,6 +30,23 @@ fun ChatsTabContent(
 
     var selectedThread by remember { mutableStateOf<ChatThread?>(null) }
     var selectedContactFromThread by remember { mutableStateOf<Contact?>(null) }
+
+    // Auto-open thread by ID when coming from Calls tab
+    LaunchedEffect(threadIdToOpen) {
+        if (!threadIdToOpen.isNullOrBlank()) {
+            // Find thread by ID
+            val matchingThread = chatUiState.threads.find { thread ->
+                thread.id == threadIdToOpen
+            }
+
+            if (matchingThread != null) {
+                selectedThread = matchingThread
+            }
+
+            // Clear the thread ID state
+            onThreadOpened()
+        }
+    }
 
     // Auto-open thread when coming from contact
     LaunchedEffect(contactToStartChat) {

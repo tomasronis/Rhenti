@@ -3,8 +3,12 @@ package com.tomasronis.rhentiapp.presentation.calls
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -21,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.calls.models.CallLog
 import com.tomasronis.rhentiapp.data.calls.models.CallType
+import com.tomasronis.rhentiapp.presentation.main.chathub.ChatHubViewModel
+import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel
 import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -36,31 +43,73 @@ fun CallDetailScreen(
     callLog: CallLog,
     onNavigateBack: () -> Unit,
     onCallClick: (String) -> Unit,
+    onMessageContact: (String) -> Unit,
+    onViewContact: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: CallsViewModel = hiltViewModel()
+    viewModel: CallsViewModel = hiltViewModel(),
+    contactsViewModel: ContactsViewModel = hiltViewModel(),
+    chatHubViewModel: ChatHubViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
+    // Get contacts and threads from ViewModels
+    val contactsUiState by contactsViewModel.uiState.collectAsState()
+    val chatHubUiState by chatHubViewModel.uiState.collectAsState()
+
+    // Find matching contact and thread for this phone number
+    val matchingContact = contactsUiState.contacts.firstOrNull { it.phone == callLog.contactPhone }
+    val matchingThread = chatHubUiState.threads.firstOrNull { it.phone == callLog.contactPhone }
+
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "Call Details",
-                        style = MaterialTheme.typography.titleMedium
+            // iOS-style header with circular back button and centered title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Circular back button - iOS style
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = Color(0xFF2C2C2E),
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onNavigateBack() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                }
+
+                // Center title
+                Text(
+                    text = "Call Details",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 17.sp
+                    ),
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-            )
+
+                // Spacer for balance
+                Spacer(modifier = Modifier.size(40.dp))
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -142,8 +191,91 @@ fun CallDetailScreen(
                                 )
                             }
                         }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        // Message Contact button
+                        Surface(
+                            onClick = {
+                                // Navigate with thread ID if available
+                                if (matchingThread != null) {
+                                    onMessageContact(matchingThread.id)
+                                } else {
+                                    // Fallback to just switching tabs
+                                    onMessageContact("")
+                                }
+                            },
+                            color = Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Chat,
+                                    contentDescription = null,
+                                    tint = RhentiCoral,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Message Contact",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        // View Contact button
+                        Surface(
+                            onClick = {
+                                // Navigate with contact if available
+                                if (matchingContact != null) {
+                                    onViewContact(matchingContact.id)
+                                } else {
+                                    // Fallback to just switching tabs
+                                    onViewContact("")
+                                }
+                            },
+                            color = Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = null,
+                                    tint = RhentiCoral,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "View Contact",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
                     }
                 }
+            }
+
+            // Spacer before Call Details section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Call Details Section
@@ -220,6 +352,11 @@ fun CallDetailScreen(
                 }
             }
 
+            // Spacer before Contact section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Contact Section
             item {
                 SectionHeader(title = "Contact")
@@ -247,10 +384,15 @@ fun CallDetailScreen(
                         DetailRow(
                             icon = Icons.Filled.Email,
                             label = "Email",
-                            value = "jane@example.com"
+                            value = matchingContact?.email ?: matchingThread?.email ?: "Not available"
                         )
                     }
                 }
+            }
+
+            // Spacer before Property section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Property Section
@@ -268,7 +410,7 @@ fun CallDetailScreen(
                     DetailRow(
                         icon = Icons.Filled.Business,
                         label = "Address",
-                        value = "88 Queen St E, Toronto"
+                        value = matchingThread?.address ?: "No property associated"
                     )
                 }
             }

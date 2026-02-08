@@ -1,5 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.main.tabs
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,11 +18,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.tomasronis.rhentiapp.core.preferences.MediaRetentionPeriod
+import com.tomasronis.rhentiapp.core.preferences.ThemeMode
 import com.tomasronis.rhentiapp.presentation.theme.*
+import kotlinx.coroutines.launch
 
 /**
  * Settings screen matching iOS design.
@@ -30,25 +38,46 @@ import com.tomasronis.rhentiapp.presentation.theme.*
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    var selectedTheme by remember { mutableStateOf("Rhenti") }
+    val uiState by viewModel.uiState.collectAsState()
+    val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
+    val mediaRetentionPeriod by viewModel.mediaRetentionPeriod.collectAsState()
+    val messagesPerChat by viewModel.messagesPerChat.collectAsState()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var showUserDetailsDialog by remember { mutableStateOf(false) }
+    var showClearCacheDialog by remember { mutableStateOf(false) }
+    var showMediaRetentionDialog by remember { mutableStateOf(false) }
+    var showMessagesPerChatDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            // Large title header
-            Box(
+            // Match the header style of Messages, Contacts, Calls
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(horizontal = 16.dp, vertical = 16.dp)
+                    .padding(top = 4.dp) // Add slight top padding to match Messages header position
             ) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
+                // Header row with title (matching other tabs)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Large title
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
             }
         }
     ) { paddingValues ->
@@ -63,10 +92,10 @@ fun SettingsScreen(
             // Profile Card
             item {
                 ProfileCard(
-                    name = "Peter Chen",
-                    email = "peter+demo@pchen.ca",
+                    name = uiState.userName,
+                    email = uiState.userEmail,
                     avatarUrl = null,
-                    onClick = { /* TODO: Navigate to profile edit */ }
+                    onClick = { showUserDetailsDialog = true }
                 )
             }
 
@@ -88,13 +117,13 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Palette,
+                                imageVector = Icons.Filled.DarkMode,
                                 contentDescription = null,
-                                tint = RhentiCoral,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = "Theme Color",
+                                text = "Theme",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -102,30 +131,30 @@ fun SettingsScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Theme color selector
+                        // Theme mode selector (Dark, Light, System)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            ThemeColorOption(
-                                name = "Rhenti",
-                                color = RhentiCoral,
-                                isSelected = selectedTheme == "Rhenti",
-                                onClick = { selectedTheme = "Rhenti" }
+                            ThemeModeOption(
+                                name = "Dark",
+                                icon = Icons.Filled.DarkMode,
+                                isSelected = selectedThemeMode == ThemeMode.DARK,
+                                onClick = { viewModel.setThemeMode(ThemeMode.DARK) }
                             )
 
-                            ThemeColorOption(
-                                name = "Ocean",
-                                color = AccentBlue,
-                                isSelected = selectedTheme == "Ocean",
-                                onClick = { selectedTheme = "Ocean" }
+                            ThemeModeOption(
+                                name = "Light",
+                                icon = Icons.Filled.LightMode,
+                                isSelected = selectedThemeMode == ThemeMode.LIGHT,
+                                onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) }
                             )
 
-                            ThemeColorOption(
-                                name = "Earth",
-                                color = Color(0xFF5AC8A8),
-                                isSelected = selectedTheme == "Earth",
-                                onClick = { selectedTheme = "Earth" }
+                            ThemeModeOption(
+                                name = "System",
+                                icon = Icons.Filled.SettingsBrightness,
+                                isSelected = selectedThemeMode == ThemeMode.SYSTEM,
+                                onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) }
                             )
                         }
                     }
@@ -145,10 +174,10 @@ fun SettingsScreen(
                     Column {
                         SettingsItem(
                             icon = Icons.Filled.Image,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Keep Media",
-                            value = "1 Week",
-                            onClick = { /* TODO: Open media retention settings */ }
+                            value = viewModel.getMediaRetentionLabel(mediaRetentionPeriod),
+                            onClick = { showMediaRetentionDialog = true }
                         )
 
                         HorizontalDivider(
@@ -158,10 +187,10 @@ fun SettingsScreen(
 
                         SettingsItem(
                             icon = Icons.Filled.ChatBubble,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Messages per Chat",
-                            value = "200 messages",
-                            onClick = { /* TODO: Open message limit settings */ }
+                            value = viewModel.getMessagesPerChatLabel(messagesPerChat),
+                            onClick = { showMessagesPerChatDialog = true }
                         )
 
                         HorizontalDivider(
@@ -171,10 +200,10 @@ fun SettingsScreen(
 
                         SettingsItem(
                             icon = Icons.Filled.Sd,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Storage Used",
-                            value = "9.9 MB",
-                            onClick = { /* TODO: Show storage details */ },
+                            value = uiState.storageUsed,
+                            onClick = { /* Future: Show storage details */ },
                             showChevron = false
                         )
 
@@ -185,17 +214,17 @@ fun SettingsScreen(
 
                         SettingsItem(
                             icon = Icons.Filled.Delete,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Clear Cache",
-                            value = "9.2 MB",
-                            onClick = { /* TODO: Clear cache */ },
+                            value = uiState.cacheSize,
+                            onClick = { showClearCacheDialog = true },
                             showChevron = false
                         )
                     }
                 }
             }
 
-            // About Section
+            // About Section (without Connection)
             item {
                 SectionHeader(title = "About")
                 Spacer(modifier = Modifier.height(8.dp))
@@ -205,44 +234,14 @@ fun SettingsScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
-                    Column {
-                        SettingsItem(
-                            icon = Icons.Filled.Business,
-                            iconTint = RhentiCoral,
-                            title = "Organization",
-                            value = "Demo Properties",
-                            onClick = { /* TODO: Show organization details */ },
-                            showChevron = false
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 52.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-
-                        SettingsItem(
-                            icon = Icons.Filled.Info,
-                            iconTint = RhentiCoral,
-                            title = "Version",
-                            value = "2.0.0 (22)",
-                            onClick = { /* TODO: Show version details */ },
-                            showChevron = false
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 52.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-
-                        SettingsItem(
-                            icon = Icons.Filled.Wifi,
-                            iconTint = RhentiCoral,
-                            title = "Connection",
-                            value = "Wi-Fi",
-                            onClick = { /* TODO: Show connection details */ },
-                            showChevron = false
-                        )
-                    }
+                    SettingsItem(
+                        icon = Icons.Filled.Info,
+                        iconTint = MaterialTheme.colorScheme.primary,
+                        title = "Version",
+                        value = "2.0.0 (22)",
+                        onClick = { /* Future: Show version details */ },
+                        showChevron = false
+                    )
                 }
             }
 
@@ -257,9 +256,13 @@ fun SettingsScreen(
                     Column {
                         SettingsItem(
                             icon = Icons.Filled.Help,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Help & Support",
-                            onClick = { /* TODO: Open help */ }
+                            onClick = {
+                                // Open Notion help center in browser
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://rhenti.notion.site/Rhenti-Help-Center-5f98e36f7f0e4117b4f83bb816ab9f48"))
+                                context.startActivity(intent)
+                            }
                         )
 
                         HorizontalDivider(
@@ -269,9 +272,13 @@ fun SettingsScreen(
 
                         SettingsItem(
                             icon = Icons.Filled.Shield,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Privacy Policy",
-                            onClick = { /* TODO: Open privacy policy */ }
+                            onClick = {
+                                // Open privacy policy in browser
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://rhenti.com/privacy-policy.html"))
+                                context.startActivity(intent)
+                            }
                         )
 
                         HorizontalDivider(
@@ -281,9 +288,13 @@ fun SettingsScreen(
 
                         SettingsItem(
                             icon = Icons.Filled.Description,
-                            iconTint = RhentiCoral,
+                            iconTint = MaterialTheme.colorScheme.primary,
                             title = "Terms of Service",
-                            onClick = { /* TODO: Open terms */ }
+                            onClick = {
+                                // Open terms in browser
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://rhenti.com/terms-of-service.html"))
+                                context.startActivity(intent)
+                            }
                         )
                     }
                 }
@@ -296,7 +307,12 @@ fun SettingsScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
-                    modifier = Modifier.clickable(onClick = onLogout)
+                    modifier = Modifier.clickable {
+                        coroutineScope.launch {
+                            viewModel.signOut()
+                            onLogout()
+                        }
+                    }
                 ) {
                     Row(
                         modifier = Modifier
@@ -308,13 +324,13 @@ fun SettingsScreen(
                         Icon(
                             imageVector = Icons.Filled.Logout,
                             contentDescription = null,
-                            tint = RhentiCoral,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                         Text(
                             text = "Sign Out",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = RhentiCoral,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -334,6 +350,65 @@ fun SettingsScreen(
                 )
             }
         }
+    }
+
+    // User Details Dialog
+    if (showUserDetailsDialog) {
+        UserDetailsDialog(
+            name = uiState.userName,
+            email = uiState.userEmail,
+            phone = uiState.userPhone.ifEmpty { "Not set" },
+            organization = uiState.userOrganization,
+            onDismiss = { showUserDetailsDialog = false }
+        )
+    }
+
+    // Clear Cache Confirmation Dialog
+    if (showClearCacheDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearCacheDialog = false },
+            title = { Text("Clear Cache?") },
+            text = { Text("This will clear ${uiState.cacheSize} of cached data. The app may need to reload some content.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearCache()
+                        showClearCacheDialog = false
+                    }
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearCacheDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Media Retention Dialog
+    if (showMediaRetentionDialog) {
+        MediaRetentionDialog(
+            currentPeriod = mediaRetentionPeriod,
+            onPeriodSelected = { period ->
+                viewModel.setMediaRetentionPeriod(period)
+                showMediaRetentionDialog = false
+            },
+            onDismiss = { showMediaRetentionDialog = false }
+        )
+    }
+
+    // Messages Per Chat Dialog
+    if (showMessagesPerChatDialog) {
+        MessagesPerChatDialog(
+            currentLimit = messagesPerChat,
+            onLimitSelected = { limit ->
+                viewModel.setMessagesPerChat(limit)
+                showMessagesPerChatDialog = false
+            },
+            onDismiss = { showMessagesPerChatDialog = false }
+        )
     }
 }
 
@@ -387,7 +462,7 @@ private fun ProfileCard(
                     text = name,
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                     fontWeight = FontWeight.SemiBold,
-                    color = RhentiCoral
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 Text(
@@ -400,11 +475,224 @@ private fun ProfileCard(
             // Chevron
             Icon(
                 imageVector = Icons.Filled.ChevronRight,
-                contentDescription = "Edit profile",
+                contentDescription = "View details",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
             )
         }
     }
+}
+
+/**
+ * User details dialog with improved spacing.
+ */
+@Composable
+private fun UserDetailsDialog(
+    name: String,
+    email: String,
+    phone: String,
+    organization: String,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp) // Further increased spacing for better readability
+            ) {
+                // Header
+                Text(
+                    text = "Profile Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                HorizontalDivider()
+
+                // User details with more spacing
+                UserDetailItem(
+                    icon = Icons.Filled.Person,
+                    label = "Name",
+                    value = name
+                )
+
+                UserDetailItem(
+                    icon = Icons.Filled.Email,
+                    label = "Email",
+                    value = email
+                )
+
+                UserDetailItem(
+                    icon = Icons.Filled.Phone,
+                    label = "Phone",
+                    value = phone
+                )
+
+                UserDetailItem(
+                    icon = Icons.Filled.Business,
+                    label = "Organization",
+                    value = organization
+                )
+
+                // Close button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Close")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * User detail item in dialog.
+ */
+@Composable
+private fun UserDetailItem(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+/**
+ * Media retention period selection dialog.
+ */
+@Composable
+private fun MediaRetentionDialog(
+    currentPeriod: MediaRetentionPeriod,
+    onPeriodSelected: (MediaRetentionPeriod) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Keep Media") },
+        text = {
+            Column {
+                Text(
+                    text = "Choose how long to keep media files in the app.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                MediaRetentionPeriod.values().forEach { period ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPeriodSelected(period) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentPeriod == period,
+                            onClick = { onPeriodSelected(period) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = when (period) {
+                                MediaRetentionPeriod.ONE_WEEK -> "1 Week"
+                                MediaRetentionPeriod.ONE_MONTH -> "1 Month"
+                                MediaRetentionPeriod.THREE_MONTHS -> "3 Months"
+                                MediaRetentionPeriod.SIX_MONTHS -> "6 Months"
+                                MediaRetentionPeriod.ONE_YEAR -> "1 Year"
+                                MediaRetentionPeriod.FOREVER -> "Forever"
+                            },
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+/**
+ * Messages per chat limit selection dialog.
+ */
+@Composable
+private fun MessagesPerChatDialog(
+    currentLimit: Int,
+    onLimitSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val options = listOf(-1, 50, 100, 250, 500) // -1 means unlimited
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Messages per Chat") },
+        text = {
+            Column {
+                Text(
+                    text = "Choose how many messages to keep for each chat thread. Older messages will be deleted first.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                options.forEach { limit ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLimitSelected(limit) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentLimit == limit,
+                            onClick = { onLimitSelected(limit) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (limit == -1) "All messages" else "$limit messages",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 /**
@@ -425,12 +713,12 @@ private fun SectionHeader(
 }
 
 /**
- * Theme color selection option.
+ * Theme mode selection option (Dark/Light/System).
  */
 @Composable
-private fun ThemeColorOption(
+private fun ThemeModeOption(
     name: String,
-    color: Color,
+    icon: ImageVector,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -443,24 +731,26 @@ private fun ThemeColorOption(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(color)
+                .background(
+                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant
+                )
                 .then(
                     if (isSelected) {
-                        Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     } else {
                         Modifier
                     }
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = "Selected",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = name,
+                tint = if (isSelected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(32.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -469,7 +759,8 @@ private fun ThemeColorOption(
             text = name,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (isSelected) color else MaterialTheme.colorScheme.onSurfaceVariant
+            color = if (isSelected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -517,7 +808,7 @@ private fun SettingsItem(
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = RhentiCoral
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 

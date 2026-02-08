@@ -301,7 +301,7 @@ private fun IOSContactCard(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF3A3A3C)), // Dark gray for initials
+                .background(MaterialTheme.colorScheme.secondaryContainer),
             contentAlignment = Alignment.Center
         ) {
             if (contact.avatarUrl != null) {
@@ -313,7 +313,7 @@ private fun IOSContactCard(
             } else {
                 Text(
                     text = getInitials(contact.displayName),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -323,7 +323,7 @@ private fun IOSContactCard(
         // Contact name
         Text(
             text = contact.displayName,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 17.sp,
             modifier = Modifier.weight(1f),
             maxLines = 1,
@@ -334,7 +334,7 @@ private fun IOSContactCard(
         Icon(
             imageVector = Icons.Filled.ChevronRight,
             contentDescription = "View contact",
-            tint = Color(0xFF8E8E93), // Gray
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
         )
     }

@@ -36,6 +36,8 @@ fun MainTabScreen(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
     val contactToStartChat by viewModel.contactToStartChat.collectAsState()
+    val threadIdToOpen by viewModel.threadIdToOpen.collectAsState()
+    val contactIdToOpen by viewModel.contactIdToOpen.collectAsState()
     val callState by viewModel.callState.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -97,14 +99,14 @@ fun MainTabScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // iOS-styled bottom navigation with dark rounded pill container
+            // iOS-styled bottom navigation with rounded pill container matching search bar
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 12.dp),
                 shape = RoundedCornerShape(32.dp),
-                color = Color(0xFF1C1C1E),
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 tonalElevation = 8.dp
             ) {
                 NavigationBar(
@@ -262,14 +264,19 @@ fun MainTabScreen(
             when (selectedTab) {
                 0 -> ChatsTabContent(
                     contactToStartChat = contactToStartChat,
+                    threadIdToOpen = threadIdToOpen,
                     onContactChatOpened = {
                         viewModel.clearContactToStartChat()
+                    },
+                    onThreadOpened = {
+                        viewModel.clearThreadIdToOpen()
                     },
                     onStartCall = { phoneNumber ->
                         handleMakeCall(phoneNumber)
                     }
                 )
                 1 -> ContactsTabContent(
+                    contactIdToOpen = contactIdToOpen,
                     onStartChat = { contact ->
                         // Set the contact and switch to Chats tab
                         viewModel.setContactToStartChat(contact)
@@ -277,11 +284,32 @@ fun MainTabScreen(
                             viewModel.setSelectedTab(0)
                         }
                     },
+                    onContactOpened = {
+                        viewModel.clearContactIdToOpen()
+                    },
                     isTwilioInitialized = viewModel.isTwilioInitialized.collectAsState().value
                 )
                 2 -> CallsTab(
                     onStartCall = { phoneNumber ->
                         handleMakeCall(phoneNumber)
+                    },
+                    onMessageContact = { threadId ->
+                        // Navigate to Chats tab with specific thread ID
+                        if (threadId.isNotBlank()) {
+                            viewModel.setThreadIdToOpen(threadId)
+                        }
+                        scope.launch {
+                            viewModel.setSelectedTab(0)
+                        }
+                    },
+                    onViewContact = { contactId ->
+                        // Navigate to Contacts tab with specific contact ID
+                        if (contactId.isNotBlank()) {
+                            viewModel.setContactIdToOpen(contactId)
+                        }
+                        scope.launch {
+                            viewModel.setSelectedTab(1)
+                        }
                     }
                 )
                 3 -> ProfileTab(

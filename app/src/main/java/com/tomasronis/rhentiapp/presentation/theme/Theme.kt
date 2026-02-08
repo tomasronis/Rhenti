@@ -2,6 +2,7 @@ package com.tomasronis.rhentiapp.presentation.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -34,8 +35,15 @@ private val RhentiLightColorScheme = lightColorScheme(
     onSurface = LightOnSurface,
     surfaceVariant = Color(0xFFF2F2F7),  // Light gray for cards
     onSurfaceVariant = LightOnSurfaceVariant,
+    surfaceContainer = Color.White,  // Container surfaces (navigation bar, etc)
+    surfaceContainerHigh = Color(0xFFFAFAFA),  // Slightly elevated surfaces
+    surfaceContainerHighest = Color(0xFFF5F5F5),  // Most elevated surfaces
+    inverseSurface = Color(0xFF2F3033),  // Inverse for tooltips, etc
+    inverseOnSurface = Color(0xFFF1F0F4),  // Text on inverse surface
     outline = LightOutline,
     outlineVariant = DividerLight,
+    scrim = Color(0xFF000000),  // Scrim for dialogs
+    surfaceTint = RhentiCoral,  // Tint color for elevated surfaces
 )
 
 private val RhentiDarkColorScheme = darkColorScheme(
@@ -61,6 +69,123 @@ private val RhentiDarkColorScheme = darkColorScheme(
     onSurface = DarkOnSurface,
     surfaceVariant = DarkSurfaceVariant,  // Lighter dark cards
     onSurfaceVariant = DarkOnSurfaceVariant,
+    surfaceContainer = DarkSurface,  // Container surfaces (navigation bar, etc)
+    surfaceContainerHigh = Color(0xFF242427),  // Slightly elevated surfaces
+    surfaceContainerHighest = DarkSurfaceVariant,  // Most elevated surfaces
+    inverseSurface = Color(0xFFE4E2E6),  // Inverse for tooltips, etc
+    inverseOnSurface = Color(0xFF2F3033),  // Text on inverse surface
+    outline = DarkOutline,
+    outlineVariant = Divider,
+    scrim = Color(0xFF000000),  // Scrim for dialogs
+    surfaceTint = RhentiCoral,  // Tint color for elevated surfaces
+)
+
+// Ocean Theme Color Schemes
+private val OceanLightColorScheme = lightColorScheme(
+    primary = OceanBlue,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD1E4FF),
+    onPrimaryContainer = Color(0xFF001D36),
+    secondary = LightSecondary,
+    onSecondary = LightOnSecondary,
+    secondaryContainer = LightSecondaryContainer,
+    onSecondaryContainer = LightOnSecondaryContainer,
+    tertiary = RhentiCoral,  // Use coral as tertiary
+    onTertiary = Color.White,
+    tertiaryContainer = LightTertiaryContainer,
+    onTertiaryContainer = LightOnTertiaryContainer,
+    error = LightError,
+    onError = LightOnError,
+    errorContainer = LightErrorContainer,
+    onErrorContainer = LightOnErrorContainer,
+    background = LightBackground,
+    onBackground = LightOnBackground,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
+    surfaceVariant = Color(0xFFF2F2F7),
+    onSurfaceVariant = LightOnSurfaceVariant,
+    outline = LightOutline,
+    outlineVariant = DividerLight,
+)
+
+private val OceanDarkColorScheme = darkColorScheme(
+    primary = OceanBlue,
+    onPrimary = Color.White,
+    primaryContainer = OceanBlueDark,
+    onPrimaryContainer = Color(0xFFD1E4FF),
+    secondary = DarkSecondary,
+    onSecondary = DarkOnSecondary,
+    secondaryContainer = DarkSecondaryContainer,
+    onSecondaryContainer = DarkOnSecondaryContainer,
+    tertiary = RhentiCoral,
+    onTertiary = DarkOnTertiary,
+    tertiaryContainer = DarkTertiaryContainer,
+    onTertiaryContainer = DarkOnTertiaryContainer,
+    error = DarkError,
+    onError = DarkOnError,
+    errorContainer = DarkErrorContainer,
+    onErrorContainer = DarkOnErrorContainer,
+    background = DarkBackground,
+    onBackground = DarkOnBackground,
+    surface = DarkSurface,
+    onSurface = DarkOnSurface,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = DarkOnSurfaceVariant,
+    outline = DarkOutline,
+    outlineVariant = Divider,
+)
+
+// Earth Theme Color Schemes
+private val EarthLightColorScheme = lightColorScheme(
+    primary = EarthTeal,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFB8F5E0),
+    onPrimaryContainer = Color(0xFF002114),
+    secondary = LightSecondary,
+    onSecondary = LightOnSecondary,
+    secondaryContainer = LightSecondaryContainer,
+    onSecondaryContainer = LightOnSecondaryContainer,
+    tertiary = OceanBlue,  // Use blue as tertiary
+    onTertiary = Color.White,
+    tertiaryContainer = LightTertiaryContainer,
+    onTertiaryContainer = LightOnTertiaryContainer,
+    error = LightError,
+    onError = LightOnError,
+    errorContainer = LightErrorContainer,
+    onErrorContainer = LightOnErrorContainer,
+    background = LightBackground,
+    onBackground = LightOnBackground,
+    surface = LightSurface,
+    onSurface = LightOnSurface,
+    surfaceVariant = Color(0xFFF2F2F7),
+    onSurfaceVariant = LightOnSurfaceVariant,
+    outline = LightOutline,
+    outlineVariant = DividerLight,
+)
+
+private val EarthDarkColorScheme = darkColorScheme(
+    primary = EarthTeal,
+    onPrimary = Color(0xFF003828),
+    primaryContainer = EarthTealDark,
+    onPrimaryContainer = Color(0xFFB8F5E0),
+    secondary = DarkSecondary,
+    onSecondary = DarkOnSecondary,
+    secondaryContainer = DarkSecondaryContainer,
+    onSecondaryContainer = DarkOnSecondaryContainer,
+    tertiary = OceanBlueLight,
+    onTertiary = DarkOnTertiary,
+    tertiaryContainer = DarkTertiaryContainer,
+    onTertiaryContainer = DarkOnTertiaryContainer,
+    error = DarkError,
+    onError = DarkOnError,
+    errorContainer = DarkErrorContainer,
+    onErrorContainer = DarkOnErrorContainer,
+    background = DarkBackground,
+    onBackground = DarkOnBackground,
+    surface = DarkSurface,
+    onSurface = DarkOnSurface,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
     outlineVariant = Divider,
 )
@@ -74,6 +199,7 @@ private val RhentiDarkColorScheme = darkColorScheme(
  * Supports:
  * - Light theme with light gray backgrounds (#F5F5F5)
  * - Dark theme with pure black background (#000000) and dark cards (#1C1C1E)
+ * - System theme that follows device settings
  * - Coral primary color for buttons and highlights
  * - Blue accent for informational elements
  * - Dynamic color on Android 12+ (Material You) - optional

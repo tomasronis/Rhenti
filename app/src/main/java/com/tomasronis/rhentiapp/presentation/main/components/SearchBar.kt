@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Reusable search bar component matching iOS design.
- * Features dark gray rounded background with search icon.
+ * Features theme-aware rounded background with search icon.
  */
 @Composable
 fun RhentiSearchBar(
@@ -39,7 +39,7 @@ fun RhentiSearchBar(
             .fillMaxWidth()
             .height(52.dp)
             .background(
-                color = Color(0xFF2C2C2E), // Dark gray background
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(26.dp)
             )
             .padding(horizontal = 16.dp),
@@ -49,7 +49,7 @@ fun RhentiSearchBar(
         Icon(
             imageVector = Icons.Filled.Search,
             contentDescription = "Search",
-            tint = Color(0xFF8E8E93), // Gray icon color
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
         )
 
@@ -65,18 +65,18 @@ fun RhentiSearchBar(
                 onValueChange = onQueryChange,
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = LocalTextStyle.current.copy(
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 17.sp
                 ),
                 singleLine = true,
-                cursorBrush = SolidColor(Color.White),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 decorationBox = { innerTextField ->
                     if (query.isEmpty()) {
                         androidx.compose.material3.Text(
                             text = placeholder,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                color = Color(0xFF8E8E93), // Gray placeholder
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 17.sp
                             )
                         )
@@ -95,7 +95,7 @@ fun RhentiSearchBar(
                 Icon(
                     imageVector = Icons.Filled.Close,
                     contentDescription = "Clear search",
-                    tint = Color(0xFF8E8E93),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
