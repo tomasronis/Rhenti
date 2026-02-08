@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.core.voip.CallService
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
+import com.tomasronis.rhentiapp.presentation.main.chathub.ChatHubViewModel
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactDetailScreen
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsListScreen
 import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel
@@ -26,7 +27,9 @@ fun ContactsTabContent(
 ) {
     val context = LocalContext.current
     val contactsViewModel: ContactsViewModel = hiltViewModel()
+    val chatHubViewModel: ChatHubViewModel = hiltViewModel()
     val contactsUiState by contactsViewModel.uiState.collectAsState()
+    val chatUiState by chatHubViewModel.uiState.collectAsState()
 
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
     var selectedThreadId by remember { mutableStateOf<String?>(null) }
@@ -41,8 +44,35 @@ fun ContactsTabContent(
             }
 
             if (matchingContact != null) {
-                selectedContact = matchingContact
-                selectedThreadId = threadIdToOpen // Store threadId for loading viewings/applications
+                // Find matching thread to merge imageUrl and channel
+                val matchingThread = if (threadIdToOpen != null) {
+                    chatUiState.threads.find { it.id == threadIdToOpen }
+                } else {
+                    // Fallback to matching by contact data
+                    chatUiState.threads.find { thread ->
+                        (thread.renterId != null && thread.renterId == matchingContact.id) ||
+                        (!matchingContact.email.isNullOrBlank() && !thread.email.isNullOrBlank() &&
+                         matchingContact.email.equals(thread.email, ignoreCase = true)) ||
+                        (!matchingContact.phone.isNullOrBlank() && !thread.phone.isNullOrBlank() &&
+                         matchingContact.phone == thread.phone)
+                    }
+                }
+
+                // Merge thread data (imageUrl, channel) with contact data
+                val contactWithThreadData = if (matchingThread != null) {
+                    matchingContact.copy(
+                        avatarUrl = matchingThread.imageUrl ?: matchingContact.avatarUrl,
+                        channel = matchingThread.channel ?: matchingContact.channel
+                    )
+                } else {
+                    matchingContact
+                }
+
+                selectedContact = contactWithThreadData
+                selectedThreadId = matchingThread?.id ?: threadIdToOpen // Store threadId for loading viewings/applications
+
+                // Persist the merged contact data to database for future use
+                contactsViewModel.updateContact(contactWithThreadData)
             }
 
             // Clear the contact ID state
@@ -111,7 +141,40 @@ fun ContactsTabContent(
     } else {
         ContactsListScreen(
             onContactClick = { contact ->
-                selectedContact = contact
+                // Find matching thread for this contact to load viewings/applications
+                val matchingThread = chatUiState.threads.find { thread ->
+                    // Match by renterId (most reliable)
+                    (thread.renterId != null && thread.renterId == contact.id) ||
+                    // Match by email
+                    (!contact.email.isNullOrBlank() && !thread.email.isNullOrBlank() &&
+                     contact.email.equals(thread.email, ignoreCase = true)) ||
+                    // Match by phone
+                    (!contact.phone.isNullOrBlank() && !thread.phone.isNullOrBlank() &&
+                     contact.phone == thread.phone)
+                }
+
+                // Merge thread data (imageUrl, channel) with contact data
+                // This ensures profile pic and channel show immediately
+                val contactWithThreadData = if (matchingThread != null) {
+                    contact.copy(
+                        avatarUrl = matchingThread.imageUrl ?: contact.avatarUrl,
+                        channel = matchingThread.channel ?: contact.channel
+                    )
+                } else {
+                    contact
+                }
+
+                selectedContact = contactWithThreadData
+                // Store threadId to preload viewings/applications
+                selectedThreadId = matchingThread?.id
+
+                android.util.Log.d("ContactsTab", "Contact clicked: ${contact.displayName}")
+                android.util.Log.d("ContactsTab", "Found thread ID: $selectedThreadId")
+                android.util.Log.d("ContactsTab", "Thread imageUrl: ${matchingThread?.imageUrl}")
+                android.util.Log.d("ContactsTab", "Final contact avatarUrl: ${contactWithThreadData.avatarUrl}")
+
+                // Persist the merged contact data to database for future use
+                contactsViewModel.updateContact(contactWithThreadData)
             }
         )
     }
