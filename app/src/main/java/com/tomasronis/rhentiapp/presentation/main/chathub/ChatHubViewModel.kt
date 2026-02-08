@@ -436,7 +436,7 @@ class ChatHubViewModel @Inject constructor(
     /**
      * Send a link message (viewing-link or application-link).
      */
-    fun sendLinkMessage(type: String, propertyAddress: String) {
+    fun sendLinkMessage(type: String, propertyAddress: String, propertyId: String? = null) {
         val currentThread = _uiState.value.currentThread ?: return
         val legacyChatSessionId = currentThread.legacyChatSessionId ?: return
 
@@ -446,6 +446,9 @@ class ChatHubViewModel @Inject constructor(
             "application-link" -> "Apply to Listing: $propertyAddress"
             else -> return
         }
+
+        // Log property selection for debugging
+        android.util.Log.d("ChatHubViewModel", "Sending $type for property: $propertyAddress (ID: $propertyId)")
 
         viewModelScope.launch {
             val userId = tokenManager.getUserId() ?: return@launch

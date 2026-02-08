@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                 preferencesManager.themeMode.stateIn(
                     scope = lifecycleScope,
                     started = SharingStarted.Eagerly,
-                    initialValue = ThemeMode.DARK
+                    initialValue = ThemeMode.SYSTEM // Default to system theme
                 )
             }
             val themeMode by themeModeFlow.collectAsState()

@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 
 /**
  * Attachment type options for the attach menu.
@@ -148,7 +149,7 @@ private fun AttachOptionItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -157,7 +158,7 @@ private fun AttachOptionItem(
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = RhentiCoral.copy(alpha = 0.15f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -165,7 +166,7 @@ private fun AttachOptionItem(
                 Icon(
                     imageVector = icon,
                     contentDescription = label,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = RhentiCoral,
                     modifier = Modifier.size(24.dp)
                 )
             }

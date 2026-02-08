@@ -54,6 +54,8 @@ fun ThreadDetailScreen(
     val context = LocalContext.current
     var showAlternativeTimePicker by remember { mutableStateOf<String?>(null) }
     var showAttachOptions by remember { mutableStateOf(false) }
+    var showPropertySelection by remember { mutableStateOf(false) }
+    var pendingLinkType by remember { mutableStateOf<String?>(null) } // "viewing-link" or "application-link"
 
     // Get the most recent property address from messages
     val propertyAddress = remember(uiState.messages) {
@@ -61,6 +63,23 @@ fun ThreadDetailScreen(
             .lastOrNull { it.metadata?.propertyAddress != null }
             ?.metadata?.propertyAddress
     } ?: thread.address ?: "Property"
+
+    // Create property options for selection
+    // TODO: Fetch from API - for now use thread property and allow user to add more
+    val propertyOptions = remember(thread.propertyId, thread.address) {
+        if (thread.propertyId != null && thread.address != null) {
+            listOf(
+                PropertyOption(
+                    id = thread.propertyId,
+                    address = thread.address,
+                    unit = null,
+                    city = null
+                )
+            )
+        } else {
+            emptyList()
+        }
+    }
 
     // Image picker launcher (for Photos option)
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -339,22 +358,54 @@ fun ThreadDetailScreen(
                             pdfPickerLauncher.launch("application/pdf")
                         }
                         AttachmentType.BOOK_VIEWING_LINK -> {
-                            // TODO: Generate and send booking link
-                            // For now, send a placeholder viewing link message
-                            viewModel.sendLinkMessage(
-                                type = "viewing-link",
-                                propertyAddress = propertyAddress
-                            )
+                            // Show property selection for viewing link
+                            pendingLinkType = "viewing-link"
+                            if (propertyOptions.isEmpty()) {
+                                // No properties available, send with generic address
+                                viewModel.sendLinkMessage(
+                                    type = "viewing-link",
+                                    propertyAddress = propertyAddress,
+                                    propertyId = null
+                                )
+                            } else {
+                                showPropertySelection = true
+                            }
                         }
                         AttachmentType.APPLICATION_LINK -> {
-                            // TODO: Generate and send application link
-                            // For now, send a placeholder application link message
-                            viewModel.sendLinkMessage(
-                                type = "application-link",
-                                propertyAddress = propertyAddress
-                            )
+                            // Show property selection for application link
+                            pendingLinkType = "application-link"
+                            if (propertyOptions.isEmpty()) {
+                                // No properties available, send with generic address
+                                viewModel.sendLinkMessage(
+                                    type = "application-link",
+                                    propertyAddress = propertyAddress,
+                                    propertyId = null
+                                )
+                            } else {
+                                showPropertySelection = true
+                            }
                         }
                     }
+                }
+            )
+        }
+
+        // Property selection bottom sheet
+        if (showPropertySelection && pendingLinkType != null) {
+            PropertySelectionBottomSheet(
+                properties = propertyOptions,
+                onDismiss = {
+                    showPropertySelection = false
+                    pendingLinkType = null
+                },
+                onPropertySelected = { property ->
+                    viewModel.sendLinkMessage(
+                        type = pendingLinkType!!,
+                        propertyAddress = property.displayAddress,
+                        propertyId = property.id
+                    )
+                    showPropertySelection = false
+                    pendingLinkType = null
                 }
             )
         }
