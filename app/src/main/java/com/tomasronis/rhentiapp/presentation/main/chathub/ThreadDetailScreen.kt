@@ -53,15 +53,16 @@ fun ThreadDetailScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var showAlternativeTimePicker by remember { mutableStateOf<String?>(null) }
+    var showAttachOptions by remember { mutableStateOf(false) }
 
     // Get the most recent property address from messages
     val propertyAddress = remember(uiState.messages) {
         uiState.messages
             .lastOrNull { it.metadata?.propertyAddress != null }
             ?.metadata?.propertyAddress
-    }
+    } ?: thread.address ?: "Property"
 
-    // Image picker launcher
+    // Image picker launcher (for Photos option)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -70,6 +71,31 @@ fun ThreadDetailScreen(
             if (base64 != null) {
                 viewModel.sendImageMessage(base64)
             }
+        }
+    }
+
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        bitmap?.let {
+            // Convert bitmap to base64
+            val outputStream = ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+            val imageBytes = outputStream.toByteArray()
+            val base64 = Base64.encodeToString(imageBytes, Base64.NO_WRAP)
+            viewModel.sendImageMessage(base64)
+        }
+    }
+
+    // PDF file picker launcher
+    val pdfPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            // TODO: Handle PDF file upload
+            // For now, just log it
+            android.util.Log.d("ThreadDetail", "PDF selected: $uri")
         }
     }
 
@@ -197,7 +223,7 @@ fun ThreadDetailScreen(
                         viewModel.sendTextMessage(text)
                     },
                     onAttachmentClick = {
-                        imagePickerLauncher.launch("image/*")
+                        showAttachOptions = true
                     }
                 )
             }
@@ -296,6 +322,42 @@ fun ThreadDetailScreen(
                 }
             )
         }
+
+        // Attach options bottom sheet
+        if (showAttachOptions) {
+            AttachOptionsBottomSheet(
+                onDismiss = { showAttachOptions = false },
+                onOptionSelected = { type ->
+                    when (type) {
+                        AttachmentType.CAMERA -> {
+                            cameraLauncher.launch(null)
+                        }
+                        AttachmentType.PHOTOS -> {
+                            imagePickerLauncher.launch("image/*")
+                        }
+                        AttachmentType.PDF_FILE -> {
+                            pdfPickerLauncher.launch("application/pdf")
+                        }
+                        AttachmentType.BOOK_VIEWING_LINK -> {
+                            // TODO: Generate and send booking link
+                            // For now, send a placeholder viewing link message
+                            viewModel.sendLinkMessage(
+                                type = "viewing-link",
+                                propertyAddress = propertyAddress
+                            )
+                        }
+                        AttachmentType.APPLICATION_LINK -> {
+                            // TODO: Generate and send application link
+                            // For now, send a placeholder application link message
+                            viewModel.sendLinkMessage(
+                                type = "application-link",
+                                propertyAddress = propertyAddress
+                            )
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -367,6 +429,28 @@ private fun MessageList(
                             }
                             "items-requested" -> {
                                 ItemsRequestedCard(message = message)
+                            }
+                            "viewing-link" -> {
+                                LinkMessageCard(
+                                    type = LinkMessageType.VIEWING,
+                                    propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
+                                    url = null, // TODO: Extract URL from message
+                                    onClick = {
+                                        // TODO: Open link in browser or handle viewing booking
+                                        android.util.Log.d("ThreadDetail", "Viewing link clicked")
+                                    }
+                                )
+                            }
+                            "application-link" -> {
+                                LinkMessageCard(
+                                    type = LinkMessageType.APPLICATION,
+                                    propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
+                                    url = null, // TODO: Extract URL from message
+                                    onClick = {
+                                        // TODO: Open link in browser or handle application
+                                        android.util.Log.d("ThreadDetail", "Application link clicked")
+                                    }
+                                )
                             }
                             else -> {
                                 MessageBubble(

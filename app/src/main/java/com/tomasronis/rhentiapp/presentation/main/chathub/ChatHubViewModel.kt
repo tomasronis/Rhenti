@@ -434,6 +434,80 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
+     * Send a link message (viewing-link or application-link).
+     */
+    fun sendLinkMessage(type: String, propertyAddress: String) {
+        val currentThread = _uiState.value.currentThread ?: return
+        val legacyChatSessionId = currentThread.legacyChatSessionId ?: return
+
+        // Create message text based on type
+        val messageText = when (type) {
+            "viewing-link" -> "Book a Viewing: $propertyAddress"
+            "application-link" -> "Apply to Listing: $propertyAddress"
+            else -> return
+        }
+
+        viewModelScope.launch {
+            val userId = tokenManager.getUserId() ?: return@launch
+            val userName = tokenManager.getUserFullName()
+
+            // Create pending message
+            val localId = UUID.randomUUID().toString()
+            val timestamp = System.currentTimeMillis()
+
+            val pendingMessage = com.tomasronis.rhentiapp.data.chathub.models.PendingMessage(
+                localId = localId,
+                text = messageText,
+                imageData = null,
+                createdAt = timestamp,
+                status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING,
+                serverMessageId = null
+            )
+
+            // Add to pending messages immediately
+            _uiState.update {
+                it.copy(pendingMessages = it.pendingMessages + pendingMessage)
+            }
+
+            // Send to API as text message
+            // TODO: Update API to support link message types with proper metadata
+            when (val result = repository.sendTextMessage(userId, userName, legacyChatSessionId, messageText, currentThread)) {
+                is NetworkResult.Success -> {
+                    // Update pending message with server ID and mark as sent
+                    _uiState.update { state ->
+                        state.copy(
+                            pendingMessages = state.pendingMessages.map { pending ->
+                                if (pending.localId == localId) {
+                                    pending.copy(
+                                        status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENT,
+                                        serverMessageId = result.data.id
+                                    )
+                                } else pending
+                            }
+                        )
+                    }
+
+                    // Refresh messages incrementally to pick up server copy
+                    refreshMessagesIncrementally()
+                }
+                is NetworkResult.Error -> {
+                    // Mark message as failed
+                    _uiState.update { state ->
+                        state.copy(
+                            pendingMessages = state.pendingMessages.map { pending ->
+                                if (pending.localId == localId) {
+                                    pending.copy(status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.FAILED)
+                                } else pending
+                            }
+                        )
+                    }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
      * Retry sending a failed pending message.
      */
     fun retryPendingMessage(localId: String) {
