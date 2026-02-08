@@ -1,10 +1,18 @@
 # Rhenti Android App - Project Context & Requirements
 
-**Last Updated:** February 5, 2026 (iOS Design Implementation Complete!)
+**Last Updated:** February 8, 2026 (Property Picker API Update)
 **Current Phase:** Phase 7 Complete + iOS Design Parity Achieved!
 **Next Phase:** Phase 8 (Push Notifications) or Testing/Polish
 
-**Recent Updates (Feb 5, 2026):**
+**Recent Updates (Feb 8, 2026):**
+- ✅ **Property Picker Update:** Switched to `/getAddressesForChatHub` endpoint to match iOS
+- ✅ Added ChatHub property models (ChatHubBuilding, ChatHubUnit, ChatHubProperty)
+- ✅ Updated PropertiesRepository to parse hierarchical building+unit structure
+- ✅ Properties now properly flattened for multi-unit buildings
+- ✅ Enhanced debug logging for property fetching
+- ✅ Backward compatible with existing UI and caching
+
+**Previous Updates (Feb 5, 2026):**
 - ✅ **MAJOR REDESIGN:** Updated entire Android app to match iOS design specifications
 - ✅ Messages screen: Enhanced with platform tags, property addresses, improved badges
 - ✅ Login screen: Complete redesign with gradient background and glassmorphic styling
@@ -269,6 +277,7 @@ core/                 # Core Infrastructure
 - `POST /users` - Batch get users
 
 #### Properties
+- `GET /getAddressesForChatHub` - Get buildings with units for chat property picker (hierarchical: buildings → units)
 - `GET /properties/{propertyId}` - Get property details
 
 #### App Version
