@@ -178,6 +178,8 @@ fun CallLogCard(
                         color = MaterialTheme.colorScheme.onBackground
                     )
 
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     // Show phone number as subtitle if we're showing the name
                     if (!callLog.contactName.isNullOrBlank() && callLog.contactPhone.isNotBlank()) {
                         Text(
@@ -185,7 +187,7 @@ fun CallLogCard(
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
 
                     Text(

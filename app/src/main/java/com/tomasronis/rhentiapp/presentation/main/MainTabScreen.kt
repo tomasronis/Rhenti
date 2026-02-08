@@ -33,6 +33,7 @@ fun MainTabScreen(
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val viewModel: MainTabViewModel = hiltViewModel()
+    val contactsViewModel: com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel = hiltViewModel()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val unreadCount by viewModel.unreadCount.collectAsState()
     val contactToStartChat by viewModel.contactToStartChat.collectAsState()
@@ -88,6 +89,12 @@ fun MainTabScreen(
     // Initialize Twilio on first composition
     LaunchedEffect(Unit) {
         viewModel.initializeTwilio()
+    }
+
+    // Pre-load contacts data (including profile pictures) in the background
+    // This ensures avatars are ready when the user navigates to Calls tab
+    LaunchedEffect(Unit) {
+        contactsViewModel.refreshContacts()
     }
 
     // Check if we should show the active call screen

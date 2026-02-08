@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +20,7 @@ import com.tomasronis.rhentiapp.presentation.calls.components.DialNumberDialog
 import com.tomasronis.rhentiapp.presentation.calls.components.EmptyCallsState
 import com.tomasronis.rhentiapp.presentation.calls.components.CallFiltersModal
 import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
+import com.tomasronis.rhentiapp.presentation.main.components.LoadingAnimation
 import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 import java.text.SimpleDateFormat
 import java.util.*
@@ -116,38 +116,24 @@ fun CallsScreen(
                 .padding(paddingValues)
         ) {
             when {
-                uiState.isLoading && callLogs.isEmpty() -> {
-                    // Initial loading
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
                 callLogs.isEmpty() -> {
                     // No calls
                     EmptyCallsState()
                 }
                 else -> {
-                    // Show calls with pull-to-refresh
-                    PullToRefreshBox(
-                        isRefreshing = uiState.isRefreshing,
-                        onRefresh = { viewModel.refreshCallLogs() }
-                    ) {
-                        CallLogsList(
-                            callLogs = callLogs,
-                            onCallClick = { phoneNumber ->
-                                // Navigate to active call screen
-                                onNavigateToActiveCall(phoneNumber)
-                            },
-                            onDetailClick = { callId ->
-                                // Navigate to call detail screen
-                                onNavigateToDetail?.invoke(callId)
-                            },
-                            selectedFilter = uiState.selectedFilter
-                        )
-                    }
+                    // Show calls list
+                    CallLogsList(
+                        callLogs = callLogs,
+                        onCallClick = { phoneNumber ->
+                            // Navigate to active call screen
+                            onNavigateToActiveCall(phoneNumber)
+                        },
+                        onDetailClick = { callId ->
+                            // Navigate to call detail screen
+                            onNavigateToDetail?.invoke(callId)
+                        },
+                        selectedFilter = uiState.selectedFilter
+                    )
                 }
             }
         }

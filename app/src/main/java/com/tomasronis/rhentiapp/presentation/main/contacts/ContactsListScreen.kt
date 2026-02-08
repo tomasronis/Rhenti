@@ -26,6 +26,7 @@ import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.ErrorStateView
 import com.tomasronis.rhentiapp.presentation.main.contacts.components.*
 import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
+import com.tomasronis.rhentiapp.presentation.main.components.LoadingAnimation
 import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 
 /**
@@ -100,15 +101,6 @@ fun ContactsListScreen(
                 .padding(paddingValues)
         ) {
             when {
-                uiState.isLoading && uiState.contacts.isEmpty() -> {
-                    // Initial loading
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
                 uiState.error != null && uiState.contacts.isEmpty() -> {
                     // Error with no cached data
                     ErrorStateView(
@@ -148,15 +140,6 @@ fun ContactsListScreen(
                 ) {
                     Text(uiState.error ?: "An error occurred")
                 }
-            }
-
-            // Show loading indicator while refreshing
-            if (uiState.isLoading && uiState.contacts.isNotEmpty()) {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                )
             }
         }
 

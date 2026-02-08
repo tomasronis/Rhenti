@@ -109,14 +109,14 @@ fun ThreadCard(
             modifier = Modifier
                 .weight(1f)
                 .padding(end = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp) // Tighter spacing to prevent cutoff
+            verticalArrangement = Arrangement.spacedBy(4.dp) // Increased spacing for better readability
         ) {
             // Name
             Text(
                 text = thread.displayName,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                fontWeight = FontWeight.Normal,
                 color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -134,8 +134,8 @@ fun ThreadCard(
                 )
                 Text(
                     text = propertyAddress,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
                     color = addressColor, // Pre-computed
-                    fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -144,14 +144,13 @@ fun ThreadCard(
             // Message snippet
             Text(
                 text = messageSnippet,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                 color = snippetColor, // Pre-computed
-                fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
             // Source channel tag
-            Spacer(modifier = Modifier.height(4.dp))
             PlatformTag(platform = platformName)
         }
 
@@ -163,8 +162,8 @@ fun ThreadCard(
             // Timestamp
             Text(
                 text = timestamp,
-                color = timestampColor, // Pre-computed
-                fontSize = 13.sp
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                color = timestampColor // Pre-computed
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -311,7 +310,9 @@ private fun PlatformTag(
             text = platform,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
             fontWeight = FontWeight.Medium,
-            color = Color.White
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

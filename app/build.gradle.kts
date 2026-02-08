@@ -135,6 +135,9 @@ dependencies {
     // Coil (image loading)
     implementation(libs.coil.compose)
 
+    // Lottie animations
+    implementation("com.airbnb.android:lottie-compose:6.3.0")
+
     // Twilio Voice (Phase 7)
     implementation(libs.twilio.voice)
 

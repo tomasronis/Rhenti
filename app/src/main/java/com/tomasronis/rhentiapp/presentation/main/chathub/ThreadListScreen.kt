@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.chathub.models.ChatThread
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.*
 import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
+import com.tomasronis.rhentiapp.presentation.main.components.LoadingAnimation
 import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 
 /**
@@ -91,15 +92,6 @@ fun ThreadListScreen(
                 .padding(paddingValues)
         ) {
             when {
-                uiState.isLoading && uiState.threads.isEmpty() -> {
-                    // Initial loading
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
                 uiState.error != null && uiState.threads.isEmpty() -> {
                     // Error with no cached data
                     ErrorStateView(
@@ -225,15 +217,6 @@ private fun ThreadList(
                     onClick = onClick
                 )
             }
-        }
-
-        // Show loading indicator while refreshing
-        if (isRefreshing) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-            )
         }
     }
 }
