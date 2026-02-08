@@ -30,6 +30,7 @@ fun ChatsTabContent(
 
     var selectedThread by remember { mutableStateOf<ChatThread?>(null) }
     var selectedContactFromThread by remember { mutableStateOf<Contact?>(null) }
+    var selectedThreadIdForContact by remember { mutableStateOf<String?>(null) }
 
     // Auto-open thread by ID when coming from Calls tab
     LaunchedEffect(threadIdToOpen) {
@@ -71,10 +72,15 @@ fun ChatsTabContent(
         selectedContactFromThread != null -> {
             ContactDetailScreen(
                 contact = selectedContactFromThread!!,
-                onNavigateBack = { selectedContactFromThread = null },
+                threadId = selectedThreadIdForContact, // Pass threadId for loading viewings/applications
+                onNavigateBack = {
+                    selectedContactFromThread = null
+                    selectedThreadIdForContact = null
+                },
                 onStartChat = { contact ->
                     // Navigate back to thread
                     selectedContactFromThread = null
+                    selectedThreadIdForContact = null
                 },
                 onCall = { contact ->
                     // Make call
@@ -142,8 +148,10 @@ fun ChatsTabContent(
 
                     android.util.Log.d("ChatsPlaceholder", "Final contact avatarUrl: ${contactToShow.avatarUrl}")
                     android.util.Log.d("ChatsPlaceholder", "Final contact channel: ${contactToShow.channel}")
+                    android.util.Log.d("ChatsPlaceholder", "Thread ID for viewings/applications: ${thread.id}")
 
                     selectedContactFromThread = contactToShow
+                    selectedThreadIdForContact = thread.id // Store thread ID for loading viewings/applications
 
                     // Persist the contact data to database for future use
                     contactsViewModel.updateContact(contactToShow)

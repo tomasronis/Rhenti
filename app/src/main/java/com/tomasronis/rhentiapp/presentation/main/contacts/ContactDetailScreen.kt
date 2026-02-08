@@ -41,6 +41,7 @@ import java.util.*
 @Composable
 fun ContactDetailScreen(
     contact: Contact,
+    threadId: String? = null, // Optional thread ID for loading viewings/applications
     onNavigateBack: () -> Unit,
     onStartChat: (Contact) -> Unit,
     onCall: (Contact) -> Unit,
@@ -52,6 +53,13 @@ fun ContactDetailScreen(
     // Select contact when screen opens
     LaunchedEffect(contact.id) {
         viewModel.selectContact(contact)
+    }
+
+    // Load viewings and applications if threadId is available
+    LaunchedEffect(threadId) {
+        threadId?.let {
+            viewModel.loadViewingsAndApplications(it)
+        }
     }
 
     // Clear contact when screen closes
@@ -134,6 +142,9 @@ fun ContactDetailScreen(
                     ContactDetailContent(
                         contact = contact,
                         profile = uiState.contactProfile!!,
+                        viewings = uiState.viewings,
+                        applications = uiState.applications,
+                        isLoadingViewings = uiState.isLoadingViewings,
                         onStartChat = { onStartChat(contact) },
                         onCall = { onCall(contact) }
                     )
@@ -143,6 +154,9 @@ fun ContactDetailScreen(
                     ContactDetailContent(
                         contact = contact,
                         profile = null,
+                        viewings = emptyList(),
+                        applications = emptyList(),
+                        isLoadingViewings = false,
                         onStartChat = { onStartChat(contact) },
                         onCall = { onCall(contact) }
                     )
@@ -175,6 +189,9 @@ fun ContactDetailScreen(
 private fun ContactDetailContent(
     contact: Contact,
     profile: com.tomasronis.rhentiapp.data.contacts.models.ContactProfile?,
+    viewings: List<com.tomasronis.rhentiapp.data.contacts.models.Booking>,
+    applications: List<com.tomasronis.rhentiapp.data.contacts.models.Offer>,
+    isLoadingViewings: Boolean,
     onStartChat: () -> Unit,
     onCall: () -> Unit,
     modifier: Modifier = Modifier
@@ -376,57 +393,77 @@ private fun ContactDetailContent(
             }
         }
 
-        // Viewings expandable section
-        item {
-            ExpandableSection(
-                title = "Viewings",
-                icon = Icons.Filled.CalendarMonth,
-                count = 3, // TODO: Get from API
-                expanded = viewingsExpanded,
-                onToggle = { viewingsExpanded = !viewingsExpanded }
-            ) {
-                // Viewing items (placeholder)
-                ViewingItem(
-                    propertyAddress = "123 Main St, Unit 5",
-                    dateTime = "Feb 10, 2026 at 2:00 PM",
-                    status = "Confirmed"
-                )
-                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
-                ViewingItem(
-                    propertyAddress = "456 Oak Ave, Unit 12",
-                    dateTime = "Feb 12, 2026 at 10:00 AM",
-                    status = "Pending"
-                )
-                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
-                ViewingItem(
-                    propertyAddress = "789 Elm St, Unit 3",
-                    dateTime = "Feb 8, 2026 at 3:30 PM",
-                    status = "Completed"
-                )
+        // Viewings expandable section (only show when we have viewings or are loading)
+        if (viewings.isNotEmpty() || isLoadingViewings) {
+            item {
+                ExpandableSection(
+                    title = "Viewings",
+                    icon = Icons.Filled.CalendarMonth,
+                    count = viewings.size,
+                    expanded = viewingsExpanded,
+                    onToggle = { viewingsExpanded = !viewingsExpanded },
+                    isLoading = isLoadingViewings
+                ) {
+                    if (isLoadingViewings) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        viewings.forEachIndexed { index, booking ->
+                            ViewingItem(
+                                propertyAddress = booking.address ?: "Unknown Address",
+                                dateTime = booking.dateTimeDayInTimeZone ?: formatDateTime(booking.datetime),
+                                status = booking.viewingStatus
+                            )
+
+                            // Add divider between items (not after the last one)
+                            if (index < viewings.size - 1) {
+                                Divider(
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    thickness = 0.5.dp,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
         // Applications expandable section
-        item {
-            ExpandableSection(
-                title = "Applications",
-                icon = Icons.Filled.Description,
-                count = 2, // TODO: Get from API
-                expanded = applicationsExpanded,
-                onToggle = { applicationsExpanded = !applicationsExpanded }
-            ) {
-                // Application items (placeholder)
-                ApplicationItem(
-                    propertyAddress = "123 Main St, Unit 5",
-                    submittedDate = "Feb 1, 2026",
-                    status = "Under Review"
-                )
-                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
-                ApplicationItem(
-                    propertyAddress = "456 Oak Ave, Unit 12",
-                    submittedDate = "Jan 28, 2026",
-                    status = "Approved"
-                )
+        if (applications.isNotEmpty()) {
+            item {
+                ExpandableSection(
+                    title = "Applications",
+                    icon = Icons.Filled.Description,
+                    count = applications.size,
+                    expanded = applicationsExpanded,
+                    onToggle = { applicationsExpanded = !applicationsExpanded },
+                    isLoading = false
+                ) {
+                    applications.forEachIndexed { index, offer ->
+                        ApplicationItem(
+                            propertyAddress = offer.address ?: "Unknown Address",
+                            submittedDate = offer.dateTimeDayInTimeZone ?: "Unknown Date",
+                            price = offer.offer?.price,
+                            status = offer.applicationStatus
+                        )
+
+                        // Add divider between items (not after the last one)
+                        if (index < applications.size - 1) {
+                            Divider(
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -537,6 +574,7 @@ private fun ExpandableSection(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     count: Int,
     expanded: Boolean,
+    isLoading: Boolean = false,
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -628,8 +666,8 @@ private fun ExpandableSection(
 @Composable
 private fun ViewingItem(
     propertyAddress: String,
-    dateTime: String,
-    status: String
+    dateTime: String?,
+    status: com.tomasronis.rhentiapp.data.contacts.models.ViewingStatus
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -643,26 +681,23 @@ private fun ViewingItem(
             ),
             color = Color.White
         )
-        Text(
-            text = dateTime,
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 13.sp
-            ),
-            color = Color(0xFF8E8E93)
-        )
-        // Status badge
-        val statusColor = when (status) {
-            "Confirmed" -> Color(0xFF34C759)
-            "Pending" -> Color(0xFFFF9500)
-            "Completed" -> Color(0xFF007AFF)
-            else -> Color(0xFF8E8E93)
+        if (dateTime != null) {
+            Text(
+                text = dateTime,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp
+                ),
+                color = Color(0xFF8E8E93)
+            )
         }
+        // Status badge
+        val statusColor = Color(android.graphics.Color.parseColor(status.colorHex))
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = statusColor.copy(alpha = 0.2f)
         ) {
             Text(
-                text = status,
+                text = status.label,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 12.sp
                 ),
@@ -680,7 +715,8 @@ private fun ViewingItem(
 private fun ApplicationItem(
     propertyAddress: String,
     submittedDate: String,
-    status: String
+    price: Int?,
+    status: com.tomasronis.rhentiapp.data.contacts.models.ApplicationStatus
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -694,6 +730,19 @@ private fun ApplicationItem(
             ),
             color = Color.White
         )
+
+        // Show price if available
+        if (price != null) {
+            Text(
+                text = "$$price/month",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = Color(0xFF8E8E93)
+            )
+        }
+
         Text(
             text = "Submitted $submittedDate",
             style = MaterialTheme.typography.bodySmall.copy(
@@ -702,18 +751,13 @@ private fun ApplicationItem(
             color = Color(0xFF8E8E93)
         )
         // Status badge
-        val statusColor = when (status) {
-            "Approved" -> Color(0xFF34C759)
-            "Under Review" -> Color(0xFFFF9500)
-            "Rejected" -> Color(0xFFFF3B30)
-            else -> Color(0xFF8E8E93)
-        }
+        val statusColor = Color(android.graphics.Color.parseColor(status.colorHex))
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = statusColor.copy(alpha = 0.2f)
         ) {
             Text(
-                text = status,
+                text = status.label,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontSize = 12.sp
                 ),
@@ -822,4 +866,17 @@ private fun getPlatformName(channel: String?): String {
         "facebook-listing-page", "facebook_listing_page" -> "Rhenti-powered listing pages"
         else -> channel?.replaceFirstChar { it.uppercase() } ?: "Unknown"
     }
+}
+
+/**
+ * Format date and time for viewings.
+ * Example: "Feb 10, 2026 at 2:00 PM"
+ * Returns null if timestamp is null.
+ */
+private fun formatDateTime(timestamp: Long?): String? {
+    if (timestamp == null) return null
+    val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val date = Date(timestamp)
+    return "${dateFormat.format(date)} at ${timeFormat.format(date)}"
 }

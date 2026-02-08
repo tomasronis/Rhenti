@@ -73,6 +73,9 @@ interface ApiClient {
     @POST("/phone-tracking/getContactProfile")
     suspend fun getContactProfile(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
 
+    @GET("/getViewingAndApplicationsByThreadId/{threadId}")
+    suspend fun getViewingsAndApplications(@Path("threadId") threadId: String): Map<String, @JvmSuppressWildcards Any>
+
     // ============================================================================
     // Calls/Phone Tracking Endpoints
     // ============================================================================

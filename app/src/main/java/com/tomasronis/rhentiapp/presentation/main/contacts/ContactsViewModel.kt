@@ -239,6 +239,40 @@ class ContactsViewModel @Inject constructor(
     fun setHideContactsWithoutName(hide: Boolean) {
         _hideContactsWithoutName.value = hide
     }
+
+    /**
+     * Load viewings and applications for a contact by thread ID.
+     * This requires a threadId (chat session) to be available.
+     */
+    fun loadViewingsAndApplications(threadId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingViewings = true, viewingsError = null) }
+
+            when (val result = repository.getViewingsAndApplications(threadId)) {
+                is NetworkResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            viewings = result.data?.bookings ?: emptyList(),
+                            applications = result.data?.offers ?: emptyList(),
+                            isLoadingViewings = false,
+                            viewingsError = null
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingViewings = false,
+                            viewingsError = result.exception.message ?: "Failed to load viewings and applications"
+                        )
+                    }
+                }
+                is NetworkResult.Loading -> {
+                    _uiState.update { it.copy(isLoadingViewings = true) }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -248,6 +282,10 @@ data class ContactsUiState(
     val contacts: List<Contact> = emptyList(),
     val selectedContact: Contact? = null,
     val contactProfile: ContactProfile? = null,
+    val viewings: List<com.tomasronis.rhentiapp.data.contacts.models.Booking> = emptyList(),
+    val applications: List<com.tomasronis.rhentiapp.data.contacts.models.Offer> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val isLoadingViewings: Boolean = false,
+    val error: String? = null,
+    val viewingsError: String? = null
 )

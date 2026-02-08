@@ -163,6 +163,39 @@ class ContactsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getViewingsAndApplications(threadId: String): NetworkResult<com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse> {
+        return try {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Fetching viewings and applications for threadId: $threadId")
+            }
+
+            val response = apiClient.getViewingsAndApplications(threadId)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Viewings/Applications response: $response")
+            }
+
+            val viewingsAndApps = parseViewingsAndApplicationsResponse(response)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d(
+                    "ContactsRepository",
+                    "Parsed ${viewingsAndApps.bookings.size} viewings and ${viewingsAndApps.offers?.size ?: 0} applications"
+                )
+            }
+
+            NetworkResult.Success(viewingsAndApps)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ContactsRepository", "Get viewings and applications failed", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
     // Helper functions to parse API responses
 
     private fun parseContactsResponse(response: List<Map<String, Any>>): List<Contact> {
@@ -312,6 +345,114 @@ class ContactsRepositoryImpl @Inject constructor(
             lastActivity = lastActivity,
             createdAt = createdAt,
             channel = channel
+        )
+    }
+
+    private fun parseViewingsAndApplicationsResponse(response: Map<String, Any>): com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse {
+        // Parse bookings (viewings)
+        @Suppress("UNCHECKED_CAST")
+        val bookingsData = response["bookings"] as? List<Map<String, Any>> ?: emptyList()
+        val bookings = bookingsData.mapNotNull { bookingData ->
+            try {
+                val id = bookingData["_id"] as? String
+                    ?: bookingData["id"] as? String
+                    ?: return@mapNotNull null
+
+                val address = bookingData["address"] as? String
+
+                val datetime = (bookingData["datetime"] as? Number)?.toLong()
+
+                val dateTimeDayInTimeZone = bookingData["dateTimeDayInTimeZone"] as? String
+                    ?: bookingData["date_time_day_in_time_zone"] as? String
+
+                val propertyTimeZone = bookingData["propertyTimeZone"] as? String
+                    ?: bookingData["property_time_zone"] as? String
+
+                val status = bookingData["status"] as? String ?: "pending"
+
+                val hasPendingAlternatives = bookingData["hasPendingAlternatives"] as? Boolean
+                    ?: bookingData["has_pending_alternatives"] as? Boolean
+                    ?: false
+
+                com.tomasronis.rhentiapp.data.contacts.models.Booking(
+                    id = id,
+                    address = address,
+                    datetime = datetime,
+                    dateTimeDayInTimeZone = dateTimeDayInTimeZone,
+                    propertyTimeZone = propertyTimeZone,
+                    status = status,
+                    hasPendingAlternatives = hasPendingAlternatives
+                )
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.w("ContactsRepository", "Failed to parse booking: $bookingData", e)
+                }
+                null
+            }
+        }
+
+        // Parse offers (applications)
+        @Suppress("UNCHECKED_CAST")
+        val offersData = response["offers"] as? List<Map<String, Any>>
+        val offers = offersData?.mapNotNull { offerData ->
+            try {
+                val id = offerData["_id"] as? String
+                    ?: offerData["id"] as? String
+                    ?: return@mapNotNull null
+
+                val address = offerData["address"] as? String
+
+                val dateTimeDayInTimeZone = offerData["dateTimeDayInTimeZone"] as? String
+                    ?: offerData["date_time_day_in_time_zone"] as? String
+
+                // Parse nested offer object
+                @Suppress("UNCHECKED_CAST")
+                val offerDetailsData = offerData["offer"] as? Map<String, Any>
+                val offerDetails = offerDetailsData?.let { details ->
+                    try {
+                        val detailsId = details["_id"] as? String
+                            ?: details["id"] as? String
+                            ?: id
+
+                        val price = (details["price"] as? Number)?.toInt()
+                        val status = details["status"] as? String
+                        val proposedStartDate = (details["proposedStartDate"] as? Number
+                            ?: details["proposed_start_date"] as? Number)?.toLong()
+                        val createdAt = (details["createdAt"] as? Number
+                            ?: details["created_at"] as? Number)?.toLong()
+
+                        com.tomasronis.rhentiapp.data.contacts.models.OfferDetails(
+                            id = detailsId,
+                            price = price,
+                            status = status,
+                            proposedStartDate = proposedStartDate,
+                            createdAt = createdAt
+                        )
+                    } catch (e: Exception) {
+                        if (BuildConfig.DEBUG) {
+                            android.util.Log.w("ContactsRepository", "Failed to parse offer details", e)
+                        }
+                        null
+                    }
+                }
+
+                com.tomasronis.rhentiapp.data.contacts.models.Offer(
+                    id = id,
+                    address = address,
+                    dateTimeDayInTimeZone = dateTimeDayInTimeZone,
+                    offer = offerDetails
+                )
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.w("ContactsRepository", "Failed to parse offer: $offerData", e)
+                }
+                null
+            }
+        }
+
+        return com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse(
+            bookings = bookings,
+            offers = offers
         )
     }
 }

@@ -70,6 +70,91 @@ data class ContactProperty(
 )
 
 /**
+ * Response from /getViewingAndApplicationsByThreadId endpoint.
+ */
+data class ViewingsAndApplicationsResponse(
+    val bookings: List<Booking>,
+    val offers: List<Offer>?
+)
+
+/**
+ * Booking/Viewing for a property.
+ * Represents a scheduled viewing appointment.
+ */
+data class Booking(
+    val id: String,
+    val address: String?,
+    val datetime: Long?, // Unix timestamp in milliseconds
+    val dateTimeDayInTimeZone: String?, // Formatted string like "Jan 30, 2026 at 2:00 PM PST"
+    val propertyTimeZone: String?,
+    val status: String, // "pending", "confirmed", "declined"
+    val hasPendingAlternatives: Boolean
+) {
+    /**
+     * Get viewing status for UI display.
+     */
+    val viewingStatus: ViewingStatus
+        get() = when (status) {
+            "declined" -> ViewingStatus.CANCELLED
+            "confirmed" -> ViewingStatus.CONFIRMED
+            "pending" -> if (hasPendingAlternatives) ViewingStatus.AWAITING_RESPONSE else ViewingStatus.PENDING
+            else -> ViewingStatus.PENDING
+        }
+}
+
+/**
+ * Viewing status enum for consistent UI display.
+ */
+enum class ViewingStatus(val label: String, val colorHex: String) {
+    CONFIRMED("Confirmed", "#34C759"),
+    PENDING("Pending", "#FF9500"),
+    AWAITING_RESPONSE("Awaiting Response", "#FF9500"),
+    CANCELLED("Cancelled", "#FF3B30")
+}
+
+/**
+ * Rental application/offer.
+ */
+data class Offer(
+    val id: String,
+    val address: String?,
+    val dateTimeDayInTimeZone: String?, // Formatted submission date
+    val offer: OfferDetails?
+) {
+    /**
+     * Get application status for UI display.
+     */
+    val applicationStatus: ApplicationStatus
+        get() = when (offer?.status?.lowercase()) {
+            "accepted", "approved" -> ApplicationStatus.APPROVED
+            "pending" -> ApplicationStatus.PENDING
+            "declined", "rejected" -> ApplicationStatus.REJECTED
+            else -> ApplicationStatus.UNDER_REVIEW
+        }
+}
+
+/**
+ * Offer details nested within Offer.
+ */
+data class OfferDetails(
+    val id: String,
+    val price: Int?,
+    val status: String?,
+    val proposedStartDate: Long?,
+    val createdAt: Long?
+)
+
+/**
+ * Application status enum for consistent UI display.
+ */
+enum class ApplicationStatus(val label: String, val colorHex: String) {
+    APPROVED("Approved", "#34C759"),
+    UNDER_REVIEW("Under Review", "#FF9500"),
+    PENDING("Pending", "#FF9500"),
+    REJECTED("Rejected", "#FF3B30")
+}
+
+/**
  * Request to fetch contacts.
  */
 @JsonClass(generateAdapter = true)

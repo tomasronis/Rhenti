@@ -46,4 +46,10 @@ interface ContactsRepository {
      * Update a contact in the cache (e.g., to add imageUrl and channel from thread).
      */
     suspend fun updateContact(contact: Contact)
+
+    /**
+     * Get viewings and applications for a contact by thread ID.
+     * This requires a threadId (chat session) to be available.
+     */
+    suspend fun getViewingsAndApplications(threadId: String): NetworkResult<com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse>
 }
