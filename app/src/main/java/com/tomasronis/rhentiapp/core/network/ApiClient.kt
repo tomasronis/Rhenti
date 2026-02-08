@@ -106,6 +106,9 @@ interface ApiClient {
     // Properties Endpoints
     // ============================================================================
 
+    @GET("/management/properties")
+    suspend fun getProperties(@Query("status") status: String = "active"): Map<String, @JvmSuppressWildcards Any>
+
     @GET("/properties/{propertyId}")
     suspend fun getProperty(@Path("propertyId") propertyId: String): Map<String, @JvmSuppressWildcards Any>
 

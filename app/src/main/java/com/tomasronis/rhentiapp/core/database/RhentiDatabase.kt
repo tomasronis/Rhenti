@@ -14,12 +14,14 @@ import com.tomasronis.rhentiapp.core.database.entities.*
  * - Chat threads and messages
  * - Contacts
  * - Call logs
+ * - Properties
  *
  * Version 1 - Initial schema
  * Version 2 - Added members field to CachedThread
  * Version 3 - Added address, propertyId, applicationStatus, bookingStatus, channel to CachedThread
  * Version 4 - Added channel field to CachedContact
  * Version 5 - Added receiverNumber field to CachedCallLog for outgoing call destination tracking
+ * Version 6 - Added CachedProperty entity for property management
  */
 @Database(
     entities = [
@@ -27,9 +29,10 @@ import com.tomasronis.rhentiapp.core.database.entities.*
         CachedThread::class,
         CachedMessage::class,
         CachedContact::class,
-        CachedCallLog::class
+        CachedCallLog::class,
+        CachedProperty::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -40,6 +43,7 @@ abstract class RhentiDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun contactDao(): ContactDao
     abstract fun callLogDao(): CallLogDao
+    abstract fun propertyDao(): PropertyDao
 
     companion object {
         const val DATABASE_NAME = "rhenti_database"

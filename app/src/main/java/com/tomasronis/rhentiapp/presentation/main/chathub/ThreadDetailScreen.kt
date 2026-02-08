@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.chathub.models.ChatThread
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.*
+import com.tomasronis.rhentiapp.presentation.properties.PropertiesViewModel
 import java.io.ByteArrayOutputStream
 
 /**
@@ -47,7 +48,8 @@ fun ThreadDetailScreen(
     onCall: (String) -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToContact: (ChatThread) -> Unit = {},
-    viewModel: ChatHubViewModel = hiltViewModel()
+    viewModel: ChatHubViewModel = hiltViewModel(),
+    propertiesViewModel: PropertiesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyListState()
@@ -57,6 +59,9 @@ fun ThreadDetailScreen(
     var showPropertySelection by remember { mutableStateOf(false) }
     var pendingLinkType by remember { mutableStateOf<String?>(null) } // "viewing-link" or "application-link"
 
+    // Get all properties from ViewModel
+    val allProperties by propertiesViewModel.properties.collectAsState()
+
     // Get the most recent property address from messages
     val propertyAddress = remember(uiState.messages) {
         uiState.messages
@@ -64,20 +69,39 @@ fun ThreadDetailScreen(
             ?.metadata?.propertyAddress
     } ?: thread.address ?: "Property"
 
-    // Create property options for selection
-    // TODO: Fetch from API - for now use thread property and allow user to add more
-    val propertyOptions = remember(thread.propertyId, thread.address) {
+    // Convert properties to PropertyOption format
+    val propertyOptions = remember(allProperties, thread.propertyId) {
+        val options = allProperties.map { property ->
+            PropertyOption(
+                id = property.id,
+                address = property.address,
+                unit = property.unit,
+                city = property.city
+            )
+        }
+
+        // If thread has a property that's not in the list, add it at the top
         if (thread.propertyId != null && thread.address != null) {
-            listOf(
-                PropertyOption(
+            val threadPropertyExists = options.any { it.id == thread.propertyId }
+            if (!threadPropertyExists) {
+                val threadProperty = PropertyOption(
                     id = thread.propertyId,
                     address = thread.address,
                     unit = null,
                     city = null
                 )
-            )
+                listOf(threadProperty) + options
+            } else {
+                // Move thread property to the top
+                val threadProperty = options.find { it.id == thread.propertyId }
+                if (threadProperty != null) {
+                    listOf(threadProperty) + options.filter { it.id != thread.propertyId }
+                } else {
+                    options
+                }
+            }
         } else {
-            emptyList()
+            options
         }
     }
 
