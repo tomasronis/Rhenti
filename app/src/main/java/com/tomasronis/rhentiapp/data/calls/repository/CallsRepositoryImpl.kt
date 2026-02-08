@@ -201,7 +201,16 @@ class CallsRepositoryImpl @Inject constructor(
                     ?: cachedLog.callerName
 
                 // Resolve avatar: contact avatar > thread image
-                val resolvedAvatar = contact?.avatarUrl ?: thread?.imageUrl
+                val resolvedAvatarRaw = contact?.avatarUrl ?: thread?.imageUrl
+                val resolvedAvatar = resolvedAvatarRaw?.let { buildFullImageUrl(it) }
+
+                if (BuildConfig.DEBUG && resolvedAvatarRaw != null) {
+                    Log.d(TAG, "Call log ${cachedLog.id}: Found avatar - raw: $resolvedAvatarRaw, full: $resolvedAvatar")
+                }
+                if (BuildConfig.DEBUG && resolvedAvatarRaw == null) {
+                    Log.d(TAG, "Call log ${cachedLog.id}: No avatar found - contact: ${contact != null}, thread: ${thread != null}, " +
+                            "contactPhone: $rawContactPhone, contactAvatar: ${contact?.avatarUrl}, threadImage: ${thread?.imageUrl}")
+                }
 
                 CallLog(
                     id = cachedLog.id,
@@ -455,6 +464,19 @@ class CallsRepositoryImpl @Inject constructor(
                 Log.e(TAG, "Failed to parse ISO date: $isoDate", e)
             }
             System.currentTimeMillis()
+        }
+    }
+
+    /**
+     * Build full image URL from relative path if needed.
+     * If the path already starts with http:// or https://, return as-is.
+     */
+    private fun buildFullImageUrl(imagePath: String): String {
+        return if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+            imagePath
+        } else {
+            // UAT image base URL
+            "https://uatimgs.rhenti.com/images/${imagePath.trimStart('/')}"
         }
     }
 }
