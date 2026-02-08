@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.main.chathub.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,14 +53,20 @@ fun MessageInputBar(
                     modifier = Modifier.size(40.dp)
                 ) {
                     Surface(
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier
+                            .size(40.dp)
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                shape = CircleShape
+                            ),
                         shape = CircleShape,
-                        color = Color(0xFF2C2C2E)
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Add,
                             contentDescription = "Attach file",
-                            tint = Color(0xFF8E8E93),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .padding(8.dp)
                                 .size(24.dp)
@@ -68,11 +75,17 @@ fun MessageInputBar(
                 }
             }
 
-            // Input field with dark rounded background
+            // Input field with rounded background
             Surface(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(24.dp)
+                    ),
                 shape = RoundedCornerShape(24.dp),
-                color = Color(0xFF2C2C2E)
+                color = MaterialTheme.colorScheme.surfaceContainerHighest
             ) {
                 BasicTextField(
                     value = messageText,
@@ -81,7 +94,7 @@ fun MessageInputBar(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     cursorBrush = SolidColor(RhentiCoral),
                     keyboardOptions = KeyboardOptions(
@@ -101,7 +114,7 @@ fun MessageInputBar(
                             Text(
                                 text = "Message",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFF8E8E93)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         }
                         innerTextField()
@@ -121,14 +134,20 @@ fun MessageInputBar(
                 enabled = hasText
             ) {
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier
+                        .size(40.dp)
+                        .border(
+                            width = if (hasText) 0.dp else 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        ),
                     shape = CircleShape,
-                    color = if (hasText) RhentiCoral else Color(0xFF2C2C2E)
+                    color = if (hasText) RhentiCoral else MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowUpward,
                         contentDescription = "Send message",
-                        tint = if (hasText) Color.White else Color(0xFF8E8E93),
+                        tint = if (hasText) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .padding(8.dp)
                             .size(24.dp)

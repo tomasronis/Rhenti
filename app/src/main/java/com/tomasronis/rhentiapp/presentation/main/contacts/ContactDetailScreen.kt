@@ -3,7 +3,7 @@ package com.tomasronis.rhentiapp.presentation.main.contacts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -82,26 +82,26 @@ fun ContactDetailScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Circular back button - iOS style (dark circle in light mode)
-                val isDarkTheme = isSystemInDarkTheme()
-                Box(
+                // Circular back button
+                IconButton(
+                    onClick = onNavigateBack,
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = if (isDarkTheme) MaterialTheme.colorScheme.surfaceVariant else Color(0xFF2C2C2E),
+                        .size(32.dp)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                             shape = CircleShape
                         )
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { onNavigateBack() },
-                    contentAlignment = Alignment.Center
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            shape = CircleShape
+                        )
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = if (isDarkTheme) MaterialTheme.colorScheme.onSurfaceVariant else Color.White,
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
@@ -118,7 +118,7 @@ fun ContactDetailScreen(
                 )
 
                 // Spacer for balance
-                Spacer(modifier = Modifier.size(40.dp))
+                Spacer(modifier = Modifier.size(32.dp))
             }
         }
     ) { paddingValues ->

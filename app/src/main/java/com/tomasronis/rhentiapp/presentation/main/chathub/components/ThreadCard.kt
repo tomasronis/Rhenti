@@ -217,13 +217,13 @@ private fun AvatarWithIndicator(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier.size(60.dp), // FIXED size
+        modifier = modifier.size(56.dp), // FIXED size
         contentAlignment = Alignment.Center
     ) {
         // Avatar circle - ALWAYS 60dp (fixed size)
         Box(
             modifier = Modifier
-                .size(60.dp) // FIXED size - never changes
+                .size(56.dp) // FIXED size - never changes
                 .clip(CircleShape)
                 .background(Color(0xFFE0E0E5)),
             contentAlignment = Alignment.Center
@@ -258,7 +258,7 @@ private fun AvatarWithIndicator(
         if (hasUnread) {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(56.dp)
                     .border(3.dp, RhentiCoral, CircleShape)
             )
         }
@@ -354,7 +354,7 @@ private fun ThreadAvatar(
 
     Box(
         modifier = modifier
-            .size(60.dp)
+            .size(56.dp)
             .clip(CircleShape)
             .background(Color(0xFFE0E0E5)),  // Light gray background for initials
         contentAlignment = Alignment.Center

@@ -65,7 +65,8 @@ data class MessageMetadata(
     val bookingId: String?,
     val propertyAddress: String?,
     val viewingTime: String?,
-    val bookingStatus: String? // "pending", "confirmed", "declined"
+    val bookingStatus: String?, // "pending", "confirmed", "declined"
+    val items: List<String>? // For "items-requested" messages
 )
 
 /**

@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tomasronis.rhentiapp.data.chathub.models.ChatMessage
 import com.tomasronis.rhentiapp.presentation.theme.ChatBubbleOwner
 import com.tomasronis.rhentiapp.presentation.theme.ChatBubbleRenter
@@ -76,8 +77,10 @@ fun MessageBubble(
             ) {
                 Text(
                     text = formatTimestamp(message.createdAt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
 
                 // Status indicator

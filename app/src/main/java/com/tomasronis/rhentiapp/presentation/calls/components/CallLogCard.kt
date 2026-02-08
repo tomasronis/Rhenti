@@ -48,14 +48,14 @@ fun CallLogCard(
             ) {
                 // Avatar or call type icon
                 Box(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(56.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!callLog.contactAvatar.isNullOrBlank()) {
                         // Show contact avatar
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(56.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
@@ -64,14 +64,17 @@ fun CallLogCard(
                             Icon(
                                 imageVector = Icons.Filled.Person,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(28.dp),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             AsyncImage(
-                                model = callLog.contactAvatar,
+                                model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                    .data(callLog.contactAvatar)
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = "Contact avatar",
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(56.dp)
                                     .clip(CircleShape),
                                 contentScale = ContentScale.Crop
                             )
@@ -105,14 +108,14 @@ fun CallLogCard(
                         // Show initials avatar
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(56.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = getInitials(callLog.contactName),
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -220,7 +223,7 @@ fun CallLogCard(
 
             // Divider at bottom
             HorizontalDivider(
-                modifier = Modifier.padding(start = 68.dp),
+                modifier = Modifier.padding(start = 84.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
         }

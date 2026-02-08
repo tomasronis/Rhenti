@@ -33,8 +33,20 @@ class ContactsRepositoryImpl @Inject constructor(
 
             val contacts = parseContactsResponse(contactsList)
 
-            // Cache contacts
-            val cachedContacts = contacts.map { it.toCachedContact() }
+            // Cache contacts - merge with existing data to preserve avatarUrl and channel
+            val cachedContacts = contacts.map { newContact ->
+                val existingContact = contactDao.getContactByIdOnce(newContact.id)
+
+                // Merge: keep avatarUrl and channel from existing contact if new one doesn't have them
+                if (existingContact != null) {
+                    newContact.copy(
+                        avatarUrl = newContact.avatarUrl ?: existingContact.avatarUrl,
+                        channel = newContact.channel ?: existingContact.channel
+                    )
+                } else {
+                    newContact
+                }.toCachedContact()
+            }
             contactDao.insertContacts(cachedContacts)
 
             NetworkResult.Success(contacts)

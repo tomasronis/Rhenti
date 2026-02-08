@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tomasronis.rhentiapp.data.chathub.models.ChatMessage
 import com.tomasronis.rhentiapp.presentation.theme.Success
 import com.tomasronis.rhentiapp.presentation.theme.Warning
@@ -223,8 +224,10 @@ fun BookingMessageCard(
             // Timestamp
             Text(
                 text = formatTimestamp(message.createdAt),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
     }

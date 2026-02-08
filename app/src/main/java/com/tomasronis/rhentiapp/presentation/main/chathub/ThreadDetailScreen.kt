@@ -6,6 +6,7 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,7 +57,7 @@ fun ThreadDetailScreen(
     // Get the most recent property address from messages
     val propertyAddress = remember(uiState.messages) {
         uiState.messages
-            .firstOrNull { it.metadata?.propertyAddress != null }
+            .lastOrNull { it.metadata?.propertyAddress != null }
             ?.metadata?.propertyAddress
     }
 
@@ -99,17 +101,22 @@ fun ThreadDetailScreen(
                 IconButton(
                     onClick = onNavigateBack,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(32.dp)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        )
                         .background(
-                            color = Color(0xFF2C2C2E),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
                             shape = CircleShape
                         )
                 ) {
                     Icon(
                         imageVector = Icons.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
@@ -126,6 +133,8 @@ fun ThreadDetailScreen(
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -133,63 +142,35 @@ fun ThreadDetailScreen(
                             onNavigateToContact(thread)
                         }
                     )
-                    // Renter email (if available)
-                    if (!thread.email.isNullOrBlank()) {
-                        Text(
-                            text = thread.email,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 13.sp
-                            ),
-                            color = Color(0xFF8E8E93),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                    // Property address from most recent message metadata
-                    if (propertyAddress != null) {
-                        Text(
-                            text = propertyAddress,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 13.sp
-                            ),
-                            color = Color(0xFF8E8E93),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
                 }
 
                 // Circular call button
                 val hasPhone = !thread.phone.isNullOrBlank()
-                Box(
+                IconButton(
+                    onClick = {
+                        thread.phone?.let { phoneNumber ->
+                            onCall(phoneNumber)
+                        }
+                    },
+                    enabled = hasPhone,
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = if (hasPhone) Color(0xFF2C2C2E) else Color(0xFF1C1C1E),
+                        .size(32.dp)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                             shape = CircleShape
                         )
-                        .then(
-                            if (hasPhone) {
-                                Modifier.clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    thread.phone?.let { phoneNumber ->
-                                        onCall(phoneNumber)
-                                    }
-                                }
-                            } else {
-                                Modifier
-                            }
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            shape = CircleShape
                         )
-                        .alpha(if (hasPhone) 1f else 0.4f),
-                    contentAlignment = Alignment.Center
+                        .alpha(if (hasPhone) 1f else 0.4f)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Phone,
                         contentDescription = if (hasPhone) "Call" else "No phone number",
-                        tint = if (hasPhone) Color.White else Color(0xFF8E8E93),
-                        modifier = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -383,6 +364,9 @@ private fun MessageList(
                                     onDecline = onDeclineBooking,
                                     onProposeAlternative = onProposeAlternative
                                 )
+                            }
+                            "items-requested" -> {
+                                ItemsRequestedCard(message = message)
                             }
                             else -> {
                                 MessageBubble(

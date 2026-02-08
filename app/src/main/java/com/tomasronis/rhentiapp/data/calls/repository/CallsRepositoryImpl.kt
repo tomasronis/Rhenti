@@ -188,10 +188,8 @@ class CallsRepositoryImpl @Inject constructor(
                 val contact = cachedLog.contactId?.let { contactMap[it] }
                     ?: rawContactPhone?.let { phoneMap[normalizePhoneNumber(it)] }
 
-                // If no contact found, try looking up from threads
-                val thread = if (contact == null) {
-                    rawContactPhone?.let { threadPhoneMap[normalizePhoneNumber(it)] }
-                } else null
+                // Always try to look up from threads (for avatar fallback even if contact found)
+                val thread = rawContactPhone?.let { threadPhoneMap[normalizePhoneNumber(it)] }
 
                 // Resolve name: contact name > thread name > cached caller name
                 val resolvedName = contact?.let {
@@ -200,8 +198,9 @@ class CallsRepositoryImpl @Inject constructor(
                     ?: thread?.displayName?.takeIf { it.isNotBlank() }
                     ?: cachedLog.callerName
 
-                // Resolve avatar: contact avatar > thread image
-                val resolvedAvatarRaw = contact?.avatarUrl ?: thread?.imageUrl
+                // Resolve avatar: contact avatar > thread image (always try both)
+                val resolvedAvatarRaw = contact?.avatarUrl?.takeIf { it.isNotBlank() }
+                    ?: thread?.imageUrl?.takeIf { it.isNotBlank() }
                 val resolvedAvatar = resolvedAvatarRaw?.let { buildFullImageUrl(it) }
 
                 if (BuildConfig.DEBUG && resolvedAvatarRaw != null) {
@@ -228,7 +227,7 @@ class CallsRepositoryImpl @Inject constructor(
                     receiverNumber = cachedLog.receiverNumber
                 )
             }
-        }
+        }.distinctUntilChanged()
     }
 
     /**

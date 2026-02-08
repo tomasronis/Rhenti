@@ -547,7 +547,7 @@ class ChatHubRepositoryImpl @Inject constructor(
                 }
 
                 // Parse metadata for booking messages
-                val metadata = if (type == "booking") {
+                val metadata = if (type == "booking" || type == "items-requested") {
                     @Suppress("UNCHECKED_CAST")
                     val metadataMap = messageData["metadata"] as? Map<String, Any>
                     metadataMap?.let {
@@ -555,7 +555,8 @@ class ChatHubRepositoryImpl @Inject constructor(
                             bookingId = (it["booking_id"] as? String) ?: (it["bookingId"] as? String),
                             propertyAddress = (it["property_address"] as? String) ?: (it["propertyAddress"] as? String),
                             viewingTime = (it["viewing_time"] as? String) ?: (it["viewingTime"] as? String),
-                            bookingStatus = (it["booking_status"] as? String) ?: (it["bookingStatus"] as? String)
+                            bookingStatus = (it["booking_status"] as? String) ?: (it["bookingStatus"] as? String),
+                            items = (it["items"] as? List<*>)?.mapNotNull { item -> item as? String }
                         )
                     }
                 } else null
