@@ -59,14 +59,49 @@ data class ChatMessage(
 /**
  * Metadata for booking messages.
  * Marked @Immutable for Compose stability and performance.
+ * Field names match iOS API spec (Chat-message-doc.md)
  */
 @Immutable
 data class MessageMetadata(
-    val bookingId: String?,
-    val propertyAddress: String?,
-    val viewingTime: String?,
-    val bookingStatus: String?, // "pending", "confirmed", "declined"
-    val items: List<String>? // For "items-requested" messages
+    // Booking/Viewing fields
+    val bookViewing: Boolean? = null,
+    val bookViewingType: String? = null, // "viewing_request", "change_request", "confirm", "decline", "link"
+    val bookViewingRequestStatus: String? = null, // "pending", "confirmed", "declined", "canceled", "alternative"
+    val bookViewingId: String? = null,
+    val bookViewingTime: String? = null,
+    val bookViewingDateTimeArr: List<String>? = null,
+    val bookViewingAlternative: List<String>? = null,
+    val bookViewingAlternativeArr: List<List<String>>? = null,
+
+    // Property fields
+    val propertyId: String? = null,
+    val propertyAddress: String? = null,
+
+    // Application fields
+    val application: Boolean? = null,
+    val applicationType: String? = null, // "link", "offer_request"
+    val applicationId: String? = null,
+
+    // Items requested fields
+    val itemsRequested: Boolean? = null,
+    val items: List<String>? = null,
+
+    // Attachment fields
+    val image: String? = null,
+    val originalUrl: String? = null,
+    val height: Int? = null,
+    val width: Int? = null,
+    val fileUrl: String? = null,
+    val fileType: String? = null,
+    val fileName: String? = null,
+
+    // Legacy field names for backward compatibility
+    @Deprecated("Use bookViewingId instead")
+    val bookingId: String? = null,
+    @Deprecated("Use bookViewingTime instead")
+    val viewingTime: String? = null,
+    @Deprecated("Use bookViewingRequestStatus instead")
+    val bookingStatus: String? = null
 )
 
 /**
@@ -157,6 +192,8 @@ data class PendingMessage(
     val localId: String,
     val text: String?,
     val imageData: String?, // Base64 or data URI
+    val type: String = "text", // "text", "image", "application", "booking"
+    val metadata: MessageMetadata? = null, // For link messages
     val createdAt: Long,
     val status: MessageStatus,
     val serverMessageId: String? = null, // Matched server message ID once sent
@@ -196,10 +233,11 @@ sealed class DisplayMessage {
         override val createdAt: Long = pendingMessage.createdAt
         override val sender: String = "owner" // Pending messages are always from us
         override val text: String? = pendingMessage.text
-        override val type: String = if (pendingMessage.imageData != null) "image" else "text"
+        override val type: String = pendingMessage.type
 
         val isPending: Boolean = true
         val status: MessageStatus = pendingMessage.status
         val uploadProgress: Float? = pendingMessage.uploadProgress
+        val metadata: MessageMetadata? = pendingMessage.metadata
     }
 }

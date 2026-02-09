@@ -31,8 +31,9 @@ fun BookingMessageCard(
     modifier: Modifier = Modifier
 ) {
     val isOwner = message.sender == "owner"
-    val metadata = message.metadata ?: return
-    val bookingId = metadata.bookingId ?: return
+    val metadata = message.metadata
+    // Use bookViewingId (API field name) if available, otherwise use message.id as fallback
+    val bookingId = metadata?.bookViewingId ?: metadata?.bookingId ?: message.id
 
     Row(
         modifier = modifier
@@ -48,7 +49,7 @@ fun BookingMessageCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = when (metadata.bookingStatus) {
+                    containerColor = when (metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus) {
                         "confirmed" -> Success.copy(alpha = 0.1f)
                         "declined" -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
                         else -> Warning.copy(alpha = 0.1f)
@@ -66,31 +67,41 @@ fun BookingMessageCard(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Top
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.CalendarToday,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 2.dp)
                             )
-                            Text(
-                                text = "Viewing Request",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Viewing Requested",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "New request awaiting response",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
 
-                        BookingStatusBadge(status = metadata.bookingStatus ?: "pending")
+                        BookingStatusBadge(status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus ?: "pending")
                     }
 
                     Divider()
 
                     // Property address
-                    if (metadata.propertyAddress != null) {
+                    if (metadata?.propertyAddress != null) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -108,8 +119,11 @@ fun BookingMessageCard(
                         }
                     }
 
-                    // Viewing time
-                    if (metadata.viewingTime != null) {
+                    // Viewing time - use bookViewingDateTimeArr if available, otherwise bookViewingTime
+                    val displayTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
+                        ?: metadata?.bookViewingTime
+                        ?: metadata?.viewingTime
+                    if (displayTime != null) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -121,14 +135,15 @@ fun BookingMessageCard(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = metadata.viewingTime,
+                                text = displayTime,
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
 
                     // Actions (only show for pending bookings) - iOS style
-                    if (metadata.bookingStatus == "pending") {
+                    val status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus
+                    if (status == "pending" || status == null) {
                         Divider()
 
                         // iOS-style circular action buttons

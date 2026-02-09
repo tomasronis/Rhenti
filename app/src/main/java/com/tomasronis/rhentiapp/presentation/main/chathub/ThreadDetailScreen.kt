@@ -500,6 +500,9 @@ private fun MessageList(
             when (displayMessage) {
                 is com.tomasronis.rhentiapp.data.chathub.models.DisplayMessage.Server -> {
                     val message = displayMessage.message
+                    // Debug logging to see message types
+                    android.util.Log.d("ThreadDetail", "Message type: ${message.type}, sender: ${message.sender}, metadata: ${message.metadata}")
+
                     // System messages get special treatment
                     if (message.sender == "system") {
                         SystemMessageView(message = message)
@@ -509,26 +512,26 @@ private fun MessageList(
                                 ImageMessageView(message = message)
                             }
                             "booking" -> {
-                                // Check if this is a link-type booking (viewing link) or a regular booking request
-                                if (message.metadata?.bookingStatus != null && message.metadata.bookingStatus != "link") {
-                                    // Regular booking request with status (pending, confirmed, etc.)
-                                    BookingMessageCard(
-                                        message = message,
-                                        onApprove = onApproveBooking,
-                                        onDecline = onDeclineBooking,
-                                        onProposeAlternative = onProposeAlternative
-                                    )
-                                } else {
-                                    // Viewing link (bookViewingType: "link")
+                                // Owner sends viewing link, contact sends viewing request
+                                if (message.sender == "owner") {
+                                    // Owner sending viewing link to contact
                                     LinkMessageCard(
                                         type = LinkMessageType.VIEWING,
                                         propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
-                                        isFromOwner = message.sender == "owner",
+                                        isFromOwner = true,
                                         url = null, // TODO: Extract URL from message
                                         onClick = {
                                             // TODO: Open link in browser or handle viewing booking
                                             android.util.Log.d("ThreadDetail", "Viewing link clicked")
                                         }
+                                    )
+                                } else {
+                                    // Contact sending viewing request to owner
+                                    BookingMessageCard(
+                                        message = message,
+                                        onApprove = onApproveBooking,
+                                        onDecline = onDeclineBooking,
+                                        onProposeAlternative = onProposeAlternative
                                     )
                                 }
                             }
@@ -581,16 +584,27 @@ private fun MessageList(
                             ImageMessageView(message = chatMessage)
                         }
                         "booking" -> {
-                            // Viewing link (pending)
-                            LinkMessageCard(
-                                type = LinkMessageType.VIEWING,
-                                propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
-                                isFromOwner = chatMessage.sender == "owner",
-                                url = null,
-                                onClick = {
-                                    android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
-                                }
-                            )
+                            // Owner sends viewing link, contact sends viewing request
+                            if (chatMessage.sender == "owner") {
+                                // Owner sending viewing link to contact (pending)
+                                LinkMessageCard(
+                                    type = LinkMessageType.VIEWING,
+                                    propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
+                                    isFromOwner = true,
+                                    url = null,
+                                    onClick = {
+                                        android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
+                                    }
+                                )
+                            } else {
+                                // Contact sending viewing request to owner (pending)
+                                BookingMessageCard(
+                                    message = chatMessage,
+                                    onApprove = onApproveBooking,
+                                    onDecline = onDeclineBooking,
+                                    onProposeAlternative = onProposeAlternative
+                                )
+                            }
                         }
                         "application" -> {
                             // Application link (pending)
