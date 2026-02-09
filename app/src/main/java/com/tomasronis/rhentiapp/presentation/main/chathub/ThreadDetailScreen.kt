@@ -509,37 +509,44 @@ private fun MessageList(
                                 ImageMessageView(message = message)
                             }
                             "booking" -> {
-                                BookingMessageCard(
-                                    message = message,
-                                    onApprove = onApproveBooking,
-                                    onDecline = onDeclineBooking,
-                                    onProposeAlternative = onProposeAlternative
-                                )
+                                // Check if this is a link-type booking (viewing link) or a regular booking request
+                                if (message.metadata?.bookingStatus != null && message.metadata.bookingStatus != "link") {
+                                    // Regular booking request with status (pending, confirmed, etc.)
+                                    BookingMessageCard(
+                                        message = message,
+                                        onApprove = onApproveBooking,
+                                        onDecline = onDeclineBooking,
+                                        onProposeAlternative = onProposeAlternative
+                                    )
+                                } else {
+                                    // Viewing link (bookViewingType: "link")
+                                    LinkMessageCard(
+                                        type = LinkMessageType.VIEWING,
+                                        propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
+                                        isFromOwner = message.sender == "owner",
+                                        url = null, // TODO: Extract URL from message
+                                        onClick = {
+                                            // TODO: Open link in browser or handle viewing booking
+                                            android.util.Log.d("ThreadDetail", "Viewing link clicked")
+                                        }
+                                    )
+                                }
                             }
-                            "items-requested" -> {
-                                ItemsRequestedCard(message = message)
-                            }
-                            "viewing-link" -> {
-                                LinkMessageCard(
-                                    type = LinkMessageType.VIEWING,
-                                    propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
-                                    url = null, // TODO: Extract URL from message
-                                    onClick = {
-                                        // TODO: Open link in browser or handle viewing booking
-                                        android.util.Log.d("ThreadDetail", "Viewing link clicked")
-                                    }
-                                )
-                            }
-                            "application-link" -> {
+                            "application" -> {
+                                // Application link (applicationType: "link")
                                 LinkMessageCard(
                                     type = LinkMessageType.APPLICATION,
                                     propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
+                                    isFromOwner = message.sender == "owner",
                                     url = null, // TODO: Extract URL from message
                                     onClick = {
                                         // TODO: Open link in browser or handle application
                                         android.util.Log.d("ThreadDetail", "Application link clicked")
                                     }
                                 )
+                            }
+                            "items-requested" -> {
+                                ItemsRequestedCard(message = message)
                             }
                             else -> {
                                 MessageBubble(
@@ -558,9 +565,9 @@ private fun MessageList(
                         threadId = "", // Not used in UI
                         sender = "owner",
                         text = pending.text,
-                        type = if (pending.imageData != null) "image" else "text",
+                        type = pending.type,
                         attachmentUrl = pending.imageData,
-                        metadata = null,
+                        metadata = pending.metadata,
                         status = when (displayMessage.status) {
                             com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING -> "sending"
                             com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENT -> "sent"
@@ -572,6 +579,30 @@ private fun MessageList(
                     when (chatMessage.type) {
                         "image" -> {
                             ImageMessageView(message = chatMessage)
+                        }
+                        "booking" -> {
+                            // Viewing link (pending)
+                            LinkMessageCard(
+                                type = LinkMessageType.VIEWING,
+                                propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
+                                isFromOwner = chatMessage.sender == "owner",
+                                url = null,
+                                onClick = {
+                                    android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
+                                }
+                            )
+                        }
+                        "application" -> {
+                            // Application link (pending)
+                            LinkMessageCard(
+                                type = LinkMessageType.APPLICATION,
+                                propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
+                                isFromOwner = chatMessage.sender == "owner",
+                                url = null,
+                                onClick = {
+                                    android.util.Log.d("ThreadDetail", "Application link clicked (pending)")
+                                }
+                            )
                         }
                         else -> {
                             MessageBubble(

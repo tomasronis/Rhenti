@@ -28,12 +28,13 @@ enum class LinkMessageType {
 /**
  * Link message card for "Apply to Listing" and "Book a Viewing" messages.
  * Matches iOS design with dark blue/purple background, icon, title, and address.
- * Always right-aligned (owner-sent) with 280dp max width.
+ * Right-aligned for owner messages, left-aligned for contact messages, with 280dp max width.
  */
 @Composable
 fun LinkMessageCard(
     type: LinkMessageType,
     propertyAddress: String,
+    isFromOwner: Boolean = true,
     url: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -43,7 +44,7 @@ fun LinkMessageCard(
             Quadruple(
                 Icons.Filled.Description,
                 Color(0xFF9B7FD9), // Purple
-                "Apply to Listing",
+                if (isFromOwner) "Apply to Listing" else "Application Received",
                 Color(0xFF3A2E59) // Purple-tinted background
             )
         }
@@ -57,12 +58,12 @@ fun LinkMessageCard(
         }
     }
 
-    // Wrapper Row for alignment (right-aligned like owner messages)
+    // Wrapper Row for alignment (right-aligned for owner, left-aligned for contact)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.End // Right-aligned (owner message)
+        horizontalArrangement = if (isFromOwner) Arrangement.End else Arrangement.Start
     ) {
         Surface(
             onClick = onClick,
