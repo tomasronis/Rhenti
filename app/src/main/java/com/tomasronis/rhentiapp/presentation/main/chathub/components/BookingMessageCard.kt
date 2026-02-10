@@ -1,7 +1,9 @@
 package com.tomasronis.rhentiapp.presentation.main.chathub.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tomasronis.rhentiapp.data.chathub.models.ChatMessage
@@ -20,7 +23,8 @@ import com.tomasronis.rhentiapp.presentation.theme.Warning
 
 /**
  * Booking message card component.
- * Shows booking details with approve/decline actions for owner.
+ * Shows booking details with status indicator, date, questionnaire link,
+ * and approve/alter/decline actions for owner.
  */
 @Composable
 fun BookingMessageCard(
@@ -28,12 +32,13 @@ fun BookingMessageCard(
     onApprove: (String) -> Unit,
     onDecline: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
+    onQuestionnaireClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val isOwner = message.sender == "owner"
     val metadata = message.metadata
-    // Use bookViewingId (API field name) if available, otherwise use message.id as fallback
     val bookingId = metadata?.bookViewingId ?: metadata?.bookingId ?: message.id
+    val status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus ?: "pending"
 
     Row(
         modifier = modifier
@@ -43,17 +48,13 @@ fun BookingMessageCard(
     ) {
         Column(
             horizontalAlignment = if (isOwner) Alignment.End else Alignment.Start,
-            modifier = Modifier.widthIn(max = 320.dp)
+            modifier = Modifier.widthIn(max = 280.dp)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = when (metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus) {
-                        "confirmed" -> Success.copy(alpha = 0.1f)
-                        "declined" -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                        else -> Warning.copy(alpha = 0.1f)
-                    }
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -61,172 +62,172 @@ fun BookingMessageCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.CalendarToday,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "Viewing Requested",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "New request awaiting response",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                    // Header: "Viewing Requested"
+                    Text(
+                        text = "Viewing Requested",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                        BookingStatusBadge(status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus ?: "pending")
-                    }
-
-                    Divider()
-
-                    // Property address
+                    // Address line - single line, grey, truncated
                     if (metadata?.propertyAddress != null) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = metadata.propertyAddress,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                        Text(
+                            text = metadata.propertyAddress,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp)
+                        )
                     }
 
-                    // Viewing time - use bookViewingDateTimeArr if available, otherwise bookViewingTime
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Big house icon
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Home,
+                            contentDescription = "Property",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Status indicator
+                    BookingStatusIndicator(status = status)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Calendar icon + date requested
                     val displayTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
                         ?: metadata?.bookViewingTime
                         ?: metadata?.viewingTime
                     if (displayTime != null) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Schedule,
+                                imageVector = Icons.Filled.CalendarToday,
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = displayTime,
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
 
-                    // Actions (only show for pending bookings) - iOS style
-                    val status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus
-                    if (status == "pending" || status == null) {
-                        Divider()
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                        // iOS-style circular action buttons
+                    // Renter Questionnaire link
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onQuestionnaireClick?.invoke(bookingId) }
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Assignment,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Renter Questionnaire",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Action buttons (only for pending bookings)
+                    if (status == "pending") {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Accept button (green)
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            // Approve button
+                            Button(
+                                onClick = { onApprove(bookingId) },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Success,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                             ) {
-                                FilledIconButton(
-                                    onClick = { onApprove(bookingId) },
-                                    modifier = Modifier.size(56.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = Success.copy(alpha = 0.2f),
-                                        contentColor = Success
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Check,
-                                        contentDescription = "Accept",
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
                                 Text(
-                                    text = "Accept",
+                                    text = "Approve",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
 
-                            // Alter button (orange)
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            // Alter button
+                            OutlinedButton(
+                                onClick = { onProposeAlternative(bookingId) },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Warning
+                                ),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(Warning)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                             ) {
-                                FilledIconButton(
-                                    onClick = { onProposeAlternative(bookingId) },
-                                    modifier = Modifier.size(56.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = Warning.copy(alpha = 0.2f),
-                                        contentColor = Warning
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.AccessTime,
-                                        contentDescription = "Alter",
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
                                 Text(
                                     text = "Alter",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
 
-                            // Decline button (red)
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            // Decline button
+                            OutlinedButton(
+                                onClick = { onDecline(bookingId) },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = ButtonDefaults.outlinedButtonBorder.copy(
+                                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.error)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                             ) {
-                                FilledIconButton(
-                                    onClick = { onDecline(bookingId) },
-                                    modifier = Modifier.size(56.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Decline",
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
                                 Text(
                                     text = "Decline",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -249,24 +250,30 @@ fun BookingMessageCard(
 }
 
 /**
- * Status badge for booking.
+ * Status indicator showing approved/pending/declined with colored dot and label.
  */
 @Composable
-private fun BookingStatusBadge(status: String) {
-    val (color, text) = when (status) {
-        "confirmed" -> Success to "Confirmed"
+private fun BookingStatusIndicator(status: String) {
+    val (color, label) = when (status) {
+        "confirmed" -> Success to "Approved"
         "declined" -> MaterialTheme.colorScheme.error to "Declined"
         else -> Warning to "Pending"
     }
 
-    Badge(
-        containerColor = color,
-        contentColor = Color.White
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(color = color, shape = CircleShape)
+        )
         Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = color,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
