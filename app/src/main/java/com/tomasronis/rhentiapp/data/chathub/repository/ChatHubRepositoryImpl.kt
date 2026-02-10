@@ -602,6 +602,10 @@ class ChatHubRepositoryImpl @Inject constructor(
                 val attachmentUrl = (messageData["attachment_url"] as? String)
                     ?: (messageData["attachmentUrl"] as? String)
 
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d("ChatHubRepository", "Message $id: type='$type', sender='$sender', text='${text?.take(50)}'")
+                }
+
                 // Parse timestamp - can be Number (Unix timestamp) or String (ISO 8601)
                 val createdAtRaw = parseTimestamp(
                     messageData["sentAt"]
@@ -631,15 +635,17 @@ class ChatHubRepositoryImpl @Inject constructor(
                 val metadata = if (type == "booking" || type == "items-requested" || type == "application") {
                     @Suppress("UNCHECKED_CAST")
                     val metadataMap = messageData["metadata"] as? Map<String, Any>
-                    metadataMap?.let {
-                        MessageMetadata(
-                            bookingId = (it["booking_id"] as? String) ?: (it["bookingId"] as? String),
-                            propertyAddress = (it["property_address"] as? String) ?: (it["propertyAddress"] as? String),
-                            viewingTime = (it["viewing_time"] as? String) ?: (it["viewingTime"] as? String),
-                            bookingStatus = (it["booking_status"] as? String) ?: (it["bookingStatus"] as? String),
-                            items = (it["items"] as? List<*>)?.mapNotNull { item -> item as? String }
-                        )
+
+                    if (BuildConfig.DEBUG && metadataMap != null) {
+                        android.util.Log.d("ChatHubRepository", "=== METADATA FOR MESSAGE $id ===")
+                        android.util.Log.d("ChatHubRepository", "Type: $type")
+                        android.util.Log.d("ChatHubRepository", "Metadata keys: ${metadataMap.keys}")
+                        metadataMap.forEach { (key, value) ->
+                            android.util.Log.d("ChatHubRepository", "  $key: $value (${value?.javaClass?.simpleName})")
+                        }
                     }
+
+                    metadataMap?.let { parseMessageMetadata(it) }
                 } else null
 
                 messages.add(
@@ -711,15 +717,7 @@ class ChatHubRepositoryImpl @Inject constructor(
         val metadata = if (type == "booking" || type == "items-requested" || type == "application") {
             @Suppress("UNCHECKED_CAST")
             val metadataMap = response["metadata"] as? Map<String, Any>
-            metadataMap?.let {
-                MessageMetadata(
-                    bookingId = (it["booking_id"] as? String) ?: (it["bookingId"] as? String),
-                    propertyAddress = (it["property_address"] as? String) ?: (it["propertyAddress"] as? String),
-                    viewingTime = (it["viewing_time"] as? String) ?: (it["viewingTime"] as? String),
-                    bookingStatus = (it["booking_status"] as? String) ?: (it["bookingStatus"] as? String),
-                    items = (it["items"] as? List<*>)?.mapNotNull { item -> item as? String }
-                )
-            }
+            metadataMap?.let { parseMessageMetadata(it) }
         } else null
 
         return ChatMessage(
@@ -940,6 +938,75 @@ private fun CachedMessage.toDomainModel(): ChatMessage {
         metadata = metadataObject,
         status = status,
         createdAt = createdAt
+    )
+}
+
+/**
+ * Parse message metadata from API response map.
+ * Supports both new iOS field names (bookViewingTime, bookViewingDateTimeArr, etc.)
+ * and legacy field names for backward compatibility.
+ */
+@Suppress("UNCHECKED_CAST")
+private fun parseMessageMetadata(metadataMap: Map<String, Any>): MessageMetadata {
+    return MessageMetadata(
+        // Booking/Viewing fields (new iOS spec)
+        bookViewing = metadataMap["bookViewing"] as? Boolean
+            ?: metadataMap["book_viewing"] as? Boolean,
+        bookViewingType = metadataMap["bookViewingType"] as? String
+            ?: metadataMap["book_viewing_type"] as? String,
+        bookViewingRequestStatus = metadataMap["bookViewingRequestStatus"] as? String
+            ?: metadataMap["book_viewing_request_status"] as? String,
+        bookViewingId = metadataMap["bookViewingId"] as? String
+            ?: metadataMap["book_viewing_id"] as? String,
+        bookViewingTime = metadataMap["bookViewingTime"] as? String
+            ?: metadataMap["book_viewing_time"] as? String,
+        bookViewingDateTimeArr = (metadataMap["bookViewingDateTimeArr"] as? List<*>)?.mapNotNull { it as? String }
+            ?: (metadataMap["book_viewing_date_time_arr"] as? List<*>)?.mapNotNull { it as? String },
+        bookViewingAlternative = (metadataMap["bookViewingAlternative"] as? List<*>)?.mapNotNull { it as? String }
+            ?: (metadataMap["book_viewing_alternative"] as? List<*>)?.mapNotNull { it as? String },
+        bookViewingAlternativeArr = (metadataMap["bookViewingAlternativeArr"] as? List<*>)
+            ?.mapNotNull { item -> (item as? List<*>)?.mapNotNull { it as? String } }
+            ?: (metadataMap["book_viewing_alternative_arr"] as? List<*>)
+                ?.mapNotNull { item -> (item as? List<*>)?.mapNotNull { it as? String } },
+
+        // Property fields
+        propertyId = metadataMap["propertyId"] as? String
+            ?: metadataMap["property_id"] as? String,
+        propertyAddress = metadataMap["propertyAddress"] as? String
+            ?: metadataMap["property_address"] as? String,
+
+        // Application fields
+        application = metadataMap["application"] as? Boolean,
+        applicationType = metadataMap["applicationType"] as? String
+            ?: metadataMap["application_type"] as? String,
+        applicationId = metadataMap["applicationId"] as? String
+            ?: metadataMap["application_id"] as? String,
+
+        // Items requested fields
+        itemsRequested = metadataMap["itemsRequested"] as? Boolean
+            ?: metadataMap["items_requested"] as? Boolean,
+        items = (metadataMap["items"] as? List<*>)?.mapNotNull { it as? String },
+
+        // Attachment fields
+        image = metadataMap["image"] as? String,
+        originalUrl = metadataMap["originalUrl"] as? String
+            ?: metadataMap["original_url"] as? String,
+        height = (metadataMap["height"] as? Number)?.toInt(),
+        width = (metadataMap["width"] as? Number)?.toInt(),
+        fileUrl = metadataMap["fileUrl"] as? String
+            ?: metadataMap["file_url"] as? String,
+        fileType = metadataMap["fileType"] as? String
+            ?: metadataMap["file_type"] as? String,
+        fileName = metadataMap["fileName"] as? String
+            ?: metadataMap["file_name"] as? String,
+
+        // Legacy field names for backward compatibility
+        bookingId = metadataMap["bookingId"] as? String
+            ?: metadataMap["booking_id"] as? String,
+        viewingTime = metadataMap["viewingTime"] as? String
+            ?: metadataMap["viewing_time"] as? String,
+        bookingStatus = metadataMap["bookingStatus"] as? String
+            ?: metadataMap["booking_status"] as? String
     )
 }
 

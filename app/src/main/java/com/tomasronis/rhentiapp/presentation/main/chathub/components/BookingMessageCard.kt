@@ -41,6 +41,17 @@ fun BookingMessageCard(
     val bookingId = metadata?.bookViewingId ?: metadata?.bookingId ?: message.id
     val status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus ?: "pending"
 
+    // Debug logging to see what metadata we have
+    if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+        android.util.Log.d("BookingMessageCard", "=== Booking Message ===")
+        android.util.Log.d("BookingMessageCard", "Message ID: ${message.id}")
+        android.util.Log.d("BookingMessageCard", "Metadata: $metadata")
+        android.util.Log.d("BookingMessageCard", "bookViewingDateTimeArr: ${metadata?.bookViewingDateTimeArr}")
+        android.util.Log.d("BookingMessageCard", "bookViewingTime: ${metadata?.bookViewingTime}")
+        android.util.Log.d("BookingMessageCard", "viewingTime (legacy): ${metadata?.viewingTime}")
+        android.util.Log.d("BookingMessageCard", "propertyAddress: ${metadata?.propertyAddress}")
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -124,10 +135,16 @@ fun BookingMessageCard(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Calendar icon + date requested - Surface for consistent sizing
-                    val displayTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
+                    // Get the viewing time from metadata and format it nicely
+                    val rawTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
                         ?: metadata?.bookViewingTime
                         ?: metadata?.viewingTime
-                        ?: "Date not specified"
+
+                    val displayTime = if (rawTime != null) {
+                        formatViewingDateTime(rawTime)
+                    } else {
+                        "Date not specified"
+                    }
 
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -359,5 +376,51 @@ private fun formatTimestamp(timestamp: Long): String {
             val dateTimeFormat = java.text.SimpleDateFormat("MMM d, h:mm a", java.util.Locale.getDefault())
             dateTimeFormat.format(java.util.Date(timestamp))
         }
+    }
+}
+
+/**
+ * Format viewing date/time to single line format.
+ * Supports multiple date formats from the API:
+ * - ISO 8601 strings (e.g., "2026-02-01T14:00:00Z")
+ * - Unix timestamps as strings (e.g., "1738429200000")
+ * - Already formatted strings (returned as-is if parsing fails)
+ *
+ * Returns format: "MMM DD, YYYY | TIME"
+ * Example: "Feb 01, 2026 | 2:00 PM"
+ */
+private fun formatViewingDateTime(dateTimeString: String): String {
+    return try {
+        // Try parsing as Unix timestamp (milliseconds)
+        val timestamp = dateTimeString.toLongOrNull()
+        val date = if (timestamp != null && timestamp > 1000000000000L) {
+            // Valid Unix timestamp in milliseconds
+            java.util.Date(timestamp)
+        } else {
+            // Try parsing as ISO 8601 or other date format
+            val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            isoFormat.isLenient = true
+            try {
+                isoFormat.parse(dateTimeString)
+            } catch (e: Exception) {
+                // Try other common formats
+                try {
+                    val altFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                    altFormat.parse(dateTimeString)
+                } catch (e2: Exception) {
+                    // If all parsing fails, return the original string
+                    return dateTimeString
+                }
+            }
+        }
+
+        // Format as: "MMM DD, YYYY | TIME"
+        val dateFormat = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
+        val timeFormat = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+
+        "${dateFormat.format(date)} | ${timeFormat.format(date)}"
+    } catch (e: Exception) {
+        // If anything fails, return the original string
+        dateTimeString
     }
 }
