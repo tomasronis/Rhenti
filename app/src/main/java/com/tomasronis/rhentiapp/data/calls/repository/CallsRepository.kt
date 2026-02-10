@@ -13,8 +13,16 @@ import kotlinx.coroutines.flow.Flow
 interface CallsRepository {
     /**
      * Get all call logs for a super account
+     *
+     * @param superAccountId The super account ID
+     * @param skip Number of call logs to skip (for pagination)
+     * @param limit Number of call logs to fetch
      */
-    suspend fun getCallLogs(superAccountId: String): NetworkResult<List<CallLog>>
+    suspend fun getCallLogs(
+        superAccountId: String,
+        skip: Int = 0,
+        limit: Int = 20
+    ): NetworkResult<List<CallLog>>
 
     /**
      * Record a new call log

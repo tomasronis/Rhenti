@@ -84,7 +84,11 @@ interface ApiClient {
     suspend fun getTwilioAccessToken(@Body request: Map<String, @JvmSuppressWildcards Any>): ResponseBody
 
     @GET("/phone-tracking/ownercontactlogs/{superAccountId}")
-    suspend fun getCallLogs(@Path("superAccountId") superAccountId: String): Map<String, @JvmSuppressWildcards Any>
+    suspend fun getCallLogs(
+        @Path("superAccountId") superAccountId: String,
+        @Query("skip") skip: Int? = null,
+        @Query("limit") limit: Int? = null
+    ): Map<String, @JvmSuppressWildcards Any>
 
     @POST("/phone-tracking/callLog")
     suspend fun recordCallLog(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>

@@ -61,20 +61,32 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
-     * Refresh threads from the API.
+     * Refresh threads from the API (resets pagination).
      */
     fun refreshThreads() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, threadsPage = 0, hasMoreThreads = true) }
 
             val superAccountId = tokenManager.getSuperAccountId() ?: run {
                 _uiState.update { it.copy(isLoading = false, error = "Not authenticated") }
                 return@launch
             }
 
-            when (val result = repository.getThreads(superAccountId, _searchQuery.value.takeIf { it.isNotBlank() })) {
+            when (val result = repository.getThreads(
+                superAccountId = superAccountId,
+                search = _searchQuery.value.takeIf { it.isNotBlank() },
+                skip = 0,
+                limit = 20
+            )) {
                 is NetworkResult.Success -> {
-                    _uiState.update { it.copy(isLoading = false, error = null) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = null,
+                            threadsPage = 0,
+                            hasMoreThreads = result.data.size >= 20
+                        )
+                    }
                 }
                 is NetworkResult.Error -> {
                     _uiState.update {
@@ -92,10 +104,55 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
+     * Load more threads (pagination).
+     */
+    fun loadMoreThreads() {
+        val currentState = _uiState.value
+
+        // Guard against loading while already loading or no more threads
+        if (currentState.isLoadingMoreThreads || currentState.isLoading || !currentState.hasMoreThreads) {
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMoreThreads = true) }
+
+            val superAccountId = tokenManager.getSuperAccountId() ?: return@launch
+            val nextPage = currentState.threadsPage + 1
+            val skip = nextPage * 20
+
+            when (val result = repository.getThreads(
+                superAccountId = superAccountId,
+                search = _searchQuery.value.takeIf { it.isNotBlank() },
+                skip = skip,
+                limit = 20
+            )) {
+                is NetworkResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingMoreThreads = false,
+                            threadsPage = nextPage,
+                            hasMoreThreads = result.data.size >= 20
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update { it.copy(isLoadingMoreThreads = false) }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
      * Search threads by query (filters locally).
      */
     fun searchThreads(query: String) {
         _searchQuery.value = query
+        // Reset pagination when search changes
+        if (query.isNotBlank()) {
+            refreshThreads()
+        }
     }
 
     /**
@@ -319,6 +376,8 @@ class ChatHubViewModel @Inject constructor(
                 localId = localId,
                 text = trimmedText,
                 imageData = null,
+                type = "text",
+                metadata = null,
                 createdAt = timestamp,
                 status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING,
                 serverMessageId = null
@@ -386,6 +445,8 @@ class ChatHubViewModel @Inject constructor(
                 localId = localId,
                 text = null,
                 imageData = imageBase64,
+                type = "image",
+                metadata = null,
                 createdAt = timestamp,
                 status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING,
                 serverMessageId = null
@@ -458,10 +519,31 @@ class ChatHubViewModel @Inject constructor(
             val localId = UUID.randomUUID().toString()
             val timestamp = System.currentTimeMillis()
 
+            // Determine message type and metadata
+            val (messageType, metadata) = when (type) {
+                "viewing-link" -> "booking" to com.tomasronis.rhentiapp.data.chathub.models.MessageMetadata(
+                    bookingId = null,
+                    propertyAddress = propertyAddress,
+                    viewingTime = null,
+                    bookingStatus = null,
+                    items = null
+                )
+                "application-link" -> "application" to com.tomasronis.rhentiapp.data.chathub.models.MessageMetadata(
+                    bookingId = null,
+                    propertyAddress = propertyAddress,
+                    viewingTime = null,
+                    bookingStatus = null,
+                    items = null
+                )
+                else -> "text" to null
+            }
+
             val pendingMessage = com.tomasronis.rhentiapp.data.chathub.models.PendingMessage(
                 localId = localId,
                 text = messageText,
                 imageData = null,
+                type = messageType,
+                metadata = metadata,
                 createdAt = timestamp,
                 status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING,
                 serverMessageId = null
@@ -472,9 +554,17 @@ class ChatHubViewModel @Inject constructor(
                 it.copy(pendingMessages = it.pendingMessages + pendingMessage)
             }
 
-            // Send to API as text message
-            // TODO: Update API to support link message types with proper metadata
-            when (val result = repository.sendTextMessage(userId, userName, legacyChatSessionId, messageText, currentThread)) {
+            // Send to API as link message with proper type and metadata
+            when (val result = repository.sendLinkMessage(
+                senderId = userId,
+                userName = userName,
+                chatSessionId = legacyChatSessionId,
+                messageType = type,
+                text = messageText,
+                propertyAddress = propertyAddress,
+                propertyId = propertyId,
+                thread = currentThread
+            )) {
                 is NetworkResult.Success -> {
                     // Update pending message with server ID and mark as sent
                     _uiState.update { state ->
@@ -721,6 +811,10 @@ data class ChatHubUiState(
     val hasMoreMessages: Boolean = true,
     val error: String? = null,
     val totalUnreadCount: Int = 0,
+    // Thread list pagination
+    val threadsPage: Int = 0,
+    val isLoadingMoreThreads: Boolean = false,
+    val hasMoreThreads: Boolean = true,
     // Filter state
     val unreadOnly: Boolean = false,
     val noActivity: Boolean = false,

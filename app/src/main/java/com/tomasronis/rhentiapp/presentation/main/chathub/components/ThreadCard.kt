@@ -294,16 +294,26 @@ private fun SmallBadgeIcon(
 /**
  * Simplified platform tag for better scroll performance.
  * Uses Box instead of Surface to reduce composition overhead.
+ * Different accent colors for each platform/channel.
  */
 @Composable
 private fun PlatformTag(
     platform: String,
     modifier: Modifier = Modifier
 ) {
+    val backgroundColor = when (platform.lowercase()) {
+        "facebook" -> Color(0xFF1877F2) // Facebook blue
+        "kijiji" -> Color(0xFF2B5A8A) // Kijiji dark blue
+        "zumper" -> Color(0xFF00C7B7) // Zumper teal
+        "rhenti" -> RhentiCoral // Rhenti coral
+        "rhenti-powered listing pages" -> Color(0xFF9B7FD9) // Purple for Rhenti-powered
+        else -> AccentBlue // Default blue
+    }
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(AccentBlue)
+            .background(backgroundColor)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(

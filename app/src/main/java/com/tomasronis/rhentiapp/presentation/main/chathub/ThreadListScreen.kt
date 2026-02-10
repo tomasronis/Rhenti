@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -111,7 +112,10 @@ fun ThreadListScreen(
                         onRefresh = { viewModel.refreshThreads() },
                         isRefreshing = uiState.isLoading,
                         onPinThread = { viewModel.toggleThreadPinned(it) },
-                        onDeleteThread = { showDeleteDialog = it }
+                        onDeleteThread = { showDeleteDialog = it },
+                        isLoadingMore = uiState.isLoadingMoreThreads,
+                        hasMoreThreads = uiState.hasMoreThreads,
+                        onLoadMore = { viewModel.loadMoreThreads() }
                     )
                 }
             }
@@ -191,10 +195,16 @@ private fun ThreadList(
     isRefreshing: Boolean,
     onPinThread: (ChatThread) -> Unit,
     onDeleteThread: (ChatThread) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoadingMore: Boolean = false,
+    hasMoreThreads: Boolean = true,
+    onLoadMore: () -> Unit = {}
 ) {
     Box(modifier = modifier.fillMaxSize()) {
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 0.dp,
@@ -216,6 +226,39 @@ private fun ThreadList(
                     thread = thread,
                     onClick = onClick
                 )
+            }
+
+            // Loading indicator at bottom when loading more
+            if (isLoadingMore) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
+        }
+
+        // Detect when user scrolls to bottom and load more
+        LaunchedEffect(listState) {
+            snapshotFlow {
+                val layoutInfo = listState.layoutInfo
+                val visibleItemsInfo = layoutInfo.visibleItemsInfo
+                if (layoutInfo.totalItemsCount == 0) {
+                    false
+                } else {
+                    val lastVisibleItem = visibleItemsInfo.lastOrNull()
+                        ?: return@snapshotFlow false
+                    lastVisibleItem.index >= layoutInfo.totalItemsCount - 3
+                }
+            }.collect { shouldLoadMore ->
+                if (shouldLoadMore && !isLoadingMore && hasMoreThreads) {
+                    onLoadMore()
+                }
             }
         }
     }

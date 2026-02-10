@@ -23,13 +23,18 @@ class ChatHubRepositoryImpl @Inject constructor(
     private val contactDao: com.tomasronis.rhentiapp.core.database.dao.ContactDao
 ) : ChatHubRepository {
 
-    override suspend fun getThreads(superAccountId: String, search: String?): NetworkResult<List<ChatThread>> {
+    override suspend fun getThreads(
+        superAccountId: String,
+        search: String?,
+        skip: Int,
+        limit: Int
+    ): NetworkResult<List<ChatThread>> {
         return try {
             // Build request with correct format (skip instead of offset)
             val request = buildMap<String, Any> {
                 put("searchText", search ?: "")
-                put("skip", 0)
-                put("limit", 50)
+                put("skip", skip)
+                put("limit", limit)
                 // Only include null values for the API - they're explicitly expected
             }
 
@@ -206,6 +211,82 @@ class ChatHubRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
                 android.util.Log.e("ChatHubRepository", "Send image failed", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
+    override suspend fun sendLinkMessage(
+        senderId: String,
+        userName: String,
+        chatSessionId: String,
+        messageType: String,
+        text: String,
+        propertyAddress: String,
+        propertyId: String?,
+        thread: ChatThread
+    ): NetworkResult<ChatMessage> {
+        return try {
+            val timestamp = System.currentTimeMillis()
+
+            // Determine correct type and metadata based on messageType
+            val (actualType, linkTypeKey, linkTypeValue) = when (messageType) {
+                "viewing-link" -> Triple("booking", "bookViewingType", "link")
+                "application-link" -> Triple("application", "applicationType", "link")
+                else -> Triple("text", null, null)
+            }
+
+            // Build request with correct type and metadata structure
+            val messageMap = mutableMapOf<String, Any>(
+                "_id" to timestamp,
+                "createdAt" to timestamp,
+                "text" to text,
+                "type" to actualType,
+                "user" to mapOf(
+                    "name" to userName,
+                    "_id" to senderId
+                )
+            )
+
+            // Add metadata with property information and link type
+            val metadata = mutableMapOf<String, Any>(
+                "propertyAddress" to propertyAddress
+            )
+            propertyId?.let { metadata["propertyId"] = it }
+            // Add the specific link type indicator (e.g., applicationType: "link" or bookViewingType: "link")
+            if (linkTypeKey != null && linkTypeValue != null) {
+                metadata[linkTypeKey] = linkTypeValue
+            }
+            messageMap["metadata"] = metadata
+
+            val request = mapOf(
+                "message" to messageMap,
+                "chatSessionId" to chatSessionId,
+                "chatSessionMembersObj" to thread.membersObject
+            )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Sending link message with format: $request")
+            }
+
+            val response = apiClient.sendMessage(senderId, request)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Send link message response: $response")
+            }
+
+            val message = parseSendMessageResponse(response, thread.id)
+
+            // Cache the sent message
+            messageDao.insertMessage(message.toCachedMessage())
+
+            NetworkResult.Success(message)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Send link message failed", e)
             }
             NetworkResult.Error(
                 exception = e,
@@ -546,8 +627,8 @@ class ChatHubRepositoryImpl @Inject constructor(
                     android.util.Log.d("ChatHubRepository", "  Final timestamp: $createdAt (${java.util.Date(createdAt)})")
                 }
 
-                // Parse metadata for booking messages
-                val metadata = if (type == "booking" || type == "items-requested") {
+                // Parse metadata for booking, application, and items-requested messages
+                val metadata = if (type == "booking" || type == "items-requested" || type == "application") {
                     @Suppress("UNCHECKED_CAST")
                     val metadataMap = messageData["metadata"] as? Map<String, Any>
                     metadataMap?.let {
@@ -626,6 +707,21 @@ class ChatHubRepositoryImpl @Inject constructor(
             createdAtRaw
         }
 
+        // Parse metadata for booking, application, and items-requested messages
+        val metadata = if (type == "booking" || type == "items-requested" || type == "application") {
+            @Suppress("UNCHECKED_CAST")
+            val metadataMap = response["metadata"] as? Map<String, Any>
+            metadataMap?.let {
+                MessageMetadata(
+                    bookingId = (it["booking_id"] as? String) ?: (it["bookingId"] as? String),
+                    propertyAddress = (it["property_address"] as? String) ?: (it["propertyAddress"] as? String),
+                    viewingTime = (it["viewing_time"] as? String) ?: (it["viewingTime"] as? String),
+                    bookingStatus = (it["booking_status"] as? String) ?: (it["bookingStatus"] as? String),
+                    items = (it["items"] as? List<*>)?.mapNotNull { item -> item as? String }
+                )
+            }
+        } else null
+
         return ChatMessage(
             id = id,
             threadId = threadId,
@@ -633,7 +729,7 @@ class ChatHubRepositoryImpl @Inject constructor(
             text = text,
             type = type,
             attachmentUrl = attachmentUrl,
-            metadata = null,
+            metadata = metadata,
             status = "sent",
             createdAt = createdAt
         )
@@ -786,6 +882,17 @@ private fun CachedThread.toDomainModel(): ChatThread {
 }
 
 private fun ChatMessage.toCachedMessage(): CachedMessage {
+    // Serialize metadata to JSON string
+    val metadataJson = metadata?.let {
+        org.json.JSONObject().apply {
+            it.bookingId?.let { value -> put("bookingId", value) }
+            it.propertyAddress?.let { value -> put("propertyAddress", value) }
+            it.viewingTime?.let { value -> put("viewingTime", value) }
+            it.bookingStatus?.let { value -> put("bookingStatus", value) }
+            it.items?.let { items -> put("items", org.json.JSONArray(items)) }
+        }.toString()
+    }
+
     return CachedMessage(
         id = id,
         threadId = threadId,
@@ -793,7 +900,7 @@ private fun ChatMessage.toCachedMessage(): CachedMessage {
         text = text,
         type = type,
         attachmentUrl = attachmentUrl,
-        metadata = null, // Could serialize MessageMetadata to JSON if needed
+        metadata = metadataJson,
         status = status,
         readAt = null,
         createdAt = createdAt,
@@ -802,6 +909,27 @@ private fun ChatMessage.toCachedMessage(): CachedMessage {
 }
 
 private fun CachedMessage.toDomainModel(): ChatMessage {
+    // Deserialize metadata from JSON string
+    val metadataObject = metadata?.let { jsonString ->
+        try {
+            val json = org.json.JSONObject(jsonString)
+            MessageMetadata(
+                bookingId = json.optString("bookingId").takeIf { it.isNotEmpty() },
+                propertyAddress = json.optString("propertyAddress").takeIf { it.isNotEmpty() },
+                viewingTime = json.optString("viewingTime").takeIf { it.isNotEmpty() },
+                bookingStatus = json.optString("bookingStatus").takeIf { it.isNotEmpty() },
+                items = json.optJSONArray("items")?.let { array ->
+                    (0 until array.length()).map { array.getString(it) }
+                }
+            )
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.w("ChatHubRepository", "Failed to parse metadata JSON: $jsonString", e)
+            }
+            null
+        }
+    }
+
     return ChatMessage(
         id = id,
         threadId = threadId,
@@ -809,7 +937,7 @@ private fun CachedMessage.toDomainModel(): ChatMessage {
         text = text,
         type = type,
         attachmentUrl = attachmentUrl,
-        metadata = null, // Could parse from JSON metadata field
+        metadata = metadataObject,
         status = status,
         createdAt = createdAt
     )

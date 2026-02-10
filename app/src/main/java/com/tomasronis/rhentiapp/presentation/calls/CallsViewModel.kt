@@ -25,7 +25,11 @@ data class CallsUiState(
     val selectedFilter: CallType? = null,
     val searchQuery: String = "",
     val startDate: Long? = null,
-    val endDate: Long? = null
+    val endDate: Long? = null,
+    // Pagination state
+    val callsPage: Int = 0,
+    val isLoadingMore: Boolean = false,
+    val hasMoreCalls: Boolean = true
 )
 
 /**
@@ -65,11 +69,17 @@ class CallsViewModel @Inject constructor(
         viewModelScope.launch {
             val superAccountId = tokenManager.getSuperAccountId() ?: return@launch
 
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, callsPage = 0, hasMoreCalls = true) }
 
-            when (val result = callsRepository.getCallLogs(superAccountId)) {
+            when (val result = callsRepository.getCallLogs(superAccountId, skip = 0, limit = 20)) {
                 is NetworkResult.Success -> {
-                    _uiState.update { it.copy(isLoading = false) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            callsPage = 0,
+                            hasMoreCalls = result.data.size >= 20
+                        )
+                    }
                 }
                 is NetworkResult.Error -> {
                     if (BuildConfig.DEBUG) {
@@ -97,11 +107,17 @@ class CallsViewModel @Inject constructor(
         viewModelScope.launch {
             val superAccountId = tokenManager.getSuperAccountId() ?: return@launch
 
-            _uiState.update { it.copy(isRefreshing = true, error = null) }
+            _uiState.update { it.copy(isRefreshing = true, error = null, callsPage = 0, hasMoreCalls = true) }
 
-            when (val result = callsRepository.getCallLogs(superAccountId)) {
+            when (val result = callsRepository.getCallLogs(superAccountId, skip = 0, limit = 20)) {
                 is NetworkResult.Success -> {
-                    _uiState.update { it.copy(isRefreshing = false) }
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            callsPage = 0,
+                            hasMoreCalls = result.data.size >= 20
+                        )
+                    }
                 }
                 is NetworkResult.Error -> {
                     if (BuildConfig.DEBUG) {
@@ -116,6 +132,45 @@ class CallsViewModel @Inject constructor(
                 }
                 is NetworkResult.Loading -> {
                     // Still loading, keep showing progress
+                }
+            }
+        }
+    }
+
+    fun loadMoreCalls() {
+        val currentState = _uiState.value
+
+        // Guard against loading while already loading or no more calls
+        if (currentState.isLoadingMore || currentState.isLoading || !currentState.hasMoreCalls) {
+            return
+        }
+
+        viewModelScope.launch {
+            val superAccountId = tokenManager.getSuperAccountId() ?: return@launch
+
+            _uiState.update { it.copy(isLoadingMore = true) }
+
+            val nextPage = currentState.callsPage + 1
+            val skip = nextPage * 20
+
+            when (val result = callsRepository.getCallLogs(superAccountId, skip = skip, limit = 20)) {
+                is NetworkResult.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingMore = false,
+                            callsPage = nextPage,
+                            hasMoreCalls = result.data.size >= 20
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.e(TAG, "Failed to load more call logs", result.exception)
+                    }
+                    _uiState.update { it.copy(isLoadingMore = false) }
+                }
+                is NetworkResult.Loading -> {
+                    // Still loading
                 }
             }
         }

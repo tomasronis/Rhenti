@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -132,7 +133,10 @@ fun CallsScreen(
                             // Navigate to call detail screen
                             onNavigateToDetail?.invoke(callId)
                         },
-                        selectedFilter = uiState.selectedFilter
+                        selectedFilter = uiState.selectedFilter,
+                        isLoadingMore = uiState.isLoadingMore,
+                        hasMoreCalls = uiState.hasMoreCalls,
+                        onLoadMore = { viewModel.loadMoreCalls() }
                     )
                 }
             }
@@ -168,14 +172,20 @@ private fun CallLogsList(
     onCallClick: (String) -> Unit,
     onDetailClick: ((String) -> Unit)?,
     selectedFilter: CallType?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoadingMore: Boolean = false,
+    hasMoreCalls: Boolean = true,
+    onLoadMore: () -> Unit = {}
 ) {
     // Group calls by date
     val groupedCalls = remember(callLogs) {
         groupCallsByDate(callLogs)
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
@@ -218,6 +228,39 @@ private fun CallLogsList(
             // Add spacing after each date group for visual separation
             item(key = "spacer_$dateHeader") {
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Loading indicator at bottom when loading more
+        if (isLoadingMore) {
+            item(key = "loading_more") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+    }
+
+    // Detect when user scrolls to bottom and load more
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layoutInfo = listState.layoutInfo
+            val visibleItemsInfo = layoutInfo.visibleItemsInfo
+            if (layoutInfo.totalItemsCount == 0) {
+                false
+            } else {
+                val lastVisibleItem = visibleItemsInfo.lastOrNull()
+                    ?: return@snapshotFlow false
+                lastVisibleItem.index >= layoutInfo.totalItemsCount - 3
+            }
+        }.collect { shouldLoadMore ->
+            if (shouldLoadMore && !isLoadingMore && hasMoreCalls) {
+                onLoadMore()
             }
         }
     }

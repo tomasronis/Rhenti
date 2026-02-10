@@ -13,8 +13,18 @@ interface ChatHubRepository {
     /**
      * Get all threads for the current user.
      * Fetches from API and caches locally.
+     *
+     * @param superAccountId The super account ID
+     * @param search Optional search query
+     * @param skip Number of threads to skip (for pagination)
+     * @param limit Number of threads to fetch
      */
-    suspend fun getThreads(superAccountId: String, search: String? = null): NetworkResult<List<ChatThread>>
+    suspend fun getThreads(
+        superAccountId: String,
+        search: String? = null,
+        skip: Int = 0,
+        limit: Int = 20
+    ): NetworkResult<List<ChatThread>>
 
     /**
      * Get messages for a specific thread with pagination.
@@ -60,6 +70,29 @@ interface ChatHubRepository {
         userName: String,
         chatSessionId: String,
         imageBase64: String,
+        thread: ChatThread
+    ): NetworkResult<ChatMessage>
+
+    /**
+     * Send a link message (viewing or application).
+     *
+     * @param senderId The sender's user ID
+     * @param userName The sender's full name
+     * @param chatSessionId The legacy chat session ID
+     * @param messageType "viewing-link" or "application-link"
+     * @param text The message text
+     * @param propertyAddress The property address
+     * @param propertyId Optional property ID
+     * @param thread The current thread (for membersObject)
+     */
+    suspend fun sendLinkMessage(
+        senderId: String,
+        userName: String,
+        chatSessionId: String,
+        messageType: String,
+        text: String,
+        propertyAddress: String,
+        propertyId: String?,
         thread: ChatThread
     ): NetworkResult<ChatMessage>
 

@@ -27,9 +27,13 @@ class CallsRepositoryImpl @Inject constructor(
         private const val TAG = "CallsRepository"
     }
 
-    override suspend fun getCallLogs(superAccountId: String): NetworkResult<List<CallLog>> {
+    override suspend fun getCallLogs(
+        superAccountId: String,
+        skip: Int,
+        limit: Int
+    ): NetworkResult<List<CallLog>> {
         return try {
-            val response = apiClient.getCallLogs(superAccountId)
+            val response = apiClient.getCallLogs(superAccountId, skip, limit)
 
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Get call logs response: $response")
