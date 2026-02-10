@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.main.chathub.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -54,7 +55,7 @@ fun BookingMessageCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color(0xFF2C3E50) // Dark grey background
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -62,172 +63,225 @@ fun BookingMessageCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.Start
                 ) {
-                    // Header: "Viewing Requested"
-                    Text(
-                        text = "Viewing Requested",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                    // Header: House icon + "Viewing Requested"
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Address line - single line, grey, truncated
-                    if (metadata?.propertyAddress != null) {
-                        Text(
-                            text = metadata.propertyAddress,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 2.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Big house icon
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Home,
-                            contentDescription = "Property",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
+                        // House icon with border (grey theme)
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    color = Color(0xFF7B92B2).copy(alpha = 0.2f), // Grey-blue with alpha
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = Color(0xFF7B92B2).copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Home,
+                                contentDescription = "Property",
+                                tint = Color(0xFF7B92B2), // Grey-blue icon
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Viewing Requested",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White // White text on dark background
+                            )
+
+                            // Address line - single line, grey, truncated
+                            if (metadata?.propertyAddress != null) {
+                                Text(
+                                    text = metadata.propertyAddress,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF8E8E93), // Gray text like LinkMessageCard
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Status indicator
+                    // Status indicator in rounded rectangle
                     BookingStatusIndicator(status = status)
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Calendar icon + date requested
+                    // Calendar icon + date requested - Surface for consistent sizing
                     val displayTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
                         ?: metadata?.bookViewingTime
                         ?: metadata?.viewingTime
-                    if (displayTime != null) {
+                        ?: "Date not specified"
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF34495E), // Slightly lighter grey for section
+                        tonalElevation = 1.dp
+                    ) {
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.CalendarToday,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                modifier = Modifier.size(20.dp),
+                                tint = Color(0xFF7B92B2) // Grey-blue icon
                             )
                             Text(
                                 text = displayTime,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Renter Questionnaire link
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    // Renter Questionnaire - Card-wide clickable button (aligned with calendar)
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onQuestionnaireClick?.invoke(bookingId) }
-                            .padding(vertical = 4.dp)
+                            .clickable { onQuestionnaireClick?.invoke(bookingId) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF34495E), // Same grey as calendar section
+                        tonalElevation = 1.dp
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Assignment,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "Renter Questionnaire",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Assignment,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color(0xFF7B92B2) // Grey-blue icon (aligned with calendar)
+                            )
+                            Text(
+                                text = "Renter Questionnaire",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color(0xFF7B92B2) // Grey-blue icon
+                            )
+                        }
                     }
 
-                    // Action buttons (only for pending bookings)
+                    // Action buttons (only for pending bookings) - Circular iOS-style
                     if (status == "pending") {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            // Approve button
-                            Button(
-                                onClick = { onApprove(bookingId) },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Success,
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                            // Accept button - circular
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
+                                FilledIconButton(
+                                    onClick = { onApprove(bookingId) },
+                                    modifier = Modifier.size(56.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Success,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "Accept",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                                 Text(
-                                    text = "Approve",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    text = "Accept",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White // White text on dark background
                                 )
                             }
 
-                            // Alter button
-                            OutlinedButton(
-                                onClick = { onProposeAlternative(bookingId) },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Warning
-                                ),
-                                border = ButtonDefaults.outlinedButtonBorder.copy(
-                                    brush = androidx.compose.ui.graphics.SolidColor(Warning)
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                            // Alter button - circular
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
+                                FilledIconButton(
+                                    onClick = { onProposeAlternative(bookingId) },
+                                    modifier = Modifier.size(56.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Warning,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Schedule,
+                                        contentDescription = "Alter",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                                 Text(
                                     text = "Alter",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White // White text on dark background
                                 )
                             }
 
-                            // Decline button
-                            OutlinedButton(
-                                onClick = { onDecline(bookingId) },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
-                                ),
-                                border = ButtonDefaults.outlinedButtonBorder.copy(
-                                    brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.error)
-                                ),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                            // Decline button - circular (RED)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
+                                FilledIconButton(
+                                    onClick = { onDecline(bookingId) },
+                                    modifier = Modifier.size(56.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = Color(0xFFFF3B30), // iOS red
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Decline",
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                                 Text(
                                     text = "Decline",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White // White text on dark background
                                 )
                             }
                         }
@@ -250,31 +304,38 @@ fun BookingMessageCard(
 }
 
 /**
- * Status indicator showing approved/pending/declined with colored dot and label.
+ * Status indicator showing approved/pending/declined in a rounded rectangle pill.
  */
 @Composable
 private fun BookingStatusIndicator(status: String) {
-    val (color, label) = when (status) {
-        "confirmed" -> Success to "Approved"
-        "declined" -> MaterialTheme.colorScheme.error to "Declined"
-        else -> Warning to "Pending"
+    val (color, label, textColor) = when (status) {
+        "confirmed" -> Triple(Success, "Approved", Color.White)
+        "declined" -> Triple(Color(0xFFFF3B30), "Declined", Color.White)
+        else -> Triple(Warning, "Pending", Color.White)
     }
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.25f),
+        modifier = Modifier.wrapContentWidth()
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(color = color, shape = CircleShape)
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = color,
-            fontWeight = FontWeight.SemiBold
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(color = color, shape = CircleShape)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = textColor,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 
