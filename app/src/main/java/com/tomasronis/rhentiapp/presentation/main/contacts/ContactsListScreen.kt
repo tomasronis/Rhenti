@@ -43,15 +43,54 @@ fun ContactsListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val hideContactsWithoutName by viewModel.hideContactsWithoutName.collectAsState()
+    val properties by viewModel.properties.collectAsState()
+    val createContactResult by viewModel.createContactResult.collectAsState()
     val listState = rememberLazyListState()
     var showFiltersModal by remember { mutableStateOf(false) }
+    var showAddContactModal by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.refreshContacts()
     }
 
+    // Handle create contact result
+    LaunchedEffect(createContactResult) {
+        when (createContactResult) {
+            is CreateContactResult.Success -> {
+                showAddContactModal = false
+                snackbarHostState.showSnackbar("Contact created successfully")
+                viewModel.resetCreateContactResult()
+            }
+            is CreateContactResult.Error -> {
+                snackbarHostState.showSnackbar(
+                    (createContactResult as CreateContactResult.Error).message
+                )
+                viewModel.resetCreateContactResult()
+            }
+            else -> {}
+        }
+    }
+
     Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    viewModel.loadProperties()
+                    showAddContactModal = true
+                },
+                containerColor = Color(0xFFE8998D),
+                contentColor = Color.White,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add Contact"
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column(
                 modifier = Modifier
@@ -149,6 +188,28 @@ fun ContactsListScreen(
                 hideContactsWithoutName = hideContactsWithoutName,
                 onHideContactsWithoutNameChange = { viewModel.setHideContactsWithoutName(it) },
                 onDismiss = { showFiltersModal = false }
+            )
+        }
+
+        // Add contact modal
+        if (showAddContactModal) {
+            AddContactModal(
+                properties = properties,
+                isLoading = createContactResult is CreateContactResult.Loading,
+                onDismiss = {
+                    showAddContactModal = false
+                    viewModel.resetCreateContactResult()
+                },
+                onSubmit = { firstName, lastName, email, propertyId, phone, leadOwner ->
+                    viewModel.createContact(
+                        firstName = firstName,
+                        lastName = lastName,
+                        email = email,
+                        propertyId = propertyId,
+                        phone = phone,
+                        leadOwner = leadOwner
+                    )
+                }
             )
         }
     }

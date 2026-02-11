@@ -177,3 +177,24 @@ data class GetContactProfileRequest(
     @Json(name = "super_account_id")
     val superAccountId: String
 )
+
+/**
+ * Request to create a new contact.
+ */
+@JsonClass(generateAdapter = true)
+data class CreateContactRequest(
+    @Json(name = "first_name")
+    val firstName: String,
+    @Json(name = "last_name")
+    val lastName: String,
+    @Json(name = "email")
+    val email: String,
+    @Json(name = "property_id")
+    val propertyId: String,
+    @Json(name = "phone")
+    val phone: String? = null,
+    @Json(name = "lead_owner")
+    val leadOwner: String? = null,
+    @Json(name = "super_account_id")
+    val superAccountId: String
+)

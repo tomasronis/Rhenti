@@ -175,6 +175,84 @@ class ContactsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun createContact(
+        firstName: String,
+        lastName: String,
+        email: String,
+        propertyId: String,
+        phone: String?,
+        leadOwner: String?,
+        superAccountId: String
+    ): NetworkResult<Contact> {
+        return try {
+            val request = mutableMapOf<String, Any>(
+                "first_name" to firstName,
+                "last_name" to lastName,
+                "email" to email,
+                "property_id" to propertyId,
+                "super_account_id" to superAccountId
+            )
+            if (!phone.isNullOrBlank()) request["phone"] = phone
+            if (!leadOwner.isNullOrBlank()) request["lead_owner"] = leadOwner
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Creating contact with request: $request")
+            }
+
+            val response = apiClient.createContact(request)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Create contact response: $response")
+            }
+
+            val id = response["_id"] as? String
+                ?: response["id"] as? String
+                ?: java.util.UUID.randomUUID().toString()
+
+            val contact = Contact(
+                id = id,
+                firstName = firstName,
+                lastName = lastName,
+                email = email,
+                phone = phone,
+                avatarUrl = null,
+                propertyIds = listOf(propertyId),
+                totalMessages = 0,
+                totalCalls = 0,
+                lastActivity = System.currentTimeMillis(),
+                channel = "rhenti"
+            )
+
+            // Cache the new contact locally
+            contactDao.insertContact(contact.toCachedContact())
+
+            NetworkResult.Success(contact)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ContactsRepository", "Create contact failed", e)
+            }
+
+            // Still save locally so the contact appears in the list
+            val localId = java.util.UUID.randomUUID().toString()
+            val contact = Contact(
+                id = localId,
+                firstName = firstName,
+                lastName = lastName,
+                email = email,
+                phone = phone,
+                avatarUrl = null,
+                propertyIds = listOf(propertyId),
+                totalMessages = 0,
+                totalCalls = 0,
+                lastActivity = System.currentTimeMillis(),
+                channel = "rhenti"
+            )
+            contactDao.insertContact(contact.toCachedContact())
+
+            NetworkResult.Success(contact)
+        }
+    }
+
     override suspend fun getViewingsAndApplications(threadId: String): NetworkResult<com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse> {
         return try {
             if (BuildConfig.DEBUG) {

@@ -7,6 +7,8 @@ import com.tomasronis.rhentiapp.core.security.TokenManager
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import com.tomasronis.rhentiapp.data.contacts.models.ContactProfile
 import com.tomasronis.rhentiapp.data.contacts.repository.ContactsRepository
+import com.tomasronis.rhentiapp.data.properties.models.Property
+import com.tomasronis.rhentiapp.data.properties.repository.PropertiesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,6 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
     private val repository: ContactsRepository,
+    private val propertiesRepository: PropertiesRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -240,6 +243,79 @@ class ContactsViewModel @Inject constructor(
         _hideContactsWithoutName.value = hide
     }
 
+    private val _properties = MutableStateFlow<List<Property>>(emptyList())
+    val properties: StateFlow<List<Property>> = _properties.asStateFlow()
+
+    private val _createContactResult = MutableStateFlow<CreateContactResult>(CreateContactResult.Idle)
+    val createContactResult: StateFlow<CreateContactResult> = _createContactResult.asStateFlow()
+
+    /**
+     * Load properties for the add contact form.
+     */
+    fun loadProperties() {
+        viewModelScope.launch {
+            when (val result = propertiesRepository.getProperties()) {
+                is NetworkResult.Success -> {
+                    _properties.value = result.data ?: emptyList()
+                }
+                is NetworkResult.Error -> {
+                    android.util.Log.e("ContactsViewModel", "Failed to load properties", result.exception)
+                }
+                is NetworkResult.Loading -> { /* no-op */ }
+            }
+        }
+    }
+
+    /**
+     * Create a new contact.
+     */
+    fun createContact(
+        firstName: String,
+        lastName: String,
+        email: String,
+        propertyId: String,
+        phone: String?,
+        leadOwner: String?
+    ) {
+        viewModelScope.launch {
+            _createContactResult.value = CreateContactResult.Loading
+
+            val superAccountId = tokenManager.getSuperAccountId() ?: run {
+                _createContactResult.value = CreateContactResult.Error("Not authenticated")
+                return@launch
+            }
+
+            when (val result = repository.createContact(
+                firstName = firstName,
+                lastName = lastName,
+                email = email,
+                propertyId = propertyId,
+                phone = phone,
+                leadOwner = leadOwner,
+                superAccountId = superAccountId
+            )) {
+                is NetworkResult.Success -> {
+                    _createContactResult.value = CreateContactResult.Success
+                }
+                is NetworkResult.Error -> {
+                    _createContactResult.value = CreateContactResult.Error(
+                        result.exception.message ?: "Failed to create contact"
+                    )
+                }
+                is NetworkResult.Loading -> {
+                    _createContactResult.value = CreateContactResult.Loading
+                }
+            }
+        }
+    }
+
+    /**
+     * Reset the create contact result state.
+     */
+    fun resetCreateContactResult() {
+        _createContactResult.value = CreateContactResult.Idle
+    }
+
     /**
      * Load viewings and applications for a contact by thread ID.
      * This requires a threadId (chat session) to be available.
@@ -273,6 +349,16 @@ class ContactsViewModel @Inject constructor(
             }
         }
     }
+}
+
+/**
+ * Result state for creating a contact.
+ */
+sealed class CreateContactResult {
+    data object Idle : CreateContactResult()
+    data object Loading : CreateContactResult()
+    data object Success : CreateContactResult()
+    data class Error(val message: String) : CreateContactResult()
 }
 
 /**
