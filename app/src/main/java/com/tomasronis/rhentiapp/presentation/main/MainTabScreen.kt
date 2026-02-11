@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +48,10 @@ fun MainTabScreen(
 
     // State for pending phone number (waiting for permission)
     var pendingPhoneNumber by remember { mutableStateOf<String?>(null) }
+
+    // Track detail screen visibility for each tab to hide bottom bar
+    val tabDetailStates = remember { mutableStateMapOf(0 to false, 1 to false, 2 to false, 3 to false) }
+    val isShowingDetail = tabDetailStates[selectedTab] ?: false
 
     // Permission launcher for microphone access
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -107,8 +112,10 @@ fun MainTabScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // iOS-styled bottom navigation with rounded pill container matching search bar
-            Surface(
+            // Hide bottom bar when showing detail screens for more screen space
+            if (!isShowingDetail) {
+                // iOS-styled bottom navigation with rounded pill container matching search bar
+                Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
@@ -265,6 +272,7 @@ fun MainTabScreen(
                     )
                 }
             }
+            }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
@@ -281,6 +289,9 @@ fun MainTabScreen(
                     },
                     onStartCall = { phoneNumber ->
                         handleMakeCall(phoneNumber)
+                    },
+                    onShowingDetail = { isShowing ->
+                        tabDetailStates[0] = isShowing
                     }
                 )
                 1 -> ContactsTabContent(
@@ -296,7 +307,10 @@ fun MainTabScreen(
                     onContactOpened = {
                         viewModel.clearContactIdToOpen()
                     },
-                    isTwilioInitialized = viewModel.isTwilioInitialized.collectAsState().value
+                    isTwilioInitialized = viewModel.isTwilioInitialized.collectAsState().value,
+                    onShowingDetail = { isShowing ->
+                        tabDetailStates[1] = isShowing
+                    }
                 )
                 2 -> CallsTab(
                     onStartCall = { phoneNumber ->
@@ -319,6 +333,9 @@ fun MainTabScreen(
                         scope.launch {
                             viewModel.setSelectedTab(1)
                         }
+                    },
+                    onShowingDetail = { isShowing ->
+                        tabDetailStates[2] = isShowing
                     }
                 )
                 3 -> ProfileTab(

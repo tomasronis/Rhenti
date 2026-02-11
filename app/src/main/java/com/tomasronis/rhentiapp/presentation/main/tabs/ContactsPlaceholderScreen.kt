@@ -24,7 +24,8 @@ fun ContactsTabContent(
     threadIdToOpen: String? = null, // Thread ID for loading viewings/applications
     onStartChat: (Contact) -> Unit = {},
     onContactOpened: () -> Unit = {},
-    isTwilioInitialized: Boolean = false
+    isTwilioInitialized: Boolean = false,
+    onShowingDetail: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val contactsViewModel: ContactsViewModel = hiltViewModel()
@@ -41,6 +42,11 @@ fun ContactsTabContent(
         // Navigate back from contact detail to contact list
         selectedContact = null
         selectedThreadId = null
+    }
+
+    // Notify parent when showing detail screen (to hide bottom bar)
+    LaunchedEffect(selectedContact) {
+        onShowingDetail(selectedContact != null)
     }
 
     // Auto-open contact by ID when coming from Calls tab

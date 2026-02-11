@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.tomasronis.rhentiapp.presentation.calls.CallDetailScreen
 import com.tomasronis.rhentiapp.presentation.calls.CallsScreen
@@ -18,11 +19,21 @@ fun CallsTab(
     onStartCall: (String) -> Unit,
     onMessageContact: (String) -> Unit, // threadId
     onViewContact: (String, String?) -> Unit, // (contactId, threadId)
+    onShowingDetail: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
     val viewModel: CallsViewModel = hiltViewModel()
     val callLogs by viewModel.callLogs.collectAsState()
+
+    // Track navigation state to notify parent about detail screen visibility
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
+
+    LaunchedEffect(currentRoute) {
+        // Show detail when not on the calls list screen
+        onShowingDetail(currentRoute != "calls_list")
+    }
 
     NavHost(
         navController = navController,

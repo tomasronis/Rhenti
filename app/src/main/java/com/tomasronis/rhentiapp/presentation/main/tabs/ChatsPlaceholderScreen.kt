@@ -22,7 +22,8 @@ fun ChatsTabContent(
     threadIdToOpen: String? = null,
     onContactChatOpened: () -> Unit = {},
     onThreadOpened: () -> Unit = {},
-    onStartCall: (String) -> Unit = {}
+    onStartCall: (String) -> Unit = {},
+    onShowingDetail: (Boolean) -> Unit = {}
 ) {
     val chatViewModel: ChatHubViewModel = hiltViewModel()
     val contactsViewModel: ContactsViewModel = hiltViewModel()
@@ -46,6 +47,12 @@ fun ChatsTabContent(
                 selectedThread = null
             }
         }
+    }
+
+    // Notify parent when showing detail screen (to hide bottom bar)
+    LaunchedEffect(selectedThread, selectedContactFromThread) {
+        val isShowingDetail = selectedThread != null || selectedContactFromThread != null
+        onShowingDetail(isShowingDetail)
     }
 
     // Auto-open thread by ID when coming from Calls tab
