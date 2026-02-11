@@ -151,7 +151,10 @@ fun ThreadCard(
             )
 
             // Source channel tag
-            PlatformTag(platform = platformName)
+            PlatformTag(
+                channel = thread.channel,
+                displayName = platformName
+            )
         }
 
         // Right side (timestamp and badge)
@@ -294,20 +297,46 @@ private fun SmallBadgeIcon(
 /**
  * Simplified platform tag for better scroll performance.
  * Uses Box instead of Surface to reduce composition overhead.
- * Different accent colors for each platform/channel.
+ * Each channel type has a distinct color.
+ * Any channel containing "rhenti" uses coral brand color.
  */
 @Composable
 private fun PlatformTag(
-    platform: String,
+    channel: String?,
+    displayName: String,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = when (platform.lowercase()) {
-        "facebook" -> Color(0xFF1877F2) // Facebook blue
-        "kijiji" -> Color(0xFF2B5A8A) // Kijiji dark blue
-        "zumper" -> Color(0xFF00C7B7) // Zumper teal
-        "rhenti" -> RhentiCoral // Rhenti coral
-        "rhenti-powered listing pages" -> Color(0xFF9B7FD9) // Purple for Rhenti-powered
-        else -> AccentBlue // Default blue
+    // Determine color based on raw channel value from API
+    val channelLower = channel?.lowercase() ?: ""
+    val backgroundColor = when {
+        // Any channel with "rhenti" in it uses coral brand color
+        channelLower.contains("rhenti") -> RhentiCoral // Coral for rhenti, Rhenti-powered listing pages, Rhenti.com
+
+        // Specific platform channels (add more as they appear in your data)
+        channelLower == "facebook" -> Color(0xFF1877F2) // Facebook blue
+        channelLower == "kijiji" -> Color(0xFFE74C3C) // Kijiji red
+        channelLower == "zumper" -> Color(0xFF00C896) // Zumper teal/green
+        channelLower.contains("liv.rent") || channelLower.contains("livrent") -> Color(0xFFFF1493) // Liv.rent bright hot pink
+        channelLower.contains("apartments") -> Color(0xFF2E7D32) // Apartments.com darker green
+        channelLower == "zillow" -> Color(0xFF0074E4) // Zillow blue
+        channelLower == "trulia" -> Color(0xFFFF5A5F) // Trulia coral/red
+        channelLower == "craigslist" -> Color(0xFF663399) // Craigslist purple
+        channelLower == "padmapper" -> Color(0xFF00A699) // PadMapper teal
+        channelLower == "rent.com" -> Color(0xFFFF6B35) // Rent.com orange
+
+        // Generic channels
+        channelLower.contains("widget") -> Color(0xFFFF9800) // Orange for any widget
+        channelLower == "other" -> Color(0xFF9E9E9E) // Gray for "Other"
+
+        // Default
+        else -> Color(0xFF5856D6) // Purple for unknown platforms
+    }
+
+    // Use dark text on coral background, white text on everything else
+    val textColor = if (channelLower.contains("rhenti")) {
+        Color(0xFF4A2C28) // Dark brown text on coral (same as bot message text)
+    } else {
+        Color.White // White text on all other backgrounds
     }
 
     Box(
@@ -317,10 +346,10 @@ private fun PlatformTag(
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
-            text = platform,
+            text = displayName,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

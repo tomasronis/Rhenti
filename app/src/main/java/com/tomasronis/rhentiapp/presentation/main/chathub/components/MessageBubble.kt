@@ -1,7 +1,9 @@
 package com.tomasronis.rhentiapp.presentation.main.chathub.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,23 +17,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tomasronis.rhentiapp.data.chathub.models.ChatMessage
-import com.tomasronis.rhentiapp.presentation.theme.ChatBubbleOwner
-import com.tomasronis.rhentiapp.presentation.theme.ChatBubbleRenter
+import com.tomasronis.rhentiapp.presentation.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
  * Message bubble component showing a chat message.
- * Owner messages appear right-aligned with blue background.
- * Renter messages appear left-aligned with gray background.
+ * User (owner) messages appear right-aligned with blue background.
+ * Leasa (AI bot) messages appear left-aligned with coral/pink background and bot avatar.
+ * Other renter messages appear left-aligned with gray background.
  */
 @Composable
 fun MessageBubble(
     message: ChatMessage,
     onRetry: (() -> Unit)? = null,
+    senderName: String? = null,  // Deprecated - kept for compatibility
     modifier: Modifier = Modifier
 ) {
     val isOwner = message.sender == "owner"
+    val isBot = message.displayProps?.isBot == true
+
+    // Determine bubble color and text color
+    val bubbleColor = when {
+        isOwner -> ChatBubbleUser  // Darker blue for user messages
+        isBot -> ChatBubbleLeasa  // Coral/pink for bot messages
+        else -> ChatBubbleRenter  // Gray for other contacts
+    }
+
+    val textColor = when {
+        isOwner -> Color.White  // White text on blue
+        isBot -> ChatBubbleLeasaText  // Dark text on coral/pink
+        else -> Color.Black  // Black text on gray
+    }
 
     Row(
         modifier = modifier
@@ -43,28 +60,46 @@ fun MessageBubble(
             horizontalAlignment = if (isOwner) Alignment.End else Alignment.Start,
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
-            // Message bubble
-            Box(
-                modifier = Modifier
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 16.dp,
-                            bottomStart = if (isOwner) 16.dp else 4.dp,
-                            bottomEnd = if (isOwner) 4.dp else 16.dp
+            // Message bubble with bot avatar for Leasa
+            Box {
+                Box(
+                    modifier = Modifier
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = 16.dp,
+                                topEnd = 16.dp,
+                                bottomStart = if (isOwner) 16.dp else 4.dp,
+                                bottomEnd = if (isOwner) 4.dp else 16.dp
+                            )
                         )
-                    )
-                    .background(
-                        if (isOwner) ChatBubbleOwner else ChatBubbleRenter
-                    )
-                    .padding(12.dp)
-            ) {
-                if (message.text != null) {
-                    Text(
-                        text = message.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isOwner) Color.White else Color.Black
-                    )
+                        .background(bubbleColor)
+                        .padding(12.dp)
+                ) {
+                    if (message.text != null) {
+                        Text(
+                            text = message.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = textColor
+                        )
+                    }
+                }
+
+                // Bot avatar for bot messages
+                if (isBot) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .offset(x = (-8).dp, y = 8.dp)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White, CircleShape)
+                    ) {
+                        BotIcon(
+                            size = 32.dp,
+                            backgroundColor = ChatBubbleLeasa,
+                            foregroundColor = Color.White
+                        )
+                    }
                 }
             }
 
