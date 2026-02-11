@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.main
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -52,6 +53,13 @@ fun MainTabScreen(
     // Track detail screen visibility for each tab to hide bottom bar
     val tabDetailStates = remember { mutableStateMapOf(0 to false, 1 to false, 2 to false, 3 to false) }
     val isShowingDetail = tabDetailStates[selectedTab] ?: false
+
+    // Prevent app exit when pressing back on list screens
+    // Detail screens have their own BackHandlers that will take precedence
+    BackHandler(enabled = !isShowingDetail) {
+        // On list screens, do nothing - stay in the app
+        // This prevents the system from minimizing the app
+    }
 
     // Permission launcher for microphone access
     val micPermissionLauncher = rememberLauncherForActivityResult(
