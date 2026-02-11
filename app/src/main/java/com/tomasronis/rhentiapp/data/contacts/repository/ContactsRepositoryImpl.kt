@@ -208,6 +208,135 @@ class ContactsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun createContact(
+        firstName: String,
+        lastName: String,
+        email: String,
+        phone: String?,
+        propertyId: String,
+        leadOwnerId: String?
+    ): NetworkResult<Contact> {
+        return try {
+            val request = buildMap<String, Any> {
+                put("channelSource", "Other")
+                put("channel", "Other")
+                put("firstName", firstName)
+                put("lastName", lastName)
+                put("email", email)
+                if (phone != null) {
+                    put("phone", phone)
+                }
+                put("property", propertyId)
+                if (leadOwnerId != null) {
+                    put("leadOwnerId", leadOwnerId)
+                }
+            }
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Creating new contact: $request")
+            }
+
+            val response = apiClient.createNewLead(request)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Create contact response: $response")
+            }
+
+            // Parse the response
+            @Suppress("UNCHECKED_CAST")
+            val result = response["result"] as? Map<String, Any>
+                ?: throw Exception("Invalid response format")
+
+            @Suppress("UNCHECKED_CAST")
+            val profile = result["profile"] as? Map<String, Any>
+                ?: throw Exception("Profile missing in response")
+
+            val contactId = result["customerAccountId"] as? String
+                ?: throw Exception("Customer account ID missing")
+
+            // Create Contact object from response
+            val contact = Contact(
+                id = contactId,
+                firstName = profile["firstName"] as? String,
+                lastName = profile["lastName"] as? String,
+                email = profile["email"] as? String,
+                phone = profile["phone"] as? String,
+                avatarUrl = null,
+                propertyIds = listOfNotNull(result["propertyId"] as? String),
+                totalMessages = 0,
+                totalCalls = 0,
+                lastActivity = System.currentTimeMillis(),
+                channel = "Other"
+            )
+
+            // Cache the new contact
+            contactDao.insertContact(contact.toCachedContact())
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Successfully created contact: ${contact.displayName}")
+            }
+
+            NetworkResult.Success(contact)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ContactsRepository", "Create contact failed", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
+    override suspend fun getLeadOwners(propertyId: String): NetworkResult<List<com.tomasronis.rhentiapp.data.contacts.models.LeadOwner>> {
+        return try {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Fetching lead owners for property: $propertyId")
+            }
+
+            val response = apiClient.getLeadOwners(propertyId)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Lead owners response: $response")
+            }
+
+            // Parse the response
+            @Suppress("UNCHECKED_CAST")
+            val data = response["data"] as? List<Map<String, Any>>
+                ?: throw Exception("Invalid response format")
+
+            val leadOwners = data.mapNotNull { ownerData ->
+                try {
+                    val name = ownerData["name"] as? String ?: return@mapNotNull null
+                    val value = ownerData["value"] as? String ?: return@mapNotNull null
+                    com.tomasronis.rhentiapp.data.contacts.models.LeadOwner(
+                        name = name,
+                        value = value
+                    )
+                } catch (e: Exception) {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.w("ContactsRepository", "Failed to parse lead owner: $ownerData", e)
+                    }
+                    null
+                }
+            }
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "Parsed ${leadOwners.size} lead owners")
+            }
+
+            NetworkResult.Success(leadOwners)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ContactsRepository", "Get lead owners failed", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
     // Helper functions to parse API responses
 
     private fun parseContactsResponse(response: List<Map<String, Any>>): List<Contact> {

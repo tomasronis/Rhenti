@@ -2,6 +2,7 @@ package com.tomasronis.rhentiapp.presentation.main.contacts
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tomasronis.rhentiapp.BuildConfig
 import com.tomasronis.rhentiapp.core.network.NetworkResult
 import com.tomasronis.rhentiapp.core.security.TokenManager
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
@@ -269,6 +270,70 @@ class ContactsViewModel @Inject constructor(
                 }
                 is NetworkResult.Loading -> {
                     _uiState.update { it.copy(isLoadingViewings = true) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Create a new contact.
+     */
+    fun createContact(
+        firstName: String,
+        lastName: String,
+        email: String,
+        phone: String?,
+        propertyId: String,
+        leadOwnerId: String?,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            when (val result = repository.createContact(
+                firstName = firstName,
+                lastName = lastName,
+                email = email,
+                phone = phone,
+                propertyId = propertyId,
+                leadOwnerId = leadOwnerId
+            )) {
+                is NetworkResult.Success -> {
+                    _uiState.update { it.copy(isLoading = false, error = null) }
+                    // Refresh contacts to show the new contact
+                    refreshContacts()
+                    onSuccess()
+                }
+                is NetworkResult.Error -> {
+                    val errorMsg = result.exception.message ?: "Failed to create contact"
+                    _uiState.update { it.copy(isLoading = false, error = errorMsg) }
+                    onError(errorMsg)
+                }
+                is NetworkResult.Loading -> {
+                    _uiState.update { it.copy(isLoading = true) }
+                }
+            }
+        }
+    }
+
+    /**
+     * Get lead owners for a property.
+     */
+    fun getLeadOwners(propertyId: String, onResult: (List<com.tomasronis.rhentiapp.data.contacts.models.LeadOwner>) -> Unit) {
+        viewModelScope.launch {
+            when (val result = repository.getLeadOwners(propertyId)) {
+                is NetworkResult.Success -> {
+                    onResult(result.data ?: emptyList())
+                }
+                is NetworkResult.Error -> {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.e("ContactsViewModel", "Failed to fetch lead owners", result.exception)
+                    }
+                    onResult(emptyList())
+                }
+                is NetworkResult.Loading -> {
+                    // Do nothing
                 }
             }
         }

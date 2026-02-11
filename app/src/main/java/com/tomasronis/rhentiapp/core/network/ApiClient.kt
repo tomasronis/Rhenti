@@ -76,6 +76,12 @@ interface ApiClient {
     @GET("/getViewingAndApplicationsByThreadId/{threadId}")
     suspend fun getViewingsAndApplications(@Path("threadId") threadId: String): Map<String, @JvmSuppressWildcards Any>
 
+    @POST("/activity/newLead")
+    suspend fun createNewLead(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
+
+    @GET("/activity/getLeadOwners/{propertyId}")
+    suspend fun getLeadOwners(@Path("propertyId") propertyId: String): Map<String, @JvmSuppressWildcards Any>
+
     // ============================================================================
     // Calls/Phone Tracking Endpoints
     // ============================================================================

@@ -24,10 +24,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.data.contacts.models.Contact
 import com.tomasronis.rhentiapp.presentation.main.chathub.components.ErrorStateView
+import com.tomasronis.rhentiapp.presentation.main.chathub.components.PropertyOption
 import com.tomasronis.rhentiapp.presentation.main.contacts.components.*
 import com.tomasronis.rhentiapp.presentation.main.components.FilterIcon
 import com.tomasronis.rhentiapp.presentation.main.components.LoadingAnimation
 import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
+import com.tomasronis.rhentiapp.presentation.properties.PropertiesViewModel
 
 /**
  * Contacts list screen showing all contacts.
@@ -38,17 +40,34 @@ import com.tomasronis.rhentiapp.presentation.main.components.RhentiSearchBar
 fun ContactsListScreen(
     onContactClick: (Contact) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ContactsViewModel = hiltViewModel()
+    viewModel: ContactsViewModel = hiltViewModel(),
+    propertiesViewModel: PropertiesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val hideContactsWithoutName by viewModel.hideContactsWithoutName.collectAsState()
     val listState = rememberLazyListState()
     var showFiltersModal by remember { mutableStateOf(false) }
+    var showCreateContactDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Get properties for create contact dialog
+    val allProperties by propertiesViewModel.properties.collectAsState()
+    val propertyOptions = remember(allProperties) {
+        allProperties.map { property ->
+            PropertyOption(
+                id = property.id,
+                address = property.address,
+                unit = property.unit,
+                city = property.city
+            )
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.refreshContacts()
+        propertiesViewModel.refreshProperties()
     }
 
     Scaffold(
@@ -93,7 +112,20 @@ fun ContactsListScreen(
                         .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
                 )
             }
-        }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showCreateContactDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PersonAdd,
+                    contentDescription = "Create Contact"
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = modifier
@@ -149,6 +181,45 @@ fun ContactsListScreen(
                 hideContactsWithoutName = hideContactsWithoutName,
                 onHideContactsWithoutNameChange = { viewModel.setHideContactsWithoutName(it) },
                 onDismiss = { showFiltersModal = false }
+            )
+        }
+
+        // Create contact dialog
+        if (showCreateContactDialog) {
+            CreateContactDialog(
+                properties = propertyOptions,
+                onDismiss = { showCreateContactDialog = false },
+                onCreate = { firstName, lastName, email, phone, propertyId, leadOwnerId ->
+                    viewModel.createContact(
+                        firstName = firstName,
+                        lastName = lastName,
+                        email = email,
+                        phone = phone,
+                        propertyId = propertyId,
+                        leadOwnerId = leadOwnerId,
+                        onSuccess = {
+                            showCreateContactDialog = false
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Contact created successfully",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        },
+                        onError = { error ->
+                            showCreateContactDialog = false
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = error,
+                                    duration = SnackbarDuration.Long
+                                )
+                            }
+                        }
+                    )
+                },
+                onFetchLeadOwners = { propertyId, callback ->
+                    viewModel.getLeadOwners(propertyId, callback)
+                }
             )
         }
     }

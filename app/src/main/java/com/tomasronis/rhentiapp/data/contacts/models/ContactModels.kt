@@ -177,3 +177,69 @@ data class GetContactProfileRequest(
     @Json(name = "super_account_id")
     val superAccountId: String
 )
+
+/**
+ * Request to create a new contact/lead.
+ */
+@JsonClass(generateAdapter = true)
+data class CreateContactRequest(
+    @Json(name = "channelSource")
+    val channelSource: String = "Other",
+    @Json(name = "channel")
+    val channel: String = "Other",
+    @Json(name = "firstName")
+    val firstName: String,
+    @Json(name = "lastName")
+    val lastName: String,
+    @Json(name = "email")
+    val email: String,
+    @Json(name = "phone")
+    val phone: String,
+    @Json(name = "property")
+    val property: String?,
+    @Json(name = "leadOwnerId")
+    val leadOwnerId: String
+)
+
+/**
+ * Response from creating a new contact/lead.
+ */
+@JsonClass(generateAdapter = true)
+data class CreateContactResponse(
+    @Json(name = "result")
+    val result: NewLeadResult
+)
+
+@JsonClass(generateAdapter = true)
+data class NewLeadResult(
+    @Json(name = "_id")
+    val id: String,
+    @Json(name = "customerAccountId")
+    val customerAccountId: String,
+    @Json(name = "profile")
+    val profile: NewLeadProfile,
+    @Json(name = "propertyId")
+    val propertyId: String?
+)
+
+@JsonClass(generateAdapter = true)
+data class NewLeadProfile(
+    @Json(name = "_id")
+    val id: String,
+    @Json(name = "firstName")
+    val firstName: String?,
+    @Json(name = "lastName")
+    val lastName: String?,
+    @Json(name = "email")
+    val email: String?,
+    @Json(name = "phone")
+    val phone: String?
+)
+
+/**
+ * Lead owner for a property.
+ */
+data class LeadOwner(
+    val name: String,
+    val value: String // User ID
+)

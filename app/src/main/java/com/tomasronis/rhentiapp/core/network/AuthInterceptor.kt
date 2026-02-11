@@ -54,6 +54,7 @@ class AuthInterceptor @Inject constructor(
         // Add standard headers
         requestBuilder.addHeader("Content-Type", "application/json")
         requestBuilder.addHeader("Accept", "application/json")
+        requestBuilder.addHeader("x-language", "en")
 
         return chain.proceed(requestBuilder.build())
     }

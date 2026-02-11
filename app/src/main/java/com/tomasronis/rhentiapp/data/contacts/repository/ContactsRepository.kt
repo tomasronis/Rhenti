@@ -52,4 +52,21 @@ interface ContactsRepository {
      * This requires a threadId (chat session) to be available.
      */
     suspend fun getViewingsAndApplications(threadId: String): NetworkResult<com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse>
+
+    /**
+     * Create a new contact/lead.
+     */
+    suspend fun createContact(
+        firstName: String,
+        lastName: String,
+        email: String,
+        phone: String?,
+        propertyId: String,
+        leadOwnerId: String?
+    ): NetworkResult<Contact>
+
+    /**
+     * Get lead owners for a property.
+     */
+    suspend fun getLeadOwners(propertyId: String): NetworkResult<List<com.tomasronis.rhentiapp.data.contacts.models.LeadOwner>>
 }
