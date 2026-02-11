@@ -25,6 +25,7 @@ enum class AttachmentType {
     PHOTOS,
     PDF_FILE,
     BOOK_VIEWING_LINK,
+    PRE_APPROVED_VIEWING,
     APPLICATION_LINK
 }
 
@@ -106,6 +107,21 @@ fun AttachOptionsBottomSheet(
                 label = "Book a Viewing Link",
                 onClick = {
                     onOptionSelected(AttachmentType.BOOK_VIEWING_LINK)
+                    onDismiss()
+                }
+            )
+
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 80.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            )
+
+            // Pre-Approved Viewing
+            AttachOptionItem(
+                icon = Icons.Filled.EventAvailable,
+                label = "Pre-Approved Viewing",
+                onClick = {
+                    onOptionSelected(AttachmentType.PRE_APPROVED_VIEWING)
                     onDismiss()
                 }
             )

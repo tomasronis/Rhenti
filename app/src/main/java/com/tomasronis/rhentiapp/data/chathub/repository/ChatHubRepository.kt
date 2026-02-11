@@ -120,6 +120,28 @@ interface ChatHubRepository {
     ): NetworkResult<Unit>
 
     /**
+     * Send a pre-approved viewing to the contact.
+     * Creates a booking message that is already confirmed.
+     */
+    suspend fun sendPreApprovedViewing(
+        senderId: String,
+        userName: String,
+        chatSessionId: String,
+        propertyAddress: String,
+        propertyId: String?,
+        viewingTimeIso: String,
+        thread: ChatThread
+    ): NetworkResult<ChatMessage>
+
+    /**
+     * Check-in to a confirmed viewing.
+     */
+    suspend fun checkInViewing(
+        bookingId: String,
+        superAccountId: String
+    ): NetworkResult<Unit>
+
+    /**
      * Pin or unpin a thread.
      */
     suspend fun updateThreadPinned(threadId: String, pinned: Boolean)

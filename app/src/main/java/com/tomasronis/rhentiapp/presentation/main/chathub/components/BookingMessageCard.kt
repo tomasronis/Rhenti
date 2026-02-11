@@ -26,6 +26,7 @@ import com.tomasronis.rhentiapp.presentation.theme.Warning
  * Booking message card component.
  * Shows booking details with status indicator, date, questionnaire link,
  * and approve/alter/decline actions for owner.
+ * Shows Check-In button for confirmed viewings that are today or in the past.
  */
 @Composable
 fun BookingMessageCard(
@@ -33,6 +34,7 @@ fun BookingMessageCard(
     onApprove: (String) -> Unit,
     onDecline: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
+    onCheckIn: ((String) -> Unit)? = null,
     onQuestionnaireClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -50,6 +52,17 @@ fun BookingMessageCard(
         android.util.Log.d("BookingMessageCard", "bookViewingTime: ${metadata?.bookViewingTime}")
         android.util.Log.d("BookingMessageCard", "viewingTime (legacy): ${metadata?.viewingTime}")
         android.util.Log.d("BookingMessageCard", "propertyAddress: ${metadata?.propertyAddress}")
+    }
+
+    // Determine if Check-In should be shown:
+    // Viewing must be confirmed AND viewing date is today or in the past
+    val showCheckIn = remember(status, metadata) {
+        if (status != "confirmed") return@remember false
+        val rawTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
+            ?: metadata?.bookViewingTime
+            ?: metadata?.viewingTime
+            ?: return@remember false
+        isViewingTodayOrPast(rawTime)
     }
 
     Row(
@@ -303,6 +316,34 @@ fun BookingMessageCard(
                             }
                         }
                     }
+
+                    // Check-In button for confirmed viewings on/after the viewing day
+                    if (showCheckIn && onCheckIn != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { onCheckIn(bookingId) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF007AFF), // iOS blue
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Check-In",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
             }
 
@@ -354,6 +395,58 @@ private fun BookingStatusIndicator(status: String) {
             )
         }
     }
+}
+
+/**
+ * Determine if a viewing date/time string represents today or a past date.
+ * Supports ISO 8601 strings and Unix timestamp strings.
+ */
+private fun isViewingTodayOrPast(dateTimeString: String): Boolean {
+    return try {
+        val viewingDate = parseViewingDate(dateTimeString) ?: return false
+        val now = java.util.Calendar.getInstance()
+        val viewingCal = java.util.Calendar.getInstance().apply { time = viewingDate }
+
+        // Check if viewing is today or in the past (compare date only, ignore time)
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+
+        !viewingCal.before(todayStart) && viewingCal.get(java.util.Calendar.YEAR) == now.get(java.util.Calendar.YEAR) &&
+            viewingCal.get(java.util.Calendar.DAY_OF_YEAR) == now.get(java.util.Calendar.DAY_OF_YEAR) ||
+            viewingCal.before(now)
+    } catch (e: Exception) {
+        false
+    }
+}
+
+/**
+ * Parse a viewing date/time string into a Date object.
+ */
+private fun parseViewingDate(dateTimeString: String): java.util.Date? {
+    // Try parsing as Unix timestamp (milliseconds)
+    val timestamp = dateTimeString.toLongOrNull()
+    if (timestamp != null && timestamp > 1000000000000L) {
+        return java.util.Date(timestamp)
+    }
+
+    // Try parsing as ISO 8601
+    try {
+        val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+        isoFormat.isLenient = true
+        return isoFormat.parse(dateTimeString.replace("Z", "").split(".")[0])
+    } catch (_: Exception) {}
+
+    // Try alternate format
+    try {
+        val altFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        return altFormat.parse(dateTimeString)
+    } catch (_: Exception) {}
+
+    return null
 }
 
 /**

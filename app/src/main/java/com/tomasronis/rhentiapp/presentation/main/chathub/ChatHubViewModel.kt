@@ -710,6 +710,110 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
+     * Send a pre-approved viewing to the contact.
+     * This sends a booking message that is already confirmed (no renter action needed).
+     */
+    fun sendPreApprovedViewing(propertyAddress: String, propertyId: String?, viewingTimeIso: String) {
+        val currentThread = _uiState.value.currentThread ?: return
+        val legacyChatSessionId = currentThread.legacyChatSessionId ?: return
+
+        viewModelScope.launch {
+            val userId = tokenManager.getUserId() ?: return@launch
+            val userName = tokenManager.getUserFullName()
+
+            val localId = UUID.randomUUID().toString()
+            val timestamp = System.currentTimeMillis()
+            val messageText = "Pre-Approved Viewing: $propertyAddress"
+
+            val metadata = com.tomasronis.rhentiapp.data.chathub.models.MessageMetadata(
+                bookViewing = true,
+                bookViewingType = "viewing_request",
+                bookViewingRequestStatus = "confirmed",
+                bookViewingTime = viewingTimeIso,
+                bookViewingDateTimeArr = listOf(viewingTimeIso),
+                propertyAddress = propertyAddress,
+                propertyId = propertyId
+            )
+
+            val pendingMessage = com.tomasronis.rhentiapp.data.chathub.models.PendingMessage(
+                localId = localId,
+                text = messageText,
+                imageData = null,
+                type = "booking",
+                metadata = metadata,
+                createdAt = timestamp,
+                status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING,
+                serverMessageId = null
+            )
+
+            // Add to pending messages immediately
+            _uiState.update {
+                it.copy(pendingMessages = it.pendingMessages + pendingMessage)
+            }
+
+            // Send as a link message with pre-approved metadata
+            when (val result = repository.sendPreApprovedViewing(
+                senderId = userId,
+                userName = userName,
+                chatSessionId = legacyChatSessionId,
+                propertyAddress = propertyAddress,
+                propertyId = propertyId,
+                viewingTimeIso = viewingTimeIso,
+                thread = currentThread
+            )) {
+                is NetworkResult.Success -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            pendingMessages = state.pendingMessages.map { pending ->
+                                if (pending.localId == localId) {
+                                    pending.copy(
+                                        status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENT,
+                                        serverMessageId = result.data.id
+                                    )
+                                } else pending
+                            }
+                        )
+                    }
+                    refreshMessagesIncrementally()
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            pendingMessages = state.pendingMessages.map { pending ->
+                                if (pending.localId == localId) {
+                                    pending.copy(status = com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.FAILED)
+                                } else pending
+                            }
+                        )
+                    }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
+     * Check-in to a confirmed viewing.
+     */
+    fun checkInViewing(bookingId: String) {
+        viewModelScope.launch {
+            val superAccountId = tokenManager.getSuperAccountId() ?: return@launch
+
+            when (repository.checkInViewing(bookingId, superAccountId)) {
+                is NetworkResult.Success -> {
+                    refreshMessagesIncrementally()
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(error = "Failed to check in to viewing")
+                    }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
      * Handle an incoming message from real-time updates (future: WebSocket/FCM).
      * Matches iOS handleIncomingMessage() implementation.
      * Returns true if the message was for the current thread and was added.

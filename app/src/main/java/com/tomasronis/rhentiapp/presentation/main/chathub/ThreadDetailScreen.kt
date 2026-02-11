@@ -57,6 +57,7 @@ fun ThreadDetailScreen(
     var showAlternativeTimePicker by remember { mutableStateOf<String?>(null) }
     var showAttachOptions by remember { mutableStateOf(false) }
     var showPropertySelection by remember { mutableStateOf(false) }
+    var showPreApprovedViewing by remember { mutableStateOf(false) }
     var pendingLinkType by remember { mutableStateOf<String?>(null) } // "viewing-link" or "application-link"
 
     // Get all properties from ViewModel
@@ -337,6 +338,9 @@ fun ThreadDetailScreen(
                         onProposeAlternative = { bookingId ->
                             showAlternativeTimePicker = bookingId
                         },
+                        onCheckInBooking = { bookingId ->
+                            viewModel.checkInViewing(bookingId)
+                        },
                         listState = listState,
                         hasMoreMessages = uiState.hasMoreMessages
                     )
@@ -409,6 +413,10 @@ fun ThreadDetailScreen(
                                 showPropertySelection = true
                             }
                         }
+                        AttachmentType.PRE_APPROVED_VIEWING -> {
+                            // Show pre-approved viewing sheet
+                            showPreApprovedViewing = true
+                        }
                         AttachmentType.APPLICATION_LINK -> {
                             // Show property selection for application link
                             pendingLinkType = "application-link"
@@ -444,6 +452,22 @@ fun ThreadDetailScreen(
                     )
                     showPropertySelection = false
                     pendingLinkType = null
+                }
+            )
+        }
+
+        // Pre-approved viewing bottom sheet
+        if (showPreApprovedViewing) {
+            PreApprovedViewingSheet(
+                properties = propertyOptions,
+                onDismiss = { showPreApprovedViewing = false },
+                onSend = { propertyId, address, viewingTimeIso ->
+                    viewModel.sendPreApprovedViewing(
+                        propertyAddress = address,
+                        propertyId = propertyId,
+                        viewingTimeIso = viewingTimeIso
+                    )
+                    showPreApprovedViewing = false
                 }
             )
         }
@@ -484,6 +508,7 @@ private fun MessageList(
     onApproveBooking: (String) -> Unit,
     onDeclineBooking: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
+    onCheckInBooking: (String) -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState,
     hasMoreMessages: Boolean
 ) {
@@ -512,26 +537,27 @@ private fun MessageList(
                                 ImageMessageView(message = message)
                             }
                             "booking" -> {
-                                // Owner sends viewing link, contact sends viewing request
-                                if (message.sender == "owner") {
+                                val isPreApproved = message.metadata?.bookViewingRequestStatus == "confirmed" &&
+                                    message.sender == "owner"
+                                if (message.sender == "owner" && !isPreApproved) {
                                     // Owner sending viewing link to contact
                                     LinkMessageCard(
                                         type = LinkMessageType.VIEWING,
                                         propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
                                         isFromOwner = true,
-                                        url = null, // TODO: Extract URL from message
+                                        url = null,
                                         onClick = {
-                                            // TODO: Open link in browser or handle viewing booking
                                             android.util.Log.d("ThreadDetail", "Viewing link clicked")
                                         }
                                     )
                                 } else {
-                                    // Contact sending viewing request to owner
+                                    // Contact viewing request OR owner pre-approved viewing
                                     BookingMessageCard(
                                         message = message,
                                         onApprove = onApproveBooking,
                                         onDecline = onDeclineBooking,
-                                        onProposeAlternative = onProposeAlternative
+                                        onProposeAlternative = onProposeAlternative,
+                                        onCheckIn = onCheckInBooking
                                     )
                                 }
                             }
@@ -584,8 +610,9 @@ private fun MessageList(
                             ImageMessageView(message = chatMessage)
                         }
                         "booking" -> {
-                            // Owner sends viewing link, contact sends viewing request
-                            if (chatMessage.sender == "owner") {
+                            val isPreApproved = chatMessage.metadata?.bookViewingRequestStatus == "confirmed" &&
+                                chatMessage.sender == "owner"
+                            if (chatMessage.sender == "owner" && !isPreApproved) {
                                 // Owner sending viewing link to contact (pending)
                                 LinkMessageCard(
                                     type = LinkMessageType.VIEWING,
@@ -597,12 +624,13 @@ private fun MessageList(
                                     }
                                 )
                             } else {
-                                // Contact sending viewing request to owner (pending)
+                                // Contact viewing request or owner pre-approved viewing (pending)
                                 BookingMessageCard(
                                     message = chatMessage,
                                     onApprove = onApproveBooking,
                                     onDecline = onDeclineBooking,
-                                    onProposeAlternative = onProposeAlternative
+                                    onProposeAlternative = onProposeAlternative,
+                                    onCheckIn = onCheckInBooking
                                 )
                             }
                         }

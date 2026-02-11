@@ -405,6 +405,85 @@ class ChatHubRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun sendPreApprovedViewing(
+        senderId: String,
+        userName: String,
+        chatSessionId: String,
+        propertyAddress: String,
+        propertyId: String?,
+        viewingTimeIso: String,
+        thread: ChatThread
+    ): NetworkResult<ChatMessage> {
+        return try {
+            val timestamp = System.currentTimeMillis()
+            val text = "Pre-Approved Viewing: $propertyAddress"
+
+            val metadata = mutableMapOf<String, Any>(
+                "bookViewing" to true,
+                "bookViewingType" to "viewing_request",
+                "bookViewingRequestStatus" to "confirmed",
+                "bookViewingTime" to viewingTimeIso,
+                "bookViewingDateTimeArr" to listOf(viewingTimeIso),
+                "propertyAddress" to propertyAddress
+            )
+            propertyId?.let { metadata["propertyId"] = it }
+
+            val messageMap = mutableMapOf<String, Any>(
+                "_id" to timestamp,
+                "createdAt" to timestamp,
+                "text" to text,
+                "type" to "booking",
+                "user" to mapOf(
+                    "name" to userName,
+                    "_id" to senderId
+                ),
+                "metadata" to metadata
+            )
+
+            val request = mapOf(
+                "message" to messageMap,
+                "chatSessionId" to chatSessionId,
+                "chatSessionMembersObj" to thread.membersObject
+            )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Sending pre-approved viewing: $request")
+            }
+
+            val response = apiClient.sendMessage(senderId, request)
+            val message = parseSendMessageResponse(response, thread.id)
+            messageDao.insertMessage(message.toCachedMessage())
+
+            NetworkResult.Success(message)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Send pre-approved viewing failed", e)
+            }
+            NetworkResult.Error(exception = e, cachedData = null)
+        }
+    }
+
+    override suspend fun checkInViewing(
+        bookingId: String,
+        superAccountId: String
+    ): NetworkResult<Unit> {
+        return try {
+            val request = mapOf(
+                "action" to "check_in",
+                "super_account_id" to superAccountId
+            )
+
+            apiClient.handleBooking(bookingId, request)
+
+            NetworkResult.Success(Unit)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Check-in viewing failed", e)
+            }
+            NetworkResult.Error(exception = e, cachedData = null)
+        }
+    }
+
     override suspend fun updateThreadPinned(threadId: String, pinned: Boolean) {
         threadDao.updatePinned(threadId, pinned)
     }
