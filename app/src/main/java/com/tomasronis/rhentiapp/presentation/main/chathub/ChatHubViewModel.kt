@@ -33,23 +33,24 @@ class ChatHubViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    // Raw threads from database (before filtering)
+    private val _rawThreads = MutableStateFlow<List<ChatThread>>(emptyList())
+
     init {
-        // Observe cached threads with search filter
+        // Observe cached threads and apply search + filters client-side
         viewModelScope.launch {
             repository.observeThreads()
-                .combine(_searchQuery) { threads, query ->
-                    if (query.isBlank()) {
-                        threads
-                    } else {
-                        threads.filter { thread ->
-                            thread.displayName.contains(query, ignoreCase = true) ||
-                            thread.lastMessage?.contains(query, ignoreCase = true) == true
-                        }
-                    }
+                .collect { threads ->
+                    _rawThreads.value = threads
+                    applyFilters()
                 }
-                .collect { filteredThreads ->
-                    _uiState.update { it.copy(threads = filteredThreads) }
-                }
+        }
+
+        // Re-apply filters when search query changes
+        viewModelScope.launch {
+            _searchQuery.collect {
+                applyFilters()
+            }
         }
 
         // Observe total unread count
@@ -72,11 +73,16 @@ class ChatHubViewModel @Inject constructor(
                 return@launch
             }
 
+            val currentState = _uiState.value
             when (val result = repository.getThreads(
                 superAccountId = superAccountId,
                 search = _searchQuery.value.takeIf { it.isNotBlank() },
                 skip = 0,
-                limit = 20
+                limit = 20,
+                unreadOnly = currentState.unreadOnly,
+                noActivity = currentState.noActivity,
+                applicationStatus = currentState.applicationStatus,
+                viewingStatus = currentState.viewingStatus
             )) {
                 is NetworkResult.Success -> {
                     _uiState.update {
@@ -125,7 +131,11 @@ class ChatHubViewModel @Inject constructor(
                 superAccountId = superAccountId,
                 search = _searchQuery.value.takeIf { it.isNotBlank() },
                 skip = skip,
-                limit = 20
+                limit = 20,
+                unreadOnly = currentState.unreadOnly,
+                noActivity = currentState.noActivity,
+                applicationStatus = currentState.applicationStatus,
+                viewingStatus = currentState.viewingStatus
             )) {
                 is NetworkResult.Success -> {
                     _uiState.update {
@@ -149,10 +159,7 @@ class ChatHubViewModel @Inject constructor(
      */
     fun searchThreads(query: String) {
         _searchQuery.value = query
-        // Reset pagination when search changes
-        if (query.isNotBlank()) {
-            refreshThreads()
-        }
+        // Filters are applied automatically via the search query flow
     }
 
     /**
@@ -860,10 +867,89 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
+     * Apply all filters client-side (matches iOS filteredThreads logic).
+     */
+    private fun applyFilters() {
+        val currentState = _uiState.value
+        var filtered = _rawThreads.value
+
+        if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+            android.util.Log.d("ChatHubViewModel", "=== APPLYING FILTERS ===")
+            android.util.Log.d("ChatHubViewModel", "Total threads: ${_rawThreads.value.size}")
+            android.util.Log.d("ChatHubViewModel", "Filters: unreadOnly=${currentState.unreadOnly}, noActivity=${currentState.noActivity}, appStatus=${currentState.applicationStatus}, viewStatus=${currentState.viewingStatus}")
+        }
+
+        // Apply search filter
+        val query = _searchQuery.value
+        if (query.isNotBlank()) {
+            filtered = filtered.filter { thread ->
+                thread.displayName.contains(query, ignoreCase = true) ||
+                thread.email?.contains(query, ignoreCase = true) == true ||
+                thread.lastMessage?.contains(query, ignoreCase = true) == true
+            }
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubViewModel", "After search filter: ${filtered.size} threads")
+            }
+        }
+
+        // Apply unread only filter (keep the active thread so navigation doesn't break)
+        if (currentState.unreadOnly) {
+            filtered = filtered.filter { thread ->
+                thread.unreadCount > 0 || thread.id == currentState.currentThread?.id
+            }
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubViewModel", "After unread filter: ${filtered.size} threads")
+            }
+        }
+
+        // Apply no activity filter (threads with no messages)
+        if (currentState.noActivity) {
+            val beforeCount = filtered.size
+            filtered = filtered.filter { thread ->
+                val hasNoActivity = thread.lastMessage.isNullOrEmpty()
+                if (com.tomasronis.rhentiapp.BuildConfig.DEBUG && hasNoActivity) {
+                    android.util.Log.d("ChatHubViewModel", "Thread '${thread.displayName}' has no activity (lastMessage=${thread.lastMessage})")
+                }
+                hasNoActivity
+            }
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubViewModel", "After no activity filter: ${filtered.size} threads (was $beforeCount)")
+            }
+        }
+
+        // Apply application status filter
+        if (currentState.applicationStatus != "All") {
+            filtered = filtered.filter { thread ->
+                thread.applicationStatus?.equals(currentState.applicationStatus, ignoreCase = true) == true
+            }
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubViewModel", "After app status filter: ${filtered.size} threads")
+            }
+        }
+
+        // Apply booking/viewing status filter
+        if (currentState.viewingStatus != "All") {
+            filtered = filtered.filter { thread ->
+                thread.bookingStatus?.equals(currentState.viewingStatus, ignoreCase = true) == true
+            }
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubViewModel", "After booking status filter: ${filtered.size} threads")
+            }
+        }
+
+        if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+            android.util.Log.d("ChatHubViewModel", "Final filtered count: ${filtered.size}")
+        }
+
+        _uiState.update { it.copy(threads = filtered) }
+    }
+
+    /**
      * Update filter: Unread Only
      */
     fun setUnreadOnly(enabled: Boolean) {
         _uiState.update { it.copy(unreadOnly = enabled) }
+        applyFilters()
     }
 
     /**
@@ -871,6 +957,7 @@ class ChatHubViewModel @Inject constructor(
      */
     fun setNoActivity(enabled: Boolean) {
         _uiState.update { it.copy(noActivity = enabled) }
+        applyFilters()
     }
 
     /**
@@ -878,6 +965,7 @@ class ChatHubViewModel @Inject constructor(
      */
     fun setApplicationStatus(status: String) {
         _uiState.update { it.copy(applicationStatus = status) }
+        applyFilters()
     }
 
     /**
@@ -885,6 +973,7 @@ class ChatHubViewModel @Inject constructor(
      */
     fun setViewingStatus(status: String) {
         _uiState.update { it.copy(viewingStatus = status) }
+        applyFilters()
     }
 
     /**
@@ -899,6 +988,7 @@ class ChatHubViewModel @Inject constructor(
                 viewingStatus = "All"
             )
         }
+        applyFilters()
     }
 }
 
