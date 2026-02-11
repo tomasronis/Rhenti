@@ -18,12 +18,20 @@ interface ChatHubRepository {
      * @param search Optional search query
      * @param skip Number of threads to skip (for pagination)
      * @param limit Number of threads to fetch
+     * @param unreadOnly Filter to show only unread threads
+     * @param noActivity Filter to show threads with no recent activity
+     * @param applicationStatus Filter by application status ("All", "Pending", "Approved", "Declined")
+     * @param viewingStatus Filter by viewing/booking status ("All", "Pending", "Confirmed", "Declined")
      */
     suspend fun getThreads(
         superAccountId: String,
         search: String? = null,
         skip: Int = 0,
-        limit: Int = 20
+        limit: Int = 20,
+        unreadOnly: Boolean = false,
+        noActivity: Boolean = false,
+        applicationStatus: String = "All",
+        viewingStatus: String = "All"
     ): NetworkResult<List<ChatThread>>
 
     /**

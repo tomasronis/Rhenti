@@ -27,7 +27,11 @@ class ChatHubRepositoryImpl @Inject constructor(
         superAccountId: String,
         search: String?,
         skip: Int,
-        limit: Int
+        limit: Int,
+        unreadOnly: Boolean,
+        noActivity: Boolean,
+        applicationStatus: String,
+        viewingStatus: String
     ): NetworkResult<List<ChatThread>> {
         return try {
             // Build request with correct format (skip instead of offset)
@@ -35,7 +39,20 @@ class ChatHubRepositoryImpl @Inject constructor(
                 put("searchText", search ?: "")
                 put("skip", skip)
                 put("limit", limit)
-                // Only include null values for the API - they're explicitly expected
+
+                // Add filter parameters (matching iOS field names)
+                if (unreadOnly) {
+                    put("hasUnread", true)  // iOS uses "hasUnread", not "unreadOnly"
+                }
+                if (noActivity) {
+                    put("noActivity", true)
+                }
+                if (applicationStatus != "All") {
+                    put("applicationStatus", applicationStatus)
+                }
+                if (viewingStatus != "All") {
+                    put("bookingStatus", viewingStatus)  // iOS uses "bookingStatus", not "viewingStatus"
+                }
             }
 
             if (BuildConfig.DEBUG) {
@@ -232,35 +249,33 @@ class ChatHubRepositoryImpl @Inject constructor(
         return try {
             val timestamp = System.currentTimeMillis()
 
-            // Determine correct type and metadata based on messageType
-            val (actualType, linkTypeKey, linkTypeValue) = when (messageType) {
-                "viewing-link" -> Triple("booking", "bookViewingType", "link")
-                "application-link" -> Triple("application", "applicationType", "link")
-                else -> Triple("text", null, null)
-            }
-
-            // Build request with correct type and metadata structure
+            // Build request matching iOS format - fields directly in message, NOT in nested metadata
             val messageMap = mutableMapOf<String, Any>(
                 "_id" to timestamp,
                 "createdAt" to timestamp,
                 "text" to text,
-                "type" to actualType,
                 "user" to mapOf(
                     "name" to userName,
                     "_id" to senderId
-                )
-            )
-
-            // Add metadata with property information and link type
-            val metadata = mutableMapOf<String, Any>(
+                ),
                 "propertyAddress" to propertyAddress
             )
-            propertyId?.let { metadata["propertyId"] = it }
-            // Add the specific link type indicator (e.g., applicationType: "link" or bookViewingType: "link")
-            if (linkTypeKey != null && linkTypeValue != null) {
-                metadata[linkTypeKey] = linkTypeValue
+
+            // Add propertyId if available
+            propertyId?.let { messageMap["propertyId"] = it }
+
+            // Add link-specific fields (matching iOS encoding)
+            // NOTE: iOS uses "applicationFlag" property but encodes it as "application" in JSON
+            when (messageType) {
+                "viewing-link" -> {
+                    messageMap["bookViewing"] = true
+                    messageMap["bookViewingType"] = "link"
+                }
+                "application-link" -> {
+                    messageMap["application"] = true  // Encoded as "application" (not "applicationFlag")
+                    messageMap["applicationType"] = "link"
+                }
             }
-            messageMap["metadata"] = metadata
 
             val request = mapOf(
                 "message" to messageMap,
@@ -269,7 +284,7 @@ class ChatHubRepositoryImpl @Inject constructor(
             )
 
             if (BuildConfig.DEBUG) {
-                android.util.Log.d("ChatHubRepository", "Sending link message with format: $request")
+                android.util.Log.d("ChatHubRepository", "Sending link message with iOS format: $request")
             }
 
             val response = apiClient.sendMessage(senderId, request)
@@ -598,12 +613,21 @@ class ChatHubRepositoryImpl @Inject constructor(
 
                 val sender = messageData["sender"] as? String ?: "system"
                 val text = messageData["text"] as? String
-                val type = messageData["type"] as? String ?: "text"
+
+                // Determine message type - check for iOS-style flags first
+                val type = when {
+                    messageData["bookViewing"] == true -> "booking"
+                    messageData["applicationFlag"] == true || messageData["application"] == true -> "application"
+                    messageData["itemsRequested"] == true -> "items-requested"
+                    else -> messageData["type"] as? String ?: "text"
+                }
+
                 val attachmentUrl = (messageData["attachment_url"] as? String)
                     ?: (messageData["attachmentUrl"] as? String)
 
                 if (BuildConfig.DEBUG) {
                     android.util.Log.d("ChatHubRepository", "Message $id: type='$type', sender='$sender', text='${text?.take(50)}'")
+                    android.util.Log.d("ChatHubRepository", "  bookViewing=${messageData["bookViewing"]}, applicationFlag=${messageData["applicationFlag"]}")
                 }
 
                 // Parse timestamp - can be Number (Unix timestamp) or String (ISO 8601)
@@ -632,20 +656,24 @@ class ChatHubRepositoryImpl @Inject constructor(
                 }
 
                 // Parse metadata for booking, application, and items-requested messages
+                // For iOS-style messages, the metadata fields are directly in messageData, not nested
                 val metadata = if (type == "booking" || type == "items-requested" || type == "application") {
+                    // First check for nested metadata object (old format)
                     @Suppress("UNCHECKED_CAST")
                     val metadataMap = messageData["metadata"] as? Map<String, Any>
 
-                    if (BuildConfig.DEBUG && metadataMap != null) {
+                    if (BuildConfig.DEBUG) {
                         android.util.Log.d("ChatHubRepository", "=== METADATA FOR MESSAGE $id ===")
                         android.util.Log.d("ChatHubRepository", "Type: $type")
-                        android.util.Log.d("ChatHubRepository", "Metadata keys: ${metadataMap.keys}")
-                        metadataMap.forEach { (key, value) ->
-                            android.util.Log.d("ChatHubRepository", "  $key: $value (${value?.javaClass?.simpleName})")
+                        if (metadataMap != null) {
+                            android.util.Log.d("ChatHubRepository", "Nested metadata keys: ${metadataMap.keys}")
+                        } else {
+                            android.util.Log.d("ChatHubRepository", "No nested metadata, checking direct fields")
                         }
                     }
 
-                    metadataMap?.let { parseMessageMetadata(it) }
+                    // If there's a nested metadata object, use it; otherwise use messageData directly (iOS format)
+                    parseMessageMetadata(metadataMap ?: messageData)
                 } else null
 
                 messages.add(
@@ -975,8 +1003,9 @@ private fun parseMessageMetadata(metadataMap: Map<String, Any>): MessageMetadata
         propertyAddress = metadataMap["propertyAddress"] as? String
             ?: metadataMap["property_address"] as? String,
 
-        // Application fields
-        application = metadataMap["application"] as? Boolean,
+        // Application fields (iOS uses "applicationFlag", not "application")
+        application = metadataMap["applicationFlag"] as? Boolean
+            ?: metadataMap["application"] as? Boolean,
         applicationType = metadataMap["applicationType"] as? String
             ?: metadataMap["application_type"] as? String,
         applicationId = metadataMap["applicationId"] as? String
