@@ -92,7 +92,6 @@ fun MessageBubble(
                             .offset(x = (-8).dp, y = 8.dp)
                             .size(32.dp)
                             .clip(CircleShape)
-                            .border(2.dp, Color.White, CircleShape)
                     ) {
                         BotIcon(
                             size = 32.dp,

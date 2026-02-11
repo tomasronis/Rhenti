@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -51,33 +52,39 @@ fun BotIcon(
 }
 
 /**
- * Draw the robot's screen (rounded rectangle).
- * Uses the outer border path from the SVG for a more prominent screen.
+ * Draw the robot's screen (rounded rectangle with thick border).
+ * Optimized size with rounder corners for a cuter look.
  */
 private fun DrawScope.drawRoundedScreen(
     color: Color,
     scale: Float,
     canvasSize: Float
 ) {
-    // Screen coordinates from SVG outer path (more visible border)
-    // Original SVG: x: 61.126, y: 144.383, width: 386, height: 219.491
-    val screenX = 61.126f * scale
-    val screenY = 144.383f * scale
-    val screenWidth = 386f * scale
-    val screenHeight = 219.491f * scale
-    val cornerRadius = 20f * scale  // Increased corner radius for smoother look
+    // Screen size - slightly bigger (80% of original)
+    val screenWidth = 310f * scale  // Increased from 270
+    val screenHeight = 176f * scale  // Increased from 154
+    val centerX = (254f - screenWidth / scale / 2) * scale  // Center horizontally
+    val centerY = 160f * scale  // Slightly higher
 
+    // Much rounder corners for a friendlier look
+    val cornerRadius = 45f * scale  // Rounder appearance
+
+    // Border thickness
+    val borderWidth = 22f * scale
+
+    // Draw bordered rounded rectangle (stroke only)
     drawRoundRect(
         color = color,
-        topLeft = Offset(screenX, screenY),
+        topLeft = Offset(centerX, centerY),
         size = Size(screenWidth, screenHeight),
-        cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+        cornerRadius = CornerRadius(cornerRadius, cornerRadius),
+        style = Stroke(width = borderWidth)
     )
 }
 
 /**
  * Draw the robot's eyes (two large circles).
- * Eyes are quite prominent in the design - approximately 38.65 radius each.
+ * Eyes brought closer together for a friendlier appearance.
  */
 private fun DrawScope.drawEyes(
     color: Color,
@@ -87,8 +94,9 @@ private fun DrawScope.drawEyes(
     // Eye radius calculated from SVG circle paths (approximately 38.65)
     val eyeRadius = 38.65f * scale
 
-    // Left eye - center at (171.206, 230.968)
-    val leftEyeX = 171.206f * scale
+    // Bring eyes closer together by moving them toward center
+    // Original left eye: 171.206, moving right by 25 units
+    val leftEyeX = 196f * scale  // Moved from 171.206 toward center
     val leftEyeY = 230.968f * scale
 
     drawCircle(
@@ -97,8 +105,8 @@ private fun DrawScope.drawEyes(
         center = Offset(leftEyeX, leftEyeY)
     )
 
-    // Right eye - center at (337.05, 230.968)
-    val rightEyeX = 337.05f * scale
+    // Original right eye: 337.05, moving left by 25 units
+    val rightEyeX = 312f * scale  // Moved from 337.05 toward center
     val rightEyeY = 230.968f * scale
 
     drawCircle(
