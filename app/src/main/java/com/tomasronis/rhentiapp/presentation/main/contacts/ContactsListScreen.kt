@@ -259,7 +259,7 @@ private fun ContactsListWithIndex(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 40.dp, top = 8.dp, bottom = 8.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 40.dp, top = 8.dp, bottom = 0.dp)
         ) {
             groupedContacts.forEach { (letter, contactsInSection) ->
                 // Section header

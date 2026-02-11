@@ -187,7 +187,7 @@ private fun CallLogsList(
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        contentPadding = PaddingValues(top = 8.dp, bottom = 0.dp)
     ) {
         groupedCalls.forEach { (dateHeader, calls) ->
             // Date header - iOS style with more visual separation

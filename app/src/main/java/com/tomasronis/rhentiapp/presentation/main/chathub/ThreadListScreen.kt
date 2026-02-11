@@ -210,7 +210,7 @@ private fun ThreadList(
                 start = 0.dp,
                 end = 0.dp,
                 top = 0.dp,
-                bottom = 16.dp
+                bottom = 0.dp
             ),
             verticalArrangement = Arrangement.spacedBy(0.dp) // No spacing for better performance
         ) {

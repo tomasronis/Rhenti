@@ -127,15 +127,15 @@ fun MainTabScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 12.dp),
+                    .padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 8.dp),
                 shape = RoundedCornerShape(32.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 tonalElevation = 8.dp
             ) {
                 NavigationBar(
                     modifier = Modifier
-                        .height(72.dp)
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                        .height(64.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     containerColor = Color.Transparent,
                     contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
@@ -283,7 +283,14 @@ fun MainTabScreen(
             }
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
+        Box(
+            modifier = Modifier.padding(
+                top = paddingValues.calculateTopPadding(),
+                start = paddingValues.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+                end = paddingValues.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr),
+                bottom = paddingValues.calculateBottomPadding() - 28.dp // Reduce bottom padding by 28dp
+            )
+        ) {
             // Main tab content
             when (selectedTab) {
                 0 -> ChatsTabContent(
