@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.main.tabs
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
@@ -34,6 +35,13 @@ fun ContactsTabContent(
     var selectedContact by remember { mutableStateOf<Contact?>(null) }
     var selectedThreadId by remember { mutableStateOf<String?>(null) }
     var pendingCallNumber by remember { mutableStateOf<String?>(null) }
+
+    // Handle back button navigation
+    BackHandler(enabled = selectedContact != null) {
+        // Navigate back from contact detail to contact list
+        selectedContact = null
+        selectedThreadId = null
+    }
 
     // Auto-open contact by ID when coming from Calls tab
     LaunchedEffect(contactIdToOpen, threadIdToOpen) {

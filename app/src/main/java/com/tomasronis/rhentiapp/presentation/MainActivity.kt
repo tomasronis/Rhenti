@@ -2,7 +2,6 @@ package com.tomasronis.rhentiapp.presentation
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,7 +27,7 @@ import javax.inject.Inject
  *
  * This is the single activity that hosts all Compose screens.
  * Uses Hilt for dependency injection.
- * Handles back button navigation properly.
+ * Back navigation is handled by individual screens and nested NavControllers.
  * Supports dynamic theme mode switching (Dark/Light/System).
  */
 @AndroidEntryPoint
@@ -64,11 +63,6 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.DARK -> true
                 ThemeMode.LIGHT -> false
                 ThemeMode.SYSTEM -> systemInDarkTheme
-            }
-
-            // Handle back button to navigate within app instead of exiting
-            BackHandler(enabled = navController.previousBackStackEntry != null) {
-                navController.popBackStack()
             }
 
             RhentiAppTheme(darkTheme = useDarkTheme) {

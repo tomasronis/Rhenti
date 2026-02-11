@@ -16,6 +16,7 @@ import java.util.*
 /**
  * Bottom sheet for proposing alternative viewing times.
  * Allows selecting up to 3 date/time slots using Material 3 date and time pickers.
+ * Similar to PreApprovedViewingSheet but for multiple alternative times.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,7 +25,7 @@ fun AlternativeTimePicker(
     onConfirm: (List<String>) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTimes by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var selectedTimes by remember { mutableStateOf<List<TimeSlot>>(emptyList()) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // State for the date picker dialog
@@ -42,7 +43,8 @@ fun AlternativeTimePicker(
         is24Hour = false
     )
 
-    val displayFormat = remember { SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault()) }
+    val displayDateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+    val displayTimeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
     val isoFormat = remember {
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).apply {
             timeZone = TimeZone.getTimeZone("UTC")
@@ -75,14 +77,38 @@ fun AlternativeTimePicker(
 
             HorizontalDivider()
 
-            // Time slots
-            selectedTimes.forEachIndexed { index, timestamp ->
-                TimeSlotChip(
-                    time = displayFormat.format(Date(timestamp)),
-                    onRemove = {
-                        selectedTimes = selectedTimes.toMutableList().also { it.removeAt(index) }
-                    }
+            // Show instruction or time slots
+            if (selectedTimes.isEmpty()) {
+                Text(
+                    text = "Tap the button below to add alternative times (up to 3).",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
+            } else {
+                Text(
+                    text = "Alternative Times (${selectedTimes.size}/3)",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                // Time slots in cards similar to PreApprovedViewingSheet style
+                selectedTimes.forEachIndexed { index, timeSlot ->
+                    TimeSlotCard(
+                        index = index + 1,
+                        date = displayDateFormat.format(Date(timeSlot.timestamp)),
+                        time = displayTimeFormat.format(Date(timeSlot.timestamp)),
+                        onRemove = {
+                            selectedTimes = selectedTimes.toMutableList().also { it.removeAt(index) }
+                        }
+                    )
+                    if (index < selectedTimes.size - 1) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
             // Add time button - opens date picker first
@@ -94,7 +120,34 @@ fun AlternativeTimePicker(
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Add Time Slot")
+                    Text(
+                        if (selectedTimes.isEmpty()) "Add First Time Slot"
+                        else "Add Another Time Slot"
+                    )
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Maximum 3 time slots reached",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                 }
             }
 
@@ -107,7 +160,9 @@ fun AlternativeTimePicker(
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("Cancel")
@@ -117,15 +172,23 @@ fun AlternativeTimePicker(
                     onClick = {
                         if (selectedTimes.isNotEmpty()) {
                             // Convert timestamps to ISO 8601 strings for the API
-                            val isoStrings = selectedTimes.map { isoFormat.format(Date(it)) }
+                            val isoStrings = selectedTimes.map { isoFormat.format(Date(it.timestamp)) }
                             onConfirm(isoStrings)
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp),
                     enabled = selectedTimes.isNotEmpty(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Send")
+                    Icon(
+                        imageVector = Icons.Filled.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Send ${selectedTimes.size} Alternative${if (selectedTimes.size == 1) "" else "s"}")
                 }
             }
 
@@ -196,7 +259,7 @@ fun AlternativeTimePicker(
                                 set(Calendar.SECOND, 0)
                                 set(Calendar.MILLISECOND, 0)
                             }
-                            selectedTimes = selectedTimes + calendar.timeInMillis
+                            selectedTimes = selectedTimes + TimeSlot(calendar.timeInMillis)
                         }
                         showTimePicker = false
                         pendingDateMillis = null
@@ -220,31 +283,97 @@ fun AlternativeTimePicker(
 }
 
 /**
- * Chip displaying a time slot with remove button.
+ * Data class for a time slot.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+private data class TimeSlot(
+    val timestamp: Long
+)
+
+/**
+ * Card displaying a time slot with date, time, and remove button.
+ * Styled similar to PreApprovedViewingSheet for consistency.
+ */
 @Composable
-private fun TimeSlotChip(
+private fun TimeSlotCard(
+    index: Int,
+    date: String,
     time: String,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    InputChip(
-        selected = true,
-        onClick = { },
-        label = { Text(time) },
-        trailingIcon = {
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(20.dp)
+    OutlinedCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Option number badge
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Icon(
-                    Icons.Filled.Close,
-                    contentDescription = "Remove",
-                    modifier = Modifier.size(16.dp)
+                Text(
+                    text = "$index",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
-        },
-        modifier = modifier
-    )
+
+            // Date and time
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CalendarToday,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = date,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Schedule,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = time,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Remove button
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Remove",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
 }

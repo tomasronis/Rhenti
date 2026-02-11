@@ -1,5 +1,6 @@
 package com.tomasronis.rhentiapp.presentation.main.tabs
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tomasronis.rhentiapp.data.chathub.models.ChatThread
@@ -31,6 +32,21 @@ fun ChatsTabContent(
     var selectedThread by remember { mutableStateOf<ChatThread?>(null) }
     var selectedContactFromThread by remember { mutableStateOf<Contact?>(null) }
     var selectedThreadIdForContact by remember { mutableStateOf<String?>(null) }
+
+    // Handle back button navigation
+    BackHandler(enabled = selectedContactFromThread != null || selectedThread != null) {
+        when {
+            selectedContactFromThread != null -> {
+                // Navigate back from contact detail to thread detail
+                selectedContactFromThread = null
+                selectedThreadIdForContact = null
+            }
+            selectedThread != null -> {
+                // Navigate back from thread detail to thread list
+                selectedThread = null
+            }
+        }
+    }
 
     // Auto-open thread by ID when coming from Calls tab
     LaunchedEffect(threadIdToOpen) {
