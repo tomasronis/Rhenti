@@ -69,4 +69,13 @@ interface ContactsRepository {
      * Get lead owners for a property.
      */
     suspend fun getLeadOwners(propertyId: String): NetworkResult<List<com.tomasronis.rhentiapp.data.contacts.models.LeadOwner>>
+
+    /**
+     * Get contact tasks (viewings, applications, completed tasks) from activity endpoint.
+     * This provides comprehensive task information for a specific contact.
+     */
+    suspend fun getContactTasks(
+        userId: String,
+        contactId: String
+    ): NetworkResult<com.tomasronis.rhentiapp.data.contacts.models.ContactTasksResponse>
 }

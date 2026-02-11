@@ -82,6 +82,13 @@ interface ApiClient {
     @GET("/activity/getLeadOwners/{propertyId}")
     suspend fun getLeadOwners(@Path("propertyId") propertyId: String): Map<String, @JvmSuppressWildcards Any>
 
+    @GET("/activity/{userId}/tasks/{contactId}")
+    suspend fun getContactTasks(
+        @Path("userId") userId: String,
+        @Path("contactId") contactId: String,
+        @Query("sort") sort: Boolean = true
+    ): Map<String, @JvmSuppressWildcards Any>
+
     // ============================================================================
     // Calls/Phone Tracking Endpoints
     // ============================================================================

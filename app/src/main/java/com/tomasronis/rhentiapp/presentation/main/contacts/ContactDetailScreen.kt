@@ -41,7 +41,6 @@ import java.util.*
 @Composable
 fun ContactDetailScreen(
     contact: Contact,
-    threadId: String? = null, // Optional thread ID for loading viewings/applications
     onNavigateBack: () -> Unit,
     onStartChat: (Contact) -> Unit,
     onCall: (Contact) -> Unit,
@@ -55,11 +54,9 @@ fun ContactDetailScreen(
         viewModel.selectContact(contact)
     }
 
-    // Load viewings and applications if threadId is available
-    LaunchedEffect(threadId) {
-        threadId?.let {
-            viewModel.loadViewingsAndApplications(it)
-        }
+    // Load contact tasks from activity endpoint
+    LaunchedEffect(contact.id) {
+        viewModel.loadContactTasks(contact.id)
     }
 
     // Clear contact when screen closes
@@ -142,9 +139,10 @@ fun ContactDetailScreen(
                     ContactDetailContent(
                         contact = contact,
                         profile = uiState.contactProfile!!,
-                        viewings = uiState.viewings,
-                        applications = uiState.applications,
-                        isLoadingViewings = uiState.isLoadingViewings,
+                        viewingTasks = uiState.viewingTasks,
+                        applicationTasks = uiState.applicationTasks,
+                        completedTasks = uiState.completedTasks,
+                        isLoadingTasks = uiState.isLoadingTasks,
                         onStartChat = { onStartChat(contact) },
                         onCall = { onCall(contact) }
                     )
@@ -154,9 +152,10 @@ fun ContactDetailScreen(
                     ContactDetailContent(
                         contact = contact,
                         profile = null,
-                        viewings = emptyList(),
-                        applications = emptyList(),
-                        isLoadingViewings = false,
+                        viewingTasks = uiState.viewingTasks,
+                        applicationTasks = uiState.applicationTasks,
+                        completedTasks = uiState.completedTasks,
+                        isLoadingTasks = uiState.isLoadingTasks,
                         onStartChat = { onStartChat(contact) },
                         onCall = { onCall(contact) }
                     )
@@ -189,15 +188,17 @@ fun ContactDetailScreen(
 private fun ContactDetailContent(
     contact: Contact,
     profile: com.tomasronis.rhentiapp.data.contacts.models.ContactProfile?,
-    viewings: List<com.tomasronis.rhentiapp.data.contacts.models.Booking>,
-    applications: List<com.tomasronis.rhentiapp.data.contacts.models.Offer>,
-    isLoadingViewings: Boolean,
+    viewingTasks: List<com.tomasronis.rhentiapp.data.contacts.models.ViewingTask>,
+    applicationTasks: List<com.tomasronis.rhentiapp.data.contacts.models.ApplicationTask>,
+    completedTasks: List<com.tomasronis.rhentiapp.data.contacts.models.CompletedTask>,
+    isLoadingTasks: Boolean,
     onStartChat: () -> Unit,
     onCall: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var viewingsExpanded by remember { mutableStateOf(false) }
-    var applicationsExpanded by remember { mutableStateOf(false) }
+    var viewingTasksExpanded by remember { mutableStateOf(false) }
+    var applicationTasksExpanded by remember { mutableStateOf(false) }
+    var completedTasksExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier
@@ -393,18 +394,18 @@ private fun ContactDetailContent(
             }
         }
 
-        // Viewings expandable section (only show when we have viewings or are loading)
-        if (viewings.isNotEmpty() || isLoadingViewings) {
+        // Viewing Tasks expandable section (from activity endpoint)
+        if (viewingTasks.isNotEmpty() || isLoadingTasks) {
             item {
                 ExpandableSection(
                     title = "Viewings",
-                    icon = Icons.Filled.CalendarMonth,
-                    count = viewings.size,
-                    expanded = viewingsExpanded,
-                    onToggle = { viewingsExpanded = !viewingsExpanded },
-                    isLoading = isLoadingViewings
+                    icon = Icons.Filled.Event,
+                    count = viewingTasks.size,
+                    expanded = viewingTasksExpanded,
+                    onToggle = { viewingTasksExpanded = !viewingTasksExpanded },
+                    isLoading = isLoadingTasks
                 ) {
-                    if (isLoadingViewings) {
+                    if (isLoadingTasks) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -414,15 +415,11 @@ private fun ContactDetailContent(
                             CircularProgressIndicator()
                         }
                     } else {
-                        viewings.forEachIndexed { index, booking ->
-                            ViewingItem(
-                                propertyAddress = booking.address ?: "Unknown Address",
-                                dateTime = booking.dateTimeDayInTimeZone ?: formatDateTime(booking.datetime),
-                                status = booking.viewingStatus
-                            )
+                        viewingTasks.forEachIndexed { index, task ->
+                            ViewingTaskItem(task = task)
 
                             // Add divider between items (not after the last one)
-                            if (index < viewings.size - 1) {
+                            if (index < viewingTasks.size - 1) {
                                 Divider(
                                     color = MaterialTheme.colorScheme.outlineVariant,
                                     thickness = 0.5.dp,
@@ -435,27 +432,60 @@ private fun ContactDetailContent(
             }
         }
 
-        // Applications expandable section
-        if (applications.isNotEmpty()) {
+        // Application Tasks expandable section (from activity endpoint)
+        if (applicationTasks.isNotEmpty() || isLoadingTasks) {
             item {
                 ExpandableSection(
                     title = "Applications",
-                    icon = Icons.Filled.Description,
-                    count = applications.size,
-                    expanded = applicationsExpanded,
-                    onToggle = { applicationsExpanded = !applicationsExpanded },
+                    icon = Icons.Filled.Assignment,
+                    count = applicationTasks.size,
+                    expanded = applicationTasksExpanded,
+                    onToggle = { applicationTasksExpanded = !applicationTasksExpanded },
+                    isLoading = isLoadingTasks
+                ) {
+                    if (isLoadingTasks) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        applicationTasks.forEachIndexed { index, task ->
+                            ApplicationTaskItem(task = task)
+
+                            // Add divider between items (not after the last one)
+                            if (index < applicationTasks.size - 1) {
+                                Divider(
+                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    thickness = 0.5.dp,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Completed Tasks expandable section (from activity endpoint)
+        if (completedTasks.isNotEmpty()) {
+            item {
+                ExpandableSection(
+                    title = "Tasks",
+                    icon = Icons.Filled.CheckCircle,
+                    count = completedTasks.size,
+                    expanded = completedTasksExpanded,
+                    onToggle = { completedTasksExpanded = !completedTasksExpanded },
                     isLoading = false
                 ) {
-                    applications.forEachIndexed { index, offer ->
-                        ApplicationItem(
-                            propertyAddress = offer.address ?: "Unknown Address",
-                            submittedDate = offer.dateTimeDayInTimeZone ?: "Unknown Date",
-                            price = offer.offer?.price,
-                            status = offer.applicationStatus
-                        )
+                    completedTasks.forEachIndexed { index, task ->
+                        CompletedTaskItem(task = task)
 
                         // Add divider between items (not after the last one)
-                        if (index < applications.size - 1) {
+                        if (index < completedTasks.size - 1) {
                             Divider(
                                 color = MaterialTheme.colorScheme.outlineVariant,
                                 thickness = 0.5.dp,
@@ -661,114 +691,6 @@ private fun ExpandableSection(
 }
 
 /**
- * Viewing item component.
- */
-@Composable
-private fun ViewingItem(
-    propertyAddress: String,
-    dateTime: String?,
-    status: com.tomasronis.rhentiapp.data.contacts.models.ViewingStatus
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = propertyAddress,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            color = Color.White
-        )
-        if (dateTime != null) {
-            Text(
-                text = dateTime,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 13.sp
-                ),
-                color = Color(0xFF8E8E93)
-            )
-        }
-        // Status badge
-        val statusColor = Color(android.graphics.Color.parseColor(status.colorHex))
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = statusColor.copy(alpha = 0.2f)
-        ) {
-            Text(
-                text = status.label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 12.sp
-                ),
-                color = statusColor,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
-    }
-}
-
-/**
- * Application item component.
- */
-@Composable
-private fun ApplicationItem(
-    propertyAddress: String,
-    submittedDate: String,
-    price: Int?,
-    status: com.tomasronis.rhentiapp.data.contacts.models.ApplicationStatus
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = propertyAddress,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            ),
-            color = Color.White
-        )
-
-        // Show price if available
-        if (price != null) {
-            Text(
-                text = "$$price/month",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                ),
-                color = Color(0xFF8E8E93)
-            )
-        }
-
-        Text(
-            text = "Submitted $submittedDate",
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 13.sp
-            ),
-            color = Color(0xFF8E8E93)
-        )
-        // Status badge
-        val statusColor = Color(android.graphics.Color.parseColor(status.colorHex))
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = statusColor.copy(alpha = 0.2f)
-        ) {
-            Text(
-                text = status.label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 12.sp
-                ),
-                color = statusColor,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
-        }
-    }
-}
-
-/**
  * Property card component - iOS dark style.
  */
 @Composable
@@ -834,6 +756,155 @@ private fun PropertyCard(
 }
 
 /**
+ * Viewing task item component (from activity endpoint).
+ */
+@Composable
+private fun ViewingTaskItem(task: com.tomasronis.rhentiapp.data.contacts.models.ViewingTask) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = task.address ?: "Unknown Address",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        if (task.date != null) {
+            Text(
+                text = formatIso8601DateTime(task.date),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Status badge
+        val statusColor = if (task.isConfirmed) Color(0xFF34C759) else Color(0xFFFF9500)
+        val statusText = if (task.isConfirmed) "Confirmed" else "Pending"
+
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = statusColor.copy(alpha = 0.2f)
+        ) {
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 12.sp
+                ),
+                color = statusColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Application task item component (from activity endpoint).
+ */
+@Composable
+private fun ApplicationTaskItem(task: com.tomasronis.rhentiapp.data.contacts.models.ApplicationTask) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = task.address ?: "Unknown Address",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        if (task.price != null) {
+            Text(
+                text = "$$${task.price}/month",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (task.name != null) {
+            Text(
+                text = "Applicant: ${task.name}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 13.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Status badge
+        val statusColor = if (task.isDeclined) Color(0xFFFF3B30) else Color(0xFFFF9500)
+        val statusText = if (task.isDeclined) "Declined" else "Pending"
+
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = statusColor.copy(alpha = 0.2f)
+        ) {
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 12.sp
+                ),
+                color = statusColor,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Completed task item component (from activity endpoint).
+ */
+@Composable
+private fun CompletedTaskItem(task: com.tomasronis.rhentiapp.data.contacts.models.CompletedTask) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = Icons.Filled.CheckCircle,
+            contentDescription = null,
+            tint = Color(0xFF34C759),
+            modifier = Modifier.size(20.dp)
+        )
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = task.text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 15.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (task.dueDate != null) {
+                Text(
+                    text = "Due: ${formatIso8601Date(task.dueDate)}",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 13.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
  * Get initials from display name.
  */
 private fun getInitials(name: String): String {
@@ -879,4 +950,47 @@ private fun formatDateTime(timestamp: Long?): String? {
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val date = Date(timestamp)
     return "${dateFormat.format(date)} at ${timeFormat.format(date)}"
+}
+
+/**
+ * Format ISO 8601 date string to readable format.
+ * Example: "2022-12-02T13:00:00.000Z" → "Dec 2, 2022 at 1:00 PM"
+ */
+private fun formatIso8601DateTime(isoDate: String): String {
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+        inputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        val date = inputFormat.parse(isoDate)
+
+        if (date != null) {
+            val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+            "${dateFormat.format(date)} at ${timeFormat.format(date)}"
+        } else {
+            isoDate
+        }
+    } catch (e: Exception) {
+        isoDate
+    }
+}
+
+/**
+ * Format ISO 8601 date string to readable date only.
+ * Example: "2024-10-18T04:00:00.000Z" → "Oct 18, 2024"
+ */
+private fun formatIso8601Date(isoDate: String): String {
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
+        inputFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        val date = inputFormat.parse(isoDate)
+
+        if (date != null) {
+            val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            dateFormat.format(date)
+        } else {
+            isoDate
+        }
+    } catch (e: Exception) {
+        isoDate
+    }
 }

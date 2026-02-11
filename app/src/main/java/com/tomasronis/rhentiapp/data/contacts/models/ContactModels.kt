@@ -243,3 +243,48 @@ data class LeadOwner(
     val name: String,
     val value: String // User ID
 )
+
+/**
+ * Response from /activity/{userId}/tasks/{contactId} endpoint.
+ * Contains all task data for a contact (viewings, applications, completed tasks).
+ */
+data class ContactTasksResponse(
+    val viewings: List<ViewingTask>,
+    val applications: List<ApplicationTask>,
+    val completedTasks: List<CompletedTask>
+)
+
+/**
+ * Viewing task from activity endpoint.
+ */
+data class ViewingTask(
+    val title: String,
+    val date: String?, // ISO 8601 timestamp
+    val isConfirmed: Boolean,
+    val address: String?,
+    val link: String?
+)
+
+/**
+ * Application task from activity endpoint.
+ */
+data class ApplicationTask(
+    val title: String,
+    val price: Int?,
+    val name: String?,
+    val address: String?,
+    val link: String?,
+    val isDeclined: Boolean
+)
+
+/**
+ * Completed task item.
+ */
+data class CompletedTask(
+    val id: String,
+    val text: String,
+    val dueDate: String?, // ISO 8601 timestamp
+    val isCompleted: Boolean,
+    val createdAt: String?,
+    val updatedAt: String?
+)

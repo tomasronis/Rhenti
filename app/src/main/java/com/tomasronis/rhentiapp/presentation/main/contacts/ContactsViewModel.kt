@@ -338,6 +338,77 @@ class ContactsViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Load contact tasks (viewings, applications, completed tasks) from activity endpoint.
+     * This provides comprehensive task information for a specific contact.
+     */
+    fun loadContactTasks(contactId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingTasks = true, tasksError = null) }
+
+            val userId = tokenManager.getUserId() ?: run {
+                _uiState.update {
+                    it.copy(
+                        isLoadingTasks = false,
+                        tasksError = "Not authenticated"
+                    )
+                }
+                return@launch
+            }
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d(
+                    "ContactsViewModel",
+                    "=== LOADING CONTACT TASKS ==="
+                )
+                android.util.Log.d("ContactsViewModel", "Contact ID: $contactId")
+                android.util.Log.d("ContactsViewModel", "User ID: $userId")
+                android.util.Log.d(
+                    "ContactsViewModel",
+                    "API URL: /activity/$userId/tasks/$contactId?sort=true"
+                )
+            }
+
+            when (val result = repository.getContactTasks(userId, contactId)) {
+                is NetworkResult.Success -> {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d(
+                            "ContactsViewModel",
+                            "Loaded ${result.data?.viewings?.size ?: 0} viewing tasks, " +
+                            "${result.data?.applications?.size ?: 0} application tasks, " +
+                            "and ${result.data?.completedTasks?.size ?: 0} completed tasks"
+                        )
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            viewingTasks = result.data?.viewings ?: emptyList(),
+                            applicationTasks = result.data?.applications ?: emptyList(),
+                            completedTasks = result.data?.completedTasks ?: emptyList(),
+                            isLoadingTasks = false,
+                            tasksError = null
+                        )
+                    }
+                }
+                is NetworkResult.Error -> {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.e("ContactsViewModel", "Failed to load contact tasks", result.exception)
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            isLoadingTasks = false,
+                            tasksError = result.exception.message ?: "Failed to load contact tasks"
+                        )
+                    }
+                }
+                is NetworkResult.Loading -> {
+                    _uiState.update { it.copy(isLoadingTasks = true) }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -349,8 +420,14 @@ data class ContactsUiState(
     val contactProfile: ContactProfile? = null,
     val viewings: List<com.tomasronis.rhentiapp.data.contacts.models.Booking> = emptyList(),
     val applications: List<com.tomasronis.rhentiapp.data.contacts.models.Offer> = emptyList(),
+    // Contact tasks from /activity/{userId}/tasks/{contactId} endpoint
+    val viewingTasks: List<com.tomasronis.rhentiapp.data.contacts.models.ViewingTask> = emptyList(),
+    val applicationTasks: List<com.tomasronis.rhentiapp.data.contacts.models.ApplicationTask> = emptyList(),
+    val completedTasks: List<com.tomasronis.rhentiapp.data.contacts.models.CompletedTask> = emptyList(),
     val isLoading: Boolean = false,
     val isLoadingViewings: Boolean = false,
+    val isLoadingTasks: Boolean = false,
     val error: String? = null,
-    val viewingsError: String? = null
+    val viewingsError: String? = null,
+    val tasksError: String? = null
 )

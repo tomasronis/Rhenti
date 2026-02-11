@@ -337,6 +337,59 @@ class ContactsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getContactTasks(
+        userId: String,
+        contactId: String
+    ): NetworkResult<com.tomasronis.rhentiapp.data.contacts.models.ContactTasksResponse> {
+        return try {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "=== FETCHING CONTACT TASKS ===")
+                android.util.Log.d("ContactsRepository", "User ID: $userId")
+                android.util.Log.d("ContactsRepository", "Contact ID: $contactId")
+                android.util.Log.d("ContactsRepository", "Endpoint: /activity/$userId/tasks/$contactId?sort=true")
+            }
+
+            val response = apiClient.getContactTasks(userId, contactId, sort = true)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "=== RAW API RESPONSE ===")
+                android.util.Log.d("ContactsRepository", "Response: $response")
+
+                // Log the data array specifically
+                @Suppress("UNCHECKED_CAST")
+                val dataList = response["data"] as? List<Map<String, Any>>
+                android.util.Log.d("ContactsRepository", "Data array size: ${dataList?.size ?: 0}")
+                if (dataList != null) {
+                    dataList.forEachIndexed { index, item ->
+                        android.util.Log.d("ContactsRepository", "Item $index type: ${item["type"]}")
+                    }
+                }
+            }
+
+            val tasks = parseContactTasksResponse(response)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ContactsRepository", "=== PARSED RESULTS ===")
+                android.util.Log.d("ContactsRepository", "Viewings: ${tasks.viewings.size}")
+                android.util.Log.d("ContactsRepository", "Applications: ${tasks.applications.size}")
+                android.util.Log.d("ContactsRepository", "Completed Tasks: ${tasks.completedTasks.size}")
+            }
+
+            NetworkResult.Success(tasks)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ContactsRepository", "=== GET CONTACT TASKS FAILED ===")
+                android.util.Log.e("ContactsRepository", "User ID: $userId")
+                android.util.Log.e("ContactsRepository", "Contact ID: $contactId")
+                android.util.Log.e("ContactsRepository", "Error: ${e.message}", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
     // Helper functions to parse API responses
 
     private fun parseContactsResponse(response: List<Map<String, Any>>): List<Contact> {
@@ -594,6 +647,79 @@ class ContactsRepositoryImpl @Inject constructor(
         return com.tomasronis.rhentiapp.data.contacts.models.ViewingsAndApplicationsResponse(
             bookings = bookings,
             offers = offers
+        )
+    }
+
+    private fun parseContactTasksResponse(response: Map<String, Any>): com.tomasronis.rhentiapp.data.contacts.models.ContactTasksResponse {
+        val viewings = mutableListOf<com.tomasronis.rhentiapp.data.contacts.models.ViewingTask>()
+        val applications = mutableListOf<com.tomasronis.rhentiapp.data.contacts.models.ApplicationTask>()
+        val completedTasks = mutableListOf<com.tomasronis.rhentiapp.data.contacts.models.CompletedTask>()
+
+        @Suppress("UNCHECKED_CAST")
+        val dataList = response["data"] as? List<Map<String, Any>> ?: emptyList()
+
+        for (item in dataList) {
+            try {
+                val type = item["type"] as? String ?: continue
+
+                when (type) {
+                    "viewing" -> {
+                        val viewing = com.tomasronis.rhentiapp.data.contacts.models.ViewingTask(
+                            title = item["title"] as? String ?: "Viewing",
+                            date = item["date"] as? String,
+                            isConfirmed = item["isConfirmed"] as? Boolean ?: false,
+                            address = item["address"] as? String,
+                            link = item["link"] as? String
+                        )
+                        viewings.add(viewing)
+                    }
+
+                    "application" -> {
+                        val application = com.tomasronis.rhentiapp.data.contacts.models.ApplicationTask(
+                            title = item["title"] as? String ?: "Application",
+                            price = (item["price"] as? Number)?.toInt(),
+                            name = item["name"] as? String,
+                            address = item["address"] as? String,
+                            link = item["link"] as? String,
+                            isDeclined = item["isDeclined"] as? Boolean ?: false
+                        )
+                        applications.add(application)
+                    }
+
+                    "tasks" -> {
+                        // Parse completed tasks
+                        @Suppress("UNCHECKED_CAST")
+                        val items = item["items"] as? List<Map<String, Any>> ?: emptyList()
+                        for (taskItem in items) {
+                            try {
+                                val task = com.tomasronis.rhentiapp.data.contacts.models.CompletedTask(
+                                    id = taskItem["_id"] as? String ?: continue,
+                                    text = taskItem["text"] as? String ?: "",
+                                    dueDate = taskItem["dueDate"] as? String,
+                                    isCompleted = taskItem["isCompleted"] as? Boolean ?: false,
+                                    createdAt = taskItem["createdAt"] as? String,
+                                    updatedAt = taskItem["updatedAt"] as? String
+                                )
+                                completedTasks.add(task)
+                            } catch (e: Exception) {
+                                if (BuildConfig.DEBUG) {
+                                    android.util.Log.w("ContactsRepository", "Failed to parse completed task: $taskItem", e)
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.w("ContactsRepository", "Failed to parse task item: $item", e)
+                }
+            }
+        }
+
+        return com.tomasronis.rhentiapp.data.contacts.models.ContactTasksResponse(
+            viewings = viewings,
+            applications = applications,
+            completedTasks = completedTasks
         )
     }
 }

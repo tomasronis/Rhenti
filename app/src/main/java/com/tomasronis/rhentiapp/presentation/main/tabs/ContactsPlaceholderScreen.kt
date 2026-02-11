@@ -109,7 +109,6 @@ fun ContactsTabContent(
     if (selectedContact != null) {
         ContactDetailScreen(
             contact = selectedContact!!,
-            threadId = selectedThreadId, // Pass thread ID to load viewings/applications
             onNavigateBack = {
                 selectedContact = null
                 selectedThreadId = null // Clear threadId when navigating back

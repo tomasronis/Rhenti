@@ -72,7 +72,6 @@ fun ChatsTabContent(
         selectedContactFromThread != null -> {
             ContactDetailScreen(
                 contact = selectedContactFromThread!!,
-                threadId = selectedThreadIdForContact, // Pass threadId for loading viewings/applications
                 onNavigateBack = {
                     selectedContactFromThread = null
                     selectedThreadIdForContact = null
@@ -105,28 +104,75 @@ fun ChatsTabContent(
                     android.util.Log.d("ChatsPlaceholder", "Available contacts: ${contactsUiState.contacts.size}")
 
                     // Find matching contact - prioritize ID, then email, then phone
-                    val matchingContact = contactsUiState.contacts.find { contact ->
-                        // Prioritize ID matching (most reliable)
-                        (thread.renterId != null && contact.id == thread.renterId) ||
-                        // Fall back to email matching
-                        (!thread.email.isNullOrBlank() && !contact.email.isNullOrBlank() &&
-                         contact.email.equals(thread.email, ignoreCase = true)) ||
-                        // Fall back to phone matching
-                        (!thread.phone.isNullOrBlank() && !contact.phone.isNullOrBlank() &&
-                         contact.phone == thread.phone)
+                    // Use separate matching steps to ensure proper priority
+                    val matchingContact = contactsUiState.contacts.firstOrNull { contact ->
+                        // 1. Try ID matching first (most reliable)
+                        thread.renterId != null && contact.id == thread.renterId
+                    } ?: contactsUiState.contacts.firstOrNull { contact ->
+                        // 2. Try email matching (reliable identifier)
+                        !thread.email.isNullOrBlank() && !contact.email.isNullOrBlank() &&
+                        contact.email.equals(thread.email, ignoreCase = true)
+                    } ?: contactsUiState.contacts.firstOrNull { contact ->
+                        // 3. Try phone matching (less reliable - can have duplicates)
+                        !thread.phone.isNullOrBlank() && !contact.phone.isNullOrBlank() &&
+                        contact.phone == thread.phone
                     }
 
                     val contactToShow = if (matchingContact != null) {
                         android.util.Log.d("ChatsPlaceholder", "Found matching contact: ${matchingContact.displayName}")
-                        android.util.Log.d("ChatsPlaceholder", "Contact avatarUrl BEFORE merge: ${matchingContact.avatarUrl}")
-                        android.util.Log.d("ChatsPlaceholder", "Contact channel BEFORE merge: ${matchingContact.channel}")
 
-                        // Merge thread data (imageUrl, channel) with contact data
-                        // This ensures profile pic and channel show immediately
-                        matchingContact.copy(
-                            avatarUrl = thread.imageUrl ?: matchingContact.avatarUrl,
-                            channel = thread.channel ?: matchingContact.channel
-                        )
+                        // Determine match type and check if it's a phone-only mismatch
+                        val matchType = when {
+                            thread.renterId != null && matchingContact.id == thread.renterId -> "Renter ID"
+                            !thread.email.isNullOrBlank() && matchingContact.email?.equals(thread.email, ignoreCase = true) == true -> "Email"
+                            !thread.phone.isNullOrBlank() && matchingContact.phone == thread.phone -> "Phone"
+                            else -> "Unknown"
+                        }
+
+                        android.util.Log.d("ChatsPlaceholder", "Matched by: $matchType")
+
+                        // Check if phone-only match has email mismatch
+                        val isPhoneOnlyMismatch = matchType == "Phone" &&
+                            !thread.email.isNullOrBlank() &&
+                            !matchingContact.email.isNullOrBlank() &&
+                            !matchingContact.email.equals(thread.email, ignoreCase = true)
+
+                        if (isPhoneOnlyMismatch) {
+                            android.util.Log.w("ChatsPlaceholder", "WARNING: Phone-only match with email mismatch")
+                            android.util.Log.w("ChatsPlaceholder", "Thread email: ${thread.email} vs Contact email: ${matchingContact.email}")
+                            android.util.Log.w("ChatsPlaceholder", "Thread name: ${thread.displayName} vs Contact name: ${matchingContact.displayName}")
+                            android.util.Log.w("ChatsPlaceholder", "Creating new contact from thread data instead")
+
+                            // Create contact from thread data instead of using mismatched contact
+                            Contact(
+                                id = thread.renterId ?: thread.id,
+                                firstName = thread.displayName.split(" ").firstOrNull(),
+                                lastName = thread.displayName.split(" ").drop(1).joinToString(" ").takeIf { it.isNotEmpty() },
+                                email = thread.email,
+                                phone = thread.phone,
+                                avatarUrl = thread.imageUrl,
+                                propertyIds = listOfNotNull(thread.propertyId),
+                                totalMessages = 0,
+                                totalCalls = 0,
+                                lastActivity = thread.lastMessageTime,
+                                channel = thread.channel
+                            )
+                        } else {
+                            android.util.Log.d("ChatsPlaceholder", "Contact ID: ${matchingContact.id}")
+                            android.util.Log.d("ChatsPlaceholder", "Contact email: ${matchingContact.email}")
+                            android.util.Log.d("ChatsPlaceholder", "Contact avatarUrl BEFORE merge: ${matchingContact.avatarUrl}")
+                            android.util.Log.d("ChatsPlaceholder", "Contact channel BEFORE merge: ${matchingContact.channel}")
+
+                            // Merge thread data (imageUrl, channel, name) with contact data
+                            // This ensures profile pic, channel, and name show immediately from thread
+                            matchingContact.copy(
+                                firstName = thread.displayName.split(" ").firstOrNull() ?: matchingContact.firstName,
+                                lastName = thread.displayName.split(" ").drop(1).joinToString(" ").takeIf { it.isNotEmpty() } ?: matchingContact.lastName,
+                                email = thread.email?.takeIf { it.isNotBlank() } ?: matchingContact.email,
+                                avatarUrl = thread.imageUrl ?: matchingContact.avatarUrl,
+                                channel = thread.channel ?: matchingContact.channel
+                            )
+                        }
                     } else {
                         android.util.Log.w("ChatsPlaceholder", "No matching contact found - creating from thread")
 
