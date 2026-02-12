@@ -140,6 +140,16 @@ interface ApiClient {
     suspend fun getAddressesForChatHub(): List<Map<String, @JvmSuppressWildcards Any>>
 
     // ============================================================================
+    // Push Notification Endpoints
+    // ============================================================================
+
+    @POST("/device/register")
+    suspend fun registerDeviceToken(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
+
+    @POST("/device/unregister")
+    suspend fun unregisterDeviceToken(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
+
+    // ============================================================================
     // App Version Endpoint
     // ============================================================================
 

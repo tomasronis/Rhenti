@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -157,10 +158,10 @@ dependencies {
     // Microsoft Auth
     implementation(libs.microsoft.authenticator)
 
-    // Firebase (will be added in Phase 8)
-    // implementation(platform(libs.firebase.bom))
-    // implementation(libs.firebase.messaging)
-    // implementation(libs.firebase.analytics)
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.analytics)
 
     // WorkManager (will be added in Phase 9)
     // implementation(libs.work.runtime.ktx)

@@ -9,8 +9,14 @@ import android.os.Build
  * Notification channels for the app.
  */
 object NotificationChannels {
+    // VoIP channels
     const val CALL_CHANNEL_ID = "ongoing_calls"
     const val INCOMING_CALL_CHANNEL_ID = "incoming_calls"
+
+    // Push notification channels
+    const val MESSAGES_CHANNEL_ID = "messages"
+    const val VIEWINGS_CHANNEL_ID = "viewings"
+    const val APPLICATIONS_CHANNEL_ID = "applications"
 
     /**
      * Create notification channels.
@@ -44,8 +50,50 @@ object NotificationChannels {
                 enableLights(true)
             }
 
-            notificationManager.createNotificationChannel(callChannel)
-            notificationManager.createNotificationChannel(incomingCallChannel)
+            // Messages channel (high importance)
+            val messagesChannel = NotificationChannel(
+                MESSAGES_CHANNEL_ID,
+                "Messages",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "New chat messages from renters and contacts"
+                setShowBadge(true)
+                enableVibration(true)
+                enableLights(true)
+            }
+
+            // Viewings channel (high importance)
+            val viewingsChannel = NotificationChannel(
+                VIEWINGS_CHANNEL_ID,
+                "Viewings",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Viewing requests, confirmations, and updates"
+                setShowBadge(true)
+                enableVibration(true)
+                enableLights(true)
+            }
+
+            // Applications channel (default importance)
+            val applicationsChannel = NotificationChannel(
+                APPLICATIONS_CHANNEL_ID,
+                "Applications",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Rental application updates and submissions"
+                setShowBadge(true)
+                enableVibration(true)
+            }
+
+            notificationManager.createNotificationChannels(
+                listOf(
+                    callChannel,
+                    incomingCallChannel,
+                    messagesChannel,
+                    viewingsChannel,
+                    applicationsChannel
+                )
+            )
         }
     }
 }

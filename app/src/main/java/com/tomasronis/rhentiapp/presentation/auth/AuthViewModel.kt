@@ -2,6 +2,7 @@ package com.tomasronis.rhentiapp.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tomasronis.rhentiapp.core.messaging.FCMTokenRepository
 import com.tomasronis.rhentiapp.data.auth.models.*
 import com.tomasronis.rhentiapp.data.auth.repository.AuthRepository
 import com.tomasronis.rhentiapp.data.auth.services.GoogleAuthException
@@ -26,7 +27,8 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val fcmTokenRepository: FCMTokenRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -66,6 +68,8 @@ class AuthViewModel @Inject constructor(
             when (val result = authRepository.login(email, password)) {
                 is NetworkResult.Success -> {
                     // Auth state updates via observer
+                    // Register FCM token now that we're authenticated
+                    launch { fcmTokenRepository.registerPendingToken() }
                 }
                 is NetworkResult.Error -> {
                     _uiState.update { it.copy(error = result.toAuthError()) }
@@ -89,6 +93,7 @@ class AuthViewModel @Inject constructor(
                     when (val loginResult = authRepository.loginWithSSO(email, idToken, SSOProvider.GOOGLE)) {
                         is NetworkResult.Success -> {
                             // Success - auth state updates via observer
+                            launch { fcmTokenRepository.registerPendingToken() }
                         }
                         is NetworkResult.Error -> {
                             _uiState.update { it.copy(error = loginResult.toAuthError()) }
@@ -124,6 +129,7 @@ class AuthViewModel @Inject constructor(
                     when (val loginResult = authRepository.loginWithSSO(email, accessToken, SSOProvider.MICROSOFT)) {
                         is NetworkResult.Success -> {
                             // Success - auth state updates via observer
+                            launch { fcmTokenRepository.registerPendingToken() }
                         }
                         is NetworkResult.Error -> {
                             _uiState.update { it.copy(error = loginResult.toAuthError()) }
@@ -191,6 +197,7 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            fcmTokenRepository.unregisterToken()
             authRepository.clearAuthData()
         }
     }
