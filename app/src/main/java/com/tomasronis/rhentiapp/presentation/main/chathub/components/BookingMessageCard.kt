@@ -41,7 +41,14 @@ fun BookingMessageCard(
     val isOwner = message.sender == "owner"
     val metadata = message.metadata
     val bookingId = metadata?.bookViewingId ?: metadata?.bookingId ?: message.id
-    val status = metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus ?: "pending"
+
+    // Determine status from bookViewingType or bookViewingRequestStatus
+    val status = when (metadata?.bookViewingType) {
+        "confirm" -> "confirmed"
+        "decline" -> "declined"
+        "change_request" -> "alternative"
+        else -> metadata?.bookViewingRequestStatus ?: metadata?.bookingStatus ?: "pending"
+    }
 
     // Debug logging to see what metadata we have
     if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
@@ -79,7 +86,7 @@ fun BookingMessageCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF3C4F63) // Lighter grey background
+                    containerColor = Color(0xFF8B9DC3) // Darker blue-ish silver background
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -95,17 +102,17 @@ fun BookingMessageCard(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // House icon with border (grey theme)
+                        // House icon with border
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
                                 .background(
-                                    color = Color(0xFF7B92B2).copy(alpha = 0.4f), // More opaque grey-blue
+                                    color = Color(0xFFB8C6E0), // Light blue-ish silver
                                     shape = CircleShape
                                 )
                                 .border(
                                     width = 1.5.dp,
-                                    color = Color(0xFF7B92B2).copy(alpha = 0.6f), // More visible border
+                                    color = Color(0xFF6B7D9F), // Darker blue-ish border
                                     shape = CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -113,8 +120,8 @@ fun BookingMessageCard(
                             Icon(
                                 imageVector = Icons.Filled.Home,
                                 contentDescription = "Property",
-                                tint = Color(0xFF9AB5D6), // Brighter blue-grey icon
-                                modifier = Modifier.size(26.dp) // Slightly larger icon
+                                tint = Color(0xFF2C3E50), // Dark blue-grey icon
+                                modifier = Modifier.size(26.dp)
                             )
                         }
 
@@ -123,7 +130,7 @@ fun BookingMessageCard(
                                 text = "Viewing Requested",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White // White text on dark background
+                                color = Color(0xFF2C2C2C) // Dark text on silver background
                             )
 
                             // Address line - single line, grey, truncated
@@ -131,7 +138,7 @@ fun BookingMessageCard(
                                 Text(
                                     text = metadata.propertyAddress,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF8E8E93), // Gray text like LinkMessageCard
+                                    color = Color(0xFF606060), // Darker grey text
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.padding(top = 2.dp)
@@ -143,6 +150,12 @@ fun BookingMessageCard(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     // Status indicator in rounded rectangle
+                    // Debug logging for status
+                    if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                        android.util.Log.d("BookingMessageCard", "Status value for indicator: '$status'")
+                        android.util.Log.d("BookingMessageCard", "bookViewingRequestStatus: '${metadata?.bookViewingRequestStatus}'")
+                        android.util.Log.d("BookingMessageCard", "bookingStatus: '${metadata?.bookingStatus}'")
+                    }
                     BookingStatusIndicator(status = status)
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -171,7 +184,7 @@ fun BookingMessageCard(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF34495E), // Slightly lighter grey for section
+                        color = Color(0xFFA4B5D4), // Lighter blue-ish silver for section
                         tonalElevation = 1.dp
                     ) {
                         Row(
@@ -183,15 +196,23 @@ fun BookingMessageCard(
                                 imageVector = Icons.Filled.CalendarToday,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
-                                tint = Color(0xFF7B92B2) // Grey-blue icon
+                                tint = Color(0xFF2C3E50) // Dark blue-grey icon
                             )
-                            Text(
-                                text = displayTime,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                val (datePart, timePart) = splitDateTime(displayTime)
+                                Text(
+                                    text = datePart,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF2C2C2C),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = timePart,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF606060),
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
                         }
                     }
 
@@ -203,7 +224,7 @@ fun BookingMessageCard(
                             .fillMaxWidth()
                             .clickable { onQuestionnaireClick?.invoke(bookingId) },
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF34495E), // Same grey as calendar section
+                        color = Color(0xFFA4B5D4), // Same lighter blue-ish silver as calendar section
                         tonalElevation = 1.dp
                     ) {
                         Row(
@@ -215,12 +236,12 @@ fun BookingMessageCard(
                                 imageVector = Icons.Filled.Assignment,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
-                                tint = Color(0xFF7B92B2) // Grey-blue icon (aligned with calendar)
+                                tint = Color(0xFF2C3E50) // Dark blue-grey icon
                             )
                             Text(
                                 text = "Renter Questionnaire",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
+                                color = Color(0xFF2C2C2C),
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f)
                             )
@@ -228,7 +249,7 @@ fun BookingMessageCard(
                                 imageVector = Icons.Filled.ChevronRight,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp),
-                                tint = Color(0xFF7B92B2) // Grey-blue icon
+                                tint = Color(0xFF2C3E50) // Dark blue-grey icon
                             )
                         }
                     }
@@ -236,7 +257,7 @@ fun BookingMessageCard(
                     // Action buttons (only for pending bookings) - Circular iOS-style
                     if (status == "pending") {
                         Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        HorizontalDivider(color = Color(0xFF808080).copy(alpha = 0.3f))
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Row(
@@ -266,7 +287,7 @@ fun BookingMessageCard(
                                     text = "Accept",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White // White text on dark background
+                                    color = Color(0xFF2C2C2C) // Dark text
                                 )
                             }
 
@@ -293,7 +314,7 @@ fun BookingMessageCard(
                                     text = "Alter",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White // White text on dark background
+                                    color = Color(0xFF2C2C2C) // Dark text
                                 )
                             }
 
@@ -320,7 +341,7 @@ fun BookingMessageCard(
                                     text = "Decline",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White // White text on dark background
+                                    color = Color(0xFF2C2C2C) // Dark text
                                 )
                             }
                         }
@@ -329,7 +350,7 @@ fun BookingMessageCard(
                     // Check-In button for confirmed viewings on/after the viewing day
                     if (showCheckIn && onCheckIn != null) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        HorizontalDivider(color = Color(0xFF808080).copy(alpha = 0.3f))
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Button(
@@ -371,12 +392,27 @@ fun BookingMessageCard(
 }
 
 /**
- * Status indicator showing approved/pending/declined in a rounded rectangle pill.
+ * Split a formatted date/time string into date and time parts.
+ * Expected format: "MMM dd, yyyy | h:mm a" (e.g., "Feb 01, 2026 | 2:00 PM")
+ * Returns: Pair(datePart, timePart)
+ */
+private fun splitDateTime(dateTimeString: String): Pair<String, String> {
+    val parts = dateTimeString.split("|")
+    return if (parts.size == 2) {
+        Pair(parts[0].trim(), parts[1].trim())
+    } else {
+        // If format doesn't match, return the whole string as date
+        Pair(dateTimeString, "")
+    }
+}
+
+/**
+ * Status indicator showing accepted/pending/declined in a rounded rectangle pill.
  */
 @Composable
 private fun BookingStatusIndicator(status: String) {
     val (color, label, textColor) = when (status) {
-        "confirmed" -> Triple(Success, "Approved", Color.White)
+        "confirmed" -> Triple(Success, "Accepted", Color.White)
         "declined" -> Triple(Color(0xFFFF3B30), "Declined", Color.White)
         else -> Triple(Warning, "Pending", Color.White)
     }

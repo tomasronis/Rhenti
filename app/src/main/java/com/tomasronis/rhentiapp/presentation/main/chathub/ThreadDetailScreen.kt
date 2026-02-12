@@ -555,27 +555,41 @@ private fun MessageList(
                             "booking" -> {
                                 val isPreApproved = message.metadata?.bookViewingRequestStatus == "confirmed" &&
                                     message.sender == "owner"
-                                if (message.sender == "owner" && !isPreApproved) {
-                                    // Owner sending viewing link to contact
-                                    LinkMessageCard(
-                                        type = LinkMessageType.VIEWING,
-                                        propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
-                                        isFromOwner = true,
-                                        url = null,
-                                        onClick = {
-                                            android.util.Log.d("ThreadDetail", "Viewing link clicked")
-                                        }
-                                    )
-                                } else {
-                                    // Contact viewing request OR owner pre-approved viewing
-                                    BookingMessageCard(
-                                        message = message,
-                                        onApprove = onApproveBooking,
-                                        onDecline = onDeclineBooking,
-                                        onProposeAlternative = onProposeAlternative,
-                                        onCheckIn = onCheckInBooking,
-                                        onQuestionnaireClick = onQuestionnaireClick
-                                    )
+                                val viewingType = message.metadata?.bookViewingType
+                                val isActionMessage = viewingType in listOf("confirm", "decline", "change_request")
+
+                                when {
+                                    isActionMessage -> {
+                                        // Action taken on viewing request (confirm, decline, or change_request)
+                                        ViewingActionMessageCard(
+                                            message = message,
+                                            onProposeAlternative = onProposeAlternative,
+                                            onCheckIn = onCheckInBooking
+                                        )
+                                    }
+                                    message.sender == "owner" && !isPreApproved -> {
+                                        // Owner sending viewing link to contact
+                                        LinkMessageCard(
+                                            type = LinkMessageType.VIEWING,
+                                            propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
+                                            isFromOwner = true,
+                                            url = null,
+                                            onClick = {
+                                                android.util.Log.d("ThreadDetail", "Viewing link clicked")
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        // Contact viewing request OR owner pre-approved viewing
+                                        BookingMessageCard(
+                                            message = message,
+                                            onApprove = onApproveBooking,
+                                            onDecline = onDeclineBooking,
+                                            onProposeAlternative = onProposeAlternative,
+                                            onCheckIn = onCheckInBooking,
+                                            onQuestionnaireClick = onQuestionnaireClick
+                                        )
+                                    }
                                 }
                             }
                             "application" -> {
@@ -631,27 +645,41 @@ private fun MessageList(
                         "booking" -> {
                             val isPreApproved = chatMessage.metadata?.bookViewingRequestStatus == "confirmed" &&
                                 chatMessage.sender == "owner"
-                            if (chatMessage.sender == "owner" && !isPreApproved) {
-                                // Owner sending viewing link to contact (pending)
-                                LinkMessageCard(
-                                    type = LinkMessageType.VIEWING,
-                                    propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
-                                    isFromOwner = true,
-                                    url = null,
-                                    onClick = {
-                                        android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
-                                    }
-                                )
-                            } else {
-                                // Contact viewing request or owner pre-approved viewing (pending)
-                                BookingMessageCard(
-                                    message = chatMessage,
-                                    onApprove = onApproveBooking,
-                                    onDecline = onDeclineBooking,
-                                    onProposeAlternative = onProposeAlternative,
-                                    onCheckIn = onCheckInBooking,
-                                    onQuestionnaireClick = onQuestionnaireClick
-                                )
+                            val viewingType = chatMessage.metadata?.bookViewingType
+                            val isActionMessage = viewingType in listOf("confirm", "decline", "change_request")
+
+                            when {
+                                isActionMessage -> {
+                                    // Action taken on viewing request (confirm, decline, or change_request) - pending
+                                    ViewingActionMessageCard(
+                                        message = chatMessage,
+                                        onProposeAlternative = onProposeAlternative,
+                                        onCheckIn = onCheckInBooking
+                                    )
+                                }
+                                chatMessage.sender == "owner" && !isPreApproved -> {
+                                    // Owner sending viewing link to contact (pending)
+                                    LinkMessageCard(
+                                        type = LinkMessageType.VIEWING,
+                                        propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
+                                        isFromOwner = true,
+                                        url = null,
+                                        onClick = {
+                                            android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
+                                        }
+                                    )
+                                }
+                                else -> {
+                                    // Contact viewing request or owner pre-approved viewing (pending)
+                                    BookingMessageCard(
+                                        message = chatMessage,
+                                        onApprove = onApproveBooking,
+                                        onDecline = onDeclineBooking,
+                                        onProposeAlternative = onProposeAlternative,
+                                        onCheckIn = onCheckInBooking,
+                                        onQuestionnaireClick = onQuestionnaireClick
+                                    )
+                                }
                             }
                         }
                         "application" -> {
