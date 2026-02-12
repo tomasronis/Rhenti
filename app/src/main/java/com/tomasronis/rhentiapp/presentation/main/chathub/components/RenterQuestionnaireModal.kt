@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 
 /**
  * Modal dialog to display renter questionnaire/assessment data.
@@ -80,33 +81,8 @@ fun RenterQuestionnaireModal(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Contact Information Section
-                    bookingInfo?.let { info ->
-                        SectionHeader("Contact Information")
-
-                        QuestionnaireItem(
-                            label = "Full Name",
-                            value = info["fullName"] as? String ?: "Not provided"
-                        )
-                        QuestionnaireItem(
-                            label = "Email",
-                            value = info["email"] as? String ?: "Not provided"
-                        )
-                        QuestionnaireItem(
-                            label = "Phone",
-                            value = info["phone"] as? String ?: "Not provided"
-                        )
-                        QuestionnaireItem(
-                            label = "Working with a Realtor",
-                            value = if (info["realtor"] as? Boolean == true) "Yes" else "No"
-                        )
-                    }
-
                     // Renter Assessment Section
                     renterAssessment?.let { assessment ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SectionHeader("Renter Information")
-
                         QuestionnaireItem(
                             label = "Employer",
                             value = assessment["employerName"] as? String ?: "Not provided"
@@ -194,7 +170,7 @@ private fun QuestionnaireItem(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = RhentiCoral
         )
         Text(
             text = value,
