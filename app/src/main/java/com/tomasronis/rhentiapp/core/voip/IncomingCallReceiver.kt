@@ -1,10 +1,17 @@
 package com.tomasronis.rhentiapp.core.voip
 
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import com.tomasronis.rhentiapp.BuildConfig
+import com.tomasronis.rhentiapp.R
+import com.tomasronis.rhentiapp.core.notifications.NotificationChannels
+import com.tomasronis.rhentiapp.presentation.calls.active.IncomingCallActivity
 import com.twilio.voice.CallInvite
 import com.twilio.voice.CancelledCallInvite
 
@@ -15,6 +22,8 @@ class IncomingCallReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "IncomingCallReceiver"
+        private const val INCOMING_CALL_NOTIFICATION_ID = 9001
+        private const val NOTIFICATION_COLOR = 0xFF34C759.toInt() // iOS green for incoming calls
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -74,10 +83,92 @@ class IncomingCallReceiver : BroadcastReceiver() {
      * Show incoming call notification
      */
     private fun showIncomingCallNotification(context: Context, callInvite: CallInvite) {
-        // TODO: Phase 7 - Implement full-screen incoming call notification
-        // For now, this is a placeholder
-        if (BuildConfig.DEBUG) {
-            Log.d(TAG, "Would show incoming call notification for: ${callInvite.from}")
+        try {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Showing incoming call notification for: ${callInvite.from}")
+            }
+
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            // Create intent to launch incoming call screen
+            val fullScreenIntent = Intent(context, IncomingCallActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("CALL_INVITE", callInvite)
+                putExtra("CALLER_NUMBER", callInvite.from)
+            }
+
+            val fullScreenPendingIntent = PendingIntent.getActivity(
+                context,
+                INCOMING_CALL_NOTIFICATION_ID,
+                fullScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Create answer intent
+            val answerIntent = Intent(context, IncomingCallActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("CALL_INVITE", callInvite)
+                putExtra("CALLER_NUMBER", callInvite.from)
+                putExtra("AUTO_ANSWER", true)
+            }
+
+            val answerPendingIntent = PendingIntent.getActivity(
+                context,
+                INCOMING_CALL_NOTIFICATION_ID + 1,
+                answerIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Create decline intent
+            val declineIntent = Intent(context, IncomingCallReceiver::class.java).apply {
+                action = "com.rhentimobile.DECLINE_CALL"
+                putExtra("CALL_INVITE", callInvite)
+            }
+
+            val declinePendingIntent = PendingIntent.getBroadcast(
+                context,
+                INCOMING_CALL_NOTIFICATION_ID + 2,
+                declineIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            // Format caller name/number
+            val callerName = callInvite.from.substringAfter("client:").takeIf { it.isNotBlank() }
+                ?: callInvite.from
+
+            // Build notification
+            val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_INCOMING_CALL)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("Incoming Call")
+                .setContentText(callerName)
+                .setColor(NOTIFICATION_COLOR)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setOngoing(true) // Cannot be dismissed
+                .setAutoCancel(false)
+                .setFullScreenIntent(fullScreenPendingIntent, true) // Full-screen on lock screen
+                .setContentIntent(fullScreenPendingIntent)
+                .addAction(
+                    R.drawable.ic_notification,
+                    "Answer",
+                    answerPendingIntent
+                )
+                .addAction(
+                    R.drawable.ic_notification,
+                    "Decline",
+                    declinePendingIntent
+                )
+                .build()
+
+            notificationManager.notify(INCOMING_CALL_NOTIFICATION_ID, notification)
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Incoming call notification displayed")
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.e(TAG, "Failed to show incoming call notification", e)
+            }
         }
     }
 
@@ -85,9 +176,17 @@ class IncomingCallReceiver : BroadcastReceiver() {
      * Cancel incoming call notification
      */
     private fun cancelIncomingCallNotification(context: Context) {
-        // TODO: Phase 7 - Cancel notification
-        if (BuildConfig.DEBUG) {
-            Log.d(TAG, "Would cancel incoming call notification")
+        try {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(INCOMING_CALL_NOTIFICATION_ID)
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Incoming call notification cancelled")
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.e(TAG, "Failed to cancel incoming call notification", e)
+            }
         }
     }
 }
