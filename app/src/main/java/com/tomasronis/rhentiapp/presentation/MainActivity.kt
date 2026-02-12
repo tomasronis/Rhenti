@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
     // Store reference to MainTabViewModel for deep link navigation
     private var mainTabViewModel: MainTabViewModel? = null
 
+    // Store pending deep link destination when ViewModel not yet available
+    private var pendingDeepLink: DeepLinkDestination? = null
+
     // Permission launcher for notification permission (Android 13+)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -138,15 +141,31 @@ class MainActivity : ComponentActivity() {
      * Route to the appropriate destination based on deep link.
      */
     private fun routeToDestination(destination: DeepLinkDestination) {
-        val viewModel = mainTabViewModel ?: run {
+        val viewModel = mainTabViewModel
+
+        if (viewModel == null) {
+            // ViewModel not available yet (app cold start from notification)
+            // Store destination and apply it when ViewModel becomes available
             if (BuildConfig.DEBUG) {
-                Log.w(TAG, "MainTabViewModel not available yet, storing destination for later")
+                Log.w(TAG, "MainTabViewModel not available yet, storing destination: $destination")
             }
-            // TODO: Store destination and navigate after ViewModel is available
+            pendingDeepLink = destination
             return
         }
 
+        // Apply navigation immediately
+        applyDeepLinkNavigation(viewModel, destination)
+    }
+
+    /**
+     * Apply deep link navigation to the ViewModel.
+     */
+    private fun applyDeepLinkNavigation(viewModel: MainTabViewModel, destination: DeepLinkDestination) {
         lifecycleScope.launch {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Applying deep link navigation: $destination")
+            }
+
             when (destination) {
                 is DeepLinkDestination.Thread -> {
                     viewModel.setThreadIdToOpen(destination.threadId)
@@ -180,6 +199,15 @@ class MainActivity : ComponentActivity() {
      */
     fun setMainTabViewModel(viewModel: MainTabViewModel) {
         mainTabViewModel = viewModel
+
+        // Apply pending deep link if any (from notification when app was killed)
+        pendingDeepLink?.let { destination ->
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "MainTabViewModel now available, applying pending deep link: $destination")
+            }
+            applyDeepLinkNavigation(viewModel, destination)
+            pendingDeepLink = null // Clear after applying
+        }
     }
 
     /**
