@@ -41,6 +41,10 @@ coil = "2.7.0"
 # Twilio VoIP
 twilioVoice = "6.4.1"
 
+# Google Maps
+mapsCompose = "6.4.1"
+playServicesMaps = "19.1.0"
+
 # Google Services
 playServicesAuth = "21.2.0"
 googleid = "1.1.1"
@@ -129,6 +133,10 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 
 # Twilio
 twilio-voice = { group = "com.twilio", name = "voice-android", version.ref = "twilioVoice" }
+
+# Google Maps
+maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
 
 # Google Auth
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }

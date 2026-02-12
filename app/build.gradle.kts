@@ -32,6 +32,9 @@ android {
         // Google OAuth Configuration (placeholder - user must replace with actual client ID)
         manifestPlaceholders["googleClientId"] = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"YOUR_WEB_CLIENT_ID\"")
+
+        // Google Maps API Key (placeholder - replace with actual key)
+        manifestPlaceholders["mapsApiKey"] = "YOUR_MAPS_API_KEY"
     }
 
     buildTypes {
@@ -140,6 +143,10 @@ dependencies {
 
     // Twilio Voice (Phase 7)
     implementation(libs.twilio.voice)
+
+    // Google Maps
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
 
     // Google Auth
     implementation(libs.play.services.auth)

@@ -55,6 +55,7 @@ fun ThreadDetailScreen(
     val listState = rememberLazyListState()
     val context = LocalContext.current
     var showAlternativeTimePicker by remember { mutableStateOf<String?>(null) }
+    var showManageViewingMessage by remember { mutableStateOf<com.tomasronis.rhentiapp.data.chathub.models.ChatMessage?>(null) }
     var showAttachOptions by remember { mutableStateOf(false) }
     var showPropertySelection by remember { mutableStateOf(false) }
     var showPreApprovedViewing by remember { mutableStateOf(false) }
@@ -342,8 +343,17 @@ fun ThreadDetailScreen(
                             viewModel.checkInViewing(bookingId)
                         },
                         onManageViewing = { bookingId ->
-                            android.util.Log.d("ThreadDetail", "Manage viewing clicked for booking: $bookingId")
-                            // TODO: Navigate to viewing management screen
+                            // Find the message with this booking ID to pass to the sheet
+                            val targetMessage = uiState.displayMessages
+                                .filterIsInstance<com.tomasronis.rhentiapp.data.chathub.models.DisplayMessage.Server>()
+                                .map { it.message }
+                                .firstOrNull { msg ->
+                                    val meta = msg.metadata
+                                    (meta?.bookViewingId ?: meta?.bookingId ?: msg.id) == bookingId
+                                }
+                            if (targetMessage != null) {
+                                showManageViewingMessage = targetMessage
+                            }
                         },
                         listState = listState,
                         hasMoreMessages = uiState.hasMoreMessages
@@ -472,6 +482,23 @@ fun ThreadDetailScreen(
                         viewingTimeIso = viewingTimeIso
                     )
                     showPreApprovedViewing = false
+                }
+            )
+        }
+
+        // Manage viewing bottom sheet
+        showManageViewingMessage?.let { message ->
+            ManageViewingSheet(
+                message = message,
+                onDismiss = { showManageViewingMessage = null },
+                onCheckInRenter = { bookingId ->
+                    viewModel.checkInViewing(bookingId)
+                    showManageViewingMessage = null
+                },
+                onEditViewing = { bookingId ->
+                    // Open alternative time picker for editing the viewing
+                    showManageViewingMessage = null
+                    showAlternativeTimePicker = bookingId
                 }
             )
         }

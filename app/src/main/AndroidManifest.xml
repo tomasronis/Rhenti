@@ -54,6 +54,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Google Maps API Key (replace with actual key) -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
+
         <!-- VoIP Call Service (Phase 7) -->
         <service
             android:name=".core.voip.CallService"
