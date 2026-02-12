@@ -37,13 +37,27 @@ data class DeviceRegistrationRequest(
 
 /**
  * Response from device registration.
+ * API returns the created device document directly (not a success wrapper).
  */
 @JsonClass(generateAdapter = true)
 data class DeviceRegistrationResponse(
-    @Json(name = "success")
-    val success: Boolean,
-    @Json(name = "message")
-    val message: String? = null,
+    @Json(name = "_id")
+    val id: String? = null,
     @Json(name = "device_id")
-    val deviceId: String? = null
+    val deviceId: String? = null,
+    @Json(name = "account")
+    val account: String? = null,
+    @Json(name = "childAccount")
+    val childAccount: String? = null,
+    @Json(name = "token")
+    val token: String? = null,
+    @Json(name = "createdAt")
+    val createdAt: String? = null,
+    @Json(name = "updatedAt")
+    val updatedAt: String? = null,
+    // For backward compatibility with potential success wrapper responses
+    @Json(name = "success")
+    val success: Boolean? = null,
+    @Json(name = "message")
+    val message: String? = null
 )

@@ -147,12 +147,17 @@ class NotificationsRepositoryImpl @Inject constructor(
             val response = apiClient.registerDevice(request)
 
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "API Response received: success=${response.success}, message=${response.message}")
+                Log.d(TAG, "API Response received: _id=${response.id}, device_id=${response.deviceId}")
             }
 
-            if (response.success) {
+            // Check if registration was successful
+            // API returns the created device document with _id field on success
+            if (response.id != null || response.success == true) {
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "✅ Device registered successfully: ${response.message}")
+                    Log.d(TAG, "✅ Device registered successfully!")
+                    Log.d(TAG, "   MongoDB ID: ${response.id}")
+                    Log.d(TAG, "   Device ID: ${response.deviceId}")
+                    Log.d(TAG, "   Created: ${response.createdAt}")
                 }
                 Result.success(Unit)
             } else {
@@ -173,14 +178,15 @@ class NotificationsRepositoryImpl @Inject constructor(
         return try {
             val response = apiClient.signoutDevice(deviceId)
 
-            if (response.success) {
+            // Check if signout was successful
+            if (response.id != null || response.success == true) {
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Device signed out successfully: ${response.message}")
+                    Log.d(TAG, "✅ Device signed out successfully")
                 }
                 Result.success(Unit)
             } else {
                 if (BuildConfig.DEBUG) {
-                    Log.e(TAG, "Device signout failed: ${response.message}")
+                    Log.e(TAG, "❌ Device signout failed: ${response.message}")
                 }
                 Result.failure(Exception(response.message ?: "Unknown error"))
             }
