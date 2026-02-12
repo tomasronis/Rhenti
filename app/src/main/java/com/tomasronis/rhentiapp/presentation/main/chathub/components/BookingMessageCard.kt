@@ -34,6 +34,7 @@ fun BookingMessageCard(
     onApprove: (String) -> Unit,
     onDecline: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
+    onAccept: ((String) -> Unit)? = onApprove, // Alias for consistency
     onCheckIn: ((String) -> Unit)? = null,
     onQuestionnaireClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -162,23 +163,19 @@ fun BookingMessageCard(
 
                     // Calendar icon + date requested - Surface for consistent sizing
                     // Get the viewing time from metadata and format it nicely
-                    val rawTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
-                        ?: metadata?.bookViewingTime
-                        ?: metadata?.viewingTime
-
-                    // Debug logging
-                    if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
-                        android.util.Log.d("BookingMessageCard", "Booking ID: $bookingId")
-                        android.util.Log.d("BookingMessageCard", "bookViewingDateTimeArr: ${metadata?.bookViewingDateTimeArr}")
-                        android.util.Log.d("BookingMessageCard", "bookViewingTime: ${metadata?.bookViewingTime}")
-                        android.util.Log.d("BookingMessageCard", "viewingTime: ${metadata?.viewingTime}")
-                        android.util.Log.d("BookingMessageCard", "rawTime: $rawTime")
-                    }
-
-                    val displayTime = if (rawTime != null) {
-                        formatViewingDateTime(rawTime)
-                    } else {
-                        "Date not specified"
+                    // If bookViewingDateTimeArr has both date and time, combine them
+                    val displayTime = when {
+                        metadata?.bookViewingDateTimeArr?.size == 2 -> {
+                            val formattedDate = formatDateWithShortMonth(metadata.bookViewingDateTimeArr[0])
+                            "$formattedDate | ${metadata.bookViewingDateTimeArr[1]}"
+                        }
+                        metadata?.bookViewingTime != null -> {
+                            formatViewingDateTime(metadata.bookViewingTime)
+                        }
+                        metadata?.viewingTime != null -> {
+                            formatViewingDateTime(metadata.viewingTime)
+                        }
+                        else -> "Date not specified"
                     }
 
                     Surface(
@@ -198,21 +195,13 @@ fun BookingMessageCard(
                                 modifier = Modifier.size(20.dp),
                                 tint = Color(0xFF2C3E50) // Dark blue-grey icon
                             )
-                            Column(modifier = Modifier.weight(1f)) {
-                                val (datePart, timePart) = splitDateTime(displayTime)
-                                Text(
-                                    text = datePart,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF2C2C2C),
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = timePart,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF606060),
-                                    fontWeight = FontWeight.Normal
-                                )
-                            }
+                            Text(
+                                text = displayTime,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFF2C2C2C),
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
 
@@ -392,17 +381,23 @@ fun BookingMessageCard(
 }
 
 /**
- * Split a formatted date/time string into date and time parts.
- * Expected format: "MMM dd, yyyy | h:mm a" (e.g., "Feb 01, 2026 | 2:00 PM")
- * Returns: Pair(datePart, timePart)
+ * Format a date string from API format to MMM dd, yyyy format.
+ * Handles formats like "February 12, 2026" and converts to "Feb 12, 2026"
  */
-private fun splitDateTime(dateTimeString: String): Pair<String, String> {
-    val parts = dateTimeString.split("|")
-    return if (parts.size == 2) {
-        Pair(parts[0].trim(), parts[1].trim())
-    } else {
-        // If format doesn't match, return the whole string as date
-        Pair(dateTimeString, "")
+private fun formatDateWithShortMonth(dateString: String): String {
+    return try {
+        // Try to parse the full month name format
+        val inputFormat = java.text.SimpleDateFormat("MMMM d, yyyy", java.util.Locale.ENGLISH)
+        val outputFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.ENGLISH)
+        val date = inputFormat.parse(dateString)
+        if (date != null) {
+            outputFormat.format(date)
+        } else {
+            dateString // Return original if parsing fails
+        }
+    } catch (e: Exception) {
+        // If parsing fails, return original string
+        dateString
     }
 }
 

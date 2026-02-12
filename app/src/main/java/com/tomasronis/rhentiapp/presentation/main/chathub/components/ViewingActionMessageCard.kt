@@ -32,6 +32,8 @@ import com.tomasronis.rhentiapp.presentation.theme.Warning
 fun ViewingActionMessageCard(
     message: ChatMessage,
     onProposeAlternative: (String) -> Unit,
+    onAccept: ((String) -> Unit)? = null,
+    onDecline: ((String) -> Unit)? = null,
     onCheckIn: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -170,14 +172,19 @@ fun ViewingActionMessageCard(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Calendar icon + date requested - Surface for consistent sizing
-                        val rawTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
-                            ?: metadata?.bookViewingTime
-                            ?: metadata?.viewingTime
-
-                        val displayTime = if (rawTime != null) {
-                            formatViewingDateTime(rawTime)
-                        } else {
-                            "Date not specified"
+                        // If bookViewingDateTimeArr has both date and time, combine them
+                        val displayTime = when {
+                            metadata?.bookViewingDateTimeArr?.size == 2 -> {
+                                val formattedDate = formatDateWithShortMonth(metadata.bookViewingDateTimeArr[0])
+                                "$formattedDate | ${metadata.bookViewingDateTimeArr[1]}"
+                            }
+                            metadata?.bookViewingTime != null -> {
+                                formatViewingDateTime(metadata.bookViewingTime)
+                            }
+                            metadata?.viewingTime != null -> {
+                                formatViewingDateTime(metadata.viewingTime)
+                            }
+                            else -> "Date not specified"
                         }
 
                         Surface(
@@ -197,23 +204,13 @@ fun ViewingActionMessageCard(
                                     modifier = Modifier.size(20.dp),
                                     tint = Color(0xFF2C3E50) // Dark blue-grey icon
                                 )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    val (datePart, timePart) = splitDateTime(displayTime)
-                                    Text(
-                                        text = datePart,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color(0xFF2C2C2C),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    if (timePart.isNotEmpty()) {
-                                        Text(
-                                            text = timePart,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color(0xFF606060),
-                                            fontWeight = FontWeight.Normal
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = displayTime,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF2C2C2C),
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                         }
                     }
@@ -232,11 +229,14 @@ fun ViewingActionMessageCard(
 
                         // Show up to 3 alternative times
                         alternativeTimes.take(3).forEachIndexed { index, altTimeArr ->
-                            val altTime = altTimeArr.firstOrNull() ?: ""
-                            val displayAltTime = if (altTime.isNotEmpty()) {
-                                formatViewingDateTime(altTime)
-                            } else {
-                                "Alternative ${index + 1}"
+                            // If altTimeArr has both date and time, combine them
+                            val displayAltTime = when {
+                                altTimeArr.size == 2 -> {
+                                    val formattedDate = formatDateWithShortMonth(altTimeArr[0])
+                                    "$formattedDate | ${altTimeArr[1]}"
+                                }
+                                altTimeArr.isNotEmpty() -> formatViewingDateTime(altTimeArr[0])
+                                else -> "Alternative ${index + 1}"
                             }
 
                             Surface(
@@ -274,23 +274,13 @@ fun ViewingActionMessageCard(
                                             Color(0xFF2C3E50)
                                         }
                                     )
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        val (datePart, timePart) = splitDateTime(displayAltTime)
-                                        Text(
-                                            text = datePart,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color(0xFF2C2C2C),
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        if (timePart.isNotEmpty()) {
-                                            Text(
-                                                text = timePart,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color(0xFF606060),
-                                                fontWeight = FontWeight.Normal
-                                            )
-                                        }
-                                    }
+                                    Text(
+                                        text = displayAltTime,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color(0xFF2C2C2C),
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
                             }
                         }
@@ -323,8 +313,10 @@ fun ViewingActionMessageCard(
                             FilledIconButton(
                                 onClick = {
                                     if (acceptEnabled) {
-                                        // TODO: Handle accept action
-                                        android.util.Log.d("ViewingActionCard", "Accept clicked for booking: $bookingId")
+                                        if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                                            android.util.Log.d("ViewingActionCard", "Accept clicked for booking: $bookingId")
+                                        }
+                                        onAccept?.invoke(bookingId)
                                     }
                                 },
                                 modifier = Modifier.size(56.dp),
@@ -394,8 +386,10 @@ fun ViewingActionMessageCard(
                             FilledIconButton(
                                 onClick = {
                                     if (declineEnabled) {
-                                        // TODO: Handle decline action
-                                        android.util.Log.d("ViewingActionCard", "Decline clicked for booking: $bookingId")
+                                        if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                                            android.util.Log.d("ViewingActionCard", "Decline clicked for booking: $bookingId")
+                                        }
+                                        onDecline?.invoke(bookingId)
                                     }
                                 },
                                 modifier = Modifier.size(56.dp),
@@ -465,17 +459,23 @@ fun ViewingActionMessageCard(
 }
 
 /**
- * Split a formatted date/time string into date and time parts.
- * Expected format: "MMM dd, yyyy | h:mm a" (e.g., "Feb 01, 2026 | 2:00 PM")
- * Returns: Pair(datePart, timePart)
+ * Format a date string from API format to MMM dd, yyyy format.
+ * Handles formats like "February 12, 2026" and converts to "Feb 12, 2026"
  */
-private fun splitDateTime(dateTimeString: String): Pair<String, String> {
-    val parts = dateTimeString.split("|")
-    return if (parts.size == 2) {
-        Pair(parts[0].trim(), parts[1].trim())
-    } else {
-        // If format doesn't match, return the whole string as date
-        Pair(dateTimeString, "")
+private fun formatDateWithShortMonth(dateString: String): String {
+    return try {
+        // Try to parse the full month name format
+        val inputFormat = java.text.SimpleDateFormat("MMMM d, yyyy", java.util.Locale.ENGLISH)
+        val outputFormat = java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.ENGLISH)
+        val date = inputFormat.parse(dateString)
+        if (date != null) {
+            outputFormat.format(date)
+        } else {
+            dateString // Return original if parsing fails
+        }
+    } catch (e: Exception) {
+        // If parsing fails, return original string
+        dateString
     }
 }
 

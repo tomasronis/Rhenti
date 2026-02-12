@@ -165,6 +165,33 @@ interface ChatHubRepository {
     ): NetworkResult<Unit>
 
     /**
+     * Accept a viewing booking request.
+     */
+    suspend fun acceptViewingBooking(
+        bookingId: String,
+        operatorUserId: String
+    ): NetworkResult<Unit>
+
+    /**
+     * Propose alternative times for a viewing booking.
+     */
+    suspend fun alterViewingBooking(
+        bookingId: String,
+        alternatives: List<Pair<String, String>>, // List of (date, time) pairs
+        propertyId: String,
+        rsvp: Map<String, Any>,
+        toOwner: Boolean
+    ): NetworkResult<Unit>
+
+    /**
+     * Decline a viewing booking request.
+     */
+    suspend fun declineViewingBooking(
+        bookingId: String,
+        operatorUserId: String
+    ): NetworkResult<Unit>
+
+    /**
      * Pin or unpin a thread.
      */
     suspend fun updateThreadPinned(threadId: String, pinned: Boolean)

@@ -539,6 +539,94 @@ class ChatHubRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun acceptViewingBooking(
+        bookingId: String,
+        operatorUserId: String
+    ): NetworkResult<Unit> {
+        return try {
+            val request = mapOf(
+                "id" to bookingId,
+                "operatorUserId" to operatorUserId
+            )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Accepting viewing booking: $bookingId")
+            }
+
+            apiClient.acceptViewingBooking(bookingId, request)
+
+            NetworkResult.Success(Unit)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Accept viewing booking failed", e)
+            }
+            NetworkResult.Error(exception = e, cachedData = null)
+        }
+    }
+
+    override suspend fun alterViewingBooking(
+        bookingId: String,
+        alternatives: List<Pair<String, String>>,
+        propertyId: String,
+        rsvp: Map<String, Any>,
+        toOwner: Boolean
+    ): NetworkResult<Unit> {
+        return try {
+            val alternativesArray = alternatives.map { (date, time) ->
+                mapOf(
+                    "date" to date,
+                    "time" to time
+                )
+            }
+
+            val request = mapOf(
+                "alternatives" to alternativesArray,
+                "propertyId" to propertyId,
+                "rsvp" to rsvp,
+                "toOwner" to toOwner
+            )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Proposing alternatives for booking: $bookingId")
+                android.util.Log.d("ChatHubRepository", "Request: $request")
+            }
+
+            apiClient.alterViewingBooking(bookingId, request)
+
+            NetworkResult.Success(Unit)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Alter viewing booking failed", e)
+            }
+            NetworkResult.Error(exception = e, cachedData = null)
+        }
+    }
+
+    override suspend fun declineViewingBooking(
+        bookingId: String,
+        operatorUserId: String
+    ): NetworkResult<Unit> {
+        return try {
+            val request = mapOf(
+                "id" to bookingId,
+                "operatorUserId" to operatorUserId
+            )
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Declining viewing booking: $bookingId")
+            }
+
+            apiClient.declineViewingBooking(bookingId, request)
+
+            NetworkResult.Success(Unit)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Decline viewing booking failed", e)
+            }
+            NetworkResult.Error(exception = e, cachedData = null)
+        }
+    }
+
     override suspend fun updateThreadPinned(threadId: String, pinned: Boolean) {
         threadDao.updatePinned(threadId, pinned)
     }

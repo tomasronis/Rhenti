@@ -314,10 +314,10 @@ fun ThreadDetailScreen(
                             viewModel.loadMoreMessages()
                         },
                         onApproveBooking = { bookingId ->
-                            viewModel.handleBookingAction(bookingId, "confirm")
+                            viewModel.acceptViewing(bookingId)
                         },
                         onDeclineBooking = { bookingId ->
-                            viewModel.handleBookingAction(bookingId, "decline")
+                            viewModel.declineViewing(bookingId)
                         },
                         onProposeAlternative = { bookingId ->
                             showAlternativeTimePicker = bookingId
@@ -370,8 +370,45 @@ fun ThreadDetailScreen(
         showAlternativeTimePicker?.let { bookingId ->
             AlternativeTimePicker(
                 onDismiss = { showAlternativeTimePicker = null },
-                onConfirm = { times ->
-                    viewModel.proposeAlternativeTimes(bookingId, times)
+                onConfirm = { isoTimes ->
+                    // Convert ISO times to date/time pairs for the new API
+                    val alternatives = isoTimes.map { isoString ->
+                        try {
+                            val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault()).apply {
+                                timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            }
+                            val date = dateFormat.parse(isoString)
+                            if (date != null) {
+                                val calendar = java.util.Calendar.getInstance().apply {
+                                    time = date
+                                }
+                                val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(date)
+                                val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(date)
+                                Pair(dateStr, timeStr)
+                            } else {
+                                Pair("2026-01-01", "10:00")
+                            }
+                        } catch (e: Exception) {
+                            Pair("2026-01-01", "10:00")
+                        }
+                    }
+
+                    // Extract property ID and RSVP data from thread
+                    val propertyId = thread.propertyId ?: "unknown"
+                    val rsvp = mapOf(
+                        "fullName" to (thread.displayName),
+                        "phone" to (thread.phone ?: ""),
+                        "email" to (thread.email ?: ""),
+                        "realtor" to false
+                    )
+
+                    // Call the new alter viewing API
+                    viewModel.alterViewing(
+                        bookingId = bookingId,
+                        alternatives = alternatives,
+                        propertyId = propertyId,
+                        rsvp = rsvp
+                    )
                     showAlternativeTimePicker = null
                 }
             )
@@ -564,6 +601,8 @@ private fun MessageList(
                                         ViewingActionMessageCard(
                                             message = message,
                                             onProposeAlternative = onProposeAlternative,
+                                            onAccept = onApproveBooking,
+                                            onDecline = onDeclineBooking,
                                             onCheckIn = onCheckInBooking
                                         )
                                     }

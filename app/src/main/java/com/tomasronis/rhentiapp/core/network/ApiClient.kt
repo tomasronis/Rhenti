@@ -64,6 +64,28 @@ interface ApiClient {
     suspend fun proposeAlternativeTimes(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
 
     // ============================================================================
+    // Viewing/Schedule Endpoints
+    // ============================================================================
+
+    @POST("/schedule/{bookingId}/accept")
+    suspend fun acceptViewingBooking(
+        @Path("bookingId") bookingId: String,
+        @Body request: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, @JvmSuppressWildcards Any>
+
+    @POST("/schedule/{bookingId}")
+    suspend fun alterViewingBooking(
+        @Path("bookingId") bookingId: String,
+        @Body request: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, @JvmSuppressWildcards Any>
+
+    @POST("/schedule/{bookingId}/decline")
+    suspend fun declineViewingBooking(
+        @Path("bookingId") bookingId: String,
+        @Body request: Map<String, @JvmSuppressWildcards Any>
+    ): Map<String, @JvmSuppressWildcards Any>
+
+    // ============================================================================
     // Contacts Endpoints
     // ============================================================================
 

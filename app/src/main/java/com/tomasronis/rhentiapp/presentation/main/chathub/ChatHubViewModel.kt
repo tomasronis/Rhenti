@@ -819,6 +819,75 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
+     * Accept a viewing booking request.
+     */
+    fun acceptViewing(bookingId: String) {
+        viewModelScope.launch {
+            val userId = tokenManager.getUserId() ?: return@launch
+
+            when (repository.acceptViewingBooking(bookingId, userId)) {
+                is NetworkResult.Success -> {
+                    refreshMessagesIncrementally()
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(error = "Failed to accept viewing")
+                    }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
+     * Propose alternative times for a viewing.
+     * @param alternatives List of (date, time) pairs (e.g., [("2026-03-18", "10:00"), ("2026-03-03", "13:00")])
+     * @param propertyId Property ID
+     * @param rsvp RSVP details (fullName, phone, email, realtor)
+     */
+    fun alterViewing(
+        bookingId: String,
+        alternatives: List<Pair<String, String>>,
+        propertyId: String,
+        rsvp: Map<String, Any>
+    ) {
+        viewModelScope.launch {
+            when (repository.alterViewingBooking(bookingId, alternatives, propertyId, rsvp, toOwner = true)) {
+                is NetworkResult.Success -> {
+                    refreshMessagesIncrementally()
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(error = "Failed to propose alternative times")
+                    }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
+     * Decline a viewing booking request.
+     */
+    fun declineViewing(bookingId: String) {
+        viewModelScope.launch {
+            val userId = tokenManager.getUserId() ?: return@launch
+
+            when (repository.declineViewingBooking(bookingId, userId)) {
+                is NetworkResult.Success -> {
+                    refreshMessagesIncrementally()
+                }
+                is NetworkResult.Error -> {
+                    _uiState.update {
+                        it.copy(error = "Failed to decline viewing")
+                    }
+                }
+                is NetworkResult.Loading -> {}
+            }
+        }
+    }
+
+    /**
      * Fetch booking details including renter questionnaire.
      * Returns the booking data or null if the request fails.
      */
