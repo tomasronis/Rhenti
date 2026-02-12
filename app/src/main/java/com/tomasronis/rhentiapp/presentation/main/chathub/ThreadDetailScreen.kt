@@ -341,6 +341,10 @@ fun ThreadDetailScreen(
                         onCheckInBooking = { bookingId ->
                             viewModel.checkInViewing(bookingId)
                         },
+                        onManageViewing = { bookingId ->
+                            android.util.Log.d("ThreadDetail", "Manage viewing clicked for booking: $bookingId")
+                            // TODO: Navigate to viewing management screen
+                        },
                         listState = listState,
                         hasMoreMessages = uiState.hasMoreMessages
                     )
@@ -509,6 +513,7 @@ private fun MessageList(
     onDeclineBooking: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
     onCheckInBooking: (String) -> Unit,
+    onManageViewing: (String) -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState,
     hasMoreMessages: Boolean
 ) {
@@ -537,28 +542,39 @@ private fun MessageList(
                                 ImageMessageView(message = message)
                             }
                             "booking" -> {
-                                val isPreApproved = message.metadata?.bookViewingRequestStatus == "confirmed" &&
-                                    message.sender == "owner"
-                                if (message.sender == "owner" && !isPreApproved) {
-                                    // Owner sending viewing link to contact
-                                    LinkMessageCard(
-                                        type = LinkMessageType.VIEWING,
-                                        propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
-                                        isFromOwner = true,
-                                        url = null,
-                                        onClick = {
-                                            android.util.Log.d("ThreadDetail", "Viewing link clicked")
-                                        }
+                                val bookViewingType = message.metadata?.bookViewingType
+                                val isViewingStatus = bookViewingType in listOf("confirm", "decline", "change_request", "alternative")
+
+                                if (isViewingStatus) {
+                                    // Viewing status message: confirmed, declined, or alternatives proposed
+                                    com.tomasronis.rhentiapp.presentation.main.chathub.components.ViewingStatusMessageCard(
+                                        message = message,
+                                        onManageViewing = onManageViewing
                                     )
                                 } else {
-                                    // Contact viewing request OR owner pre-approved viewing
-                                    BookingMessageCard(
-                                        message = message,
-                                        onApprove = onApproveBooking,
-                                        onDecline = onDeclineBooking,
-                                        onProposeAlternative = onProposeAlternative,
-                                        onCheckIn = onCheckInBooking
-                                    )
+                                    val isPreApproved = message.metadata?.bookViewingRequestStatus == "confirmed" &&
+                                        message.sender == "owner"
+                                    if (message.sender == "owner" && !isPreApproved) {
+                                        // Owner sending viewing link to contact
+                                        LinkMessageCard(
+                                            type = LinkMessageType.VIEWING,
+                                            propertyAddress = message.metadata?.propertyAddress ?: message.text ?: "Property",
+                                            isFromOwner = true,
+                                            url = null,
+                                            onClick = {
+                                                android.util.Log.d("ThreadDetail", "Viewing link clicked")
+                                            }
+                                        )
+                                    } else {
+                                        // Contact viewing request OR owner pre-approved viewing
+                                        BookingMessageCard(
+                                            message = message,
+                                            onApprove = onApproveBooking,
+                                            onDecline = onDeclineBooking,
+                                            onProposeAlternative = onProposeAlternative,
+                                            onCheckIn = onCheckInBooking
+                                        )
+                                    }
                                 }
                             }
                             "application" -> {
@@ -610,28 +626,39 @@ private fun MessageList(
                             ImageMessageView(message = chatMessage)
                         }
                         "booking" -> {
-                            val isPreApproved = chatMessage.metadata?.bookViewingRequestStatus == "confirmed" &&
-                                chatMessage.sender == "owner"
-                            if (chatMessage.sender == "owner" && !isPreApproved) {
-                                // Owner sending viewing link to contact (pending)
-                                LinkMessageCard(
-                                    type = LinkMessageType.VIEWING,
-                                    propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
-                                    isFromOwner = true,
-                                    url = null,
-                                    onClick = {
-                                        android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
-                                    }
+                            val bookViewingType = chatMessage.metadata?.bookViewingType
+                            val isViewingStatus = bookViewingType in listOf("confirm", "decline", "change_request", "alternative")
+
+                            if (isViewingStatus) {
+                                // Viewing status message (pending): confirmed, declined, or alternatives proposed
+                                com.tomasronis.rhentiapp.presentation.main.chathub.components.ViewingStatusMessageCard(
+                                    message = chatMessage,
+                                    onManageViewing = onManageViewing
                                 )
                             } else {
-                                // Contact viewing request or owner pre-approved viewing (pending)
-                                BookingMessageCard(
-                                    message = chatMessage,
-                                    onApprove = onApproveBooking,
-                                    onDecline = onDeclineBooking,
-                                    onProposeAlternative = onProposeAlternative,
-                                    onCheckIn = onCheckInBooking
-                                )
+                                val isPreApproved = chatMessage.metadata?.bookViewingRequestStatus == "confirmed" &&
+                                    chatMessage.sender == "owner"
+                                if (chatMessage.sender == "owner" && !isPreApproved) {
+                                    // Owner sending viewing link to contact (pending)
+                                    LinkMessageCard(
+                                        type = LinkMessageType.VIEWING,
+                                        propertyAddress = chatMessage.metadata?.propertyAddress ?: chatMessage.text ?: "Property",
+                                        isFromOwner = true,
+                                        url = null,
+                                        onClick = {
+                                            android.util.Log.d("ThreadDetail", "Viewing link clicked (pending)")
+                                        }
+                                    )
+                                } else {
+                                    // Contact viewing request or owner pre-approved viewing (pending)
+                                    BookingMessageCard(
+                                        message = chatMessage,
+                                        onApprove = onApproveBooking,
+                                        onDecline = onDeclineBooking,
+                                        onProposeAlternative = onProposeAlternative,
+                                        onCheckIn = onCheckInBooking
+                                    )
+                                }
                             }
                         }
                         "application" -> {
