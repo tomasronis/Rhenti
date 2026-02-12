@@ -23,6 +23,7 @@ import com.tomasronis.rhentiapp.BuildConfig
 import kotlinx.coroutines.launch
 import com.tomasronis.rhentiapp.core.notifications.DeepLinkDestination
 import com.tomasronis.rhentiapp.core.notifications.DeepLinkHandler
+import com.tomasronis.rhentiapp.core.notifications.FcmTokenManager
 import com.tomasronis.rhentiapp.core.preferences.PreferencesManager
 import com.tomasronis.rhentiapp.core.preferences.ThemeMode
 import com.tomasronis.rhentiapp.presentation.auth.AuthViewModel
@@ -48,6 +49,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var preferencesManager: PreferencesManager
 
+    @Inject
+    lateinit var fcmTokenManager: FcmTokenManager
+
     // Store reference to MainTabViewModel for deep link navigation
     private var mainTabViewModel: MainTabViewModel? = null
 
@@ -58,8 +62,10 @@ class MainActivity : ComponentActivity() {
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "Notification permission granted: $isGranted")
         }
-        // Permission result is logged, no action needed
-        // User can still use the app without notifications
+        if (isGranted) {
+            // Permission granted - trigger device registration
+            fcmTokenManager.refreshToken()
+        }
     }
 
     companion object {
@@ -191,6 +197,8 @@ class MainActivity : ComponentActivity() {
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "Notification permission already granted")
                     }
+                    // Permission already granted - trigger device registration
+                    fcmTokenManager.refreshToken()
                 }
                 shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
                     if (BuildConfig.DEBUG) {
@@ -209,6 +217,8 @@ class MainActivity : ComponentActivity() {
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Notification permission not required on this Android version")
             }
+            // On Android <13, permission not required - trigger device registration
+            fcmTokenManager.refreshToken()
         }
     }
 }

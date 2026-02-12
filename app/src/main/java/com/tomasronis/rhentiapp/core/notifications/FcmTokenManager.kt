@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.core.notifications
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.tomasronis.rhentiapp.BuildConfig
@@ -44,15 +45,25 @@ class FcmTokenManager @Inject constructor(
                     Log.d(TAG, "FCM Token fetched: $token")
                 }
 
-                // Check if token changed
+                // Save token if changed
                 val savedToken = preferencesManager.getFcmToken()
                 if (token != savedToken) {
-                    // Save new token
                     preferencesManager.saveFcmToken(token)
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "FCM Token saved (token changed)")
+                    }
+                }
 
-                    // Sync with backend if user is logged in
-                    if (tokenManager.isAuthenticated()) {
-                        syncTokenWithBackend(token)
+                // Always sync with backend if user is authenticated
+                // (Token may have been fetched before login, so we need to register it now)
+                if (tokenManager.isAuthenticated()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "User authenticated, syncing token with backend...")
+                    }
+                    syncTokenWithBackend(token)
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "User not authenticated, deferring device registration")
                     }
                 }
             } catch (e: Exception) {
@@ -64,11 +75,15 @@ class FcmTokenManager @Inject constructor(
     }
 
     /**
-     * Sync FCM token with backend.
+     * Sync FCM token with backend using full device metadata.
      * Called when token changes or user logs in.
      */
     suspend fun syncTokenWithBackend(token: String) {
         try {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "syncTokenWithBackend() called")
+            }
+
             val userId = tokenManager.getUserId() ?: run {
                 if (BuildConfig.DEBUG) {
                     Log.w(TAG, "Cannot sync token: User ID not available")
@@ -89,61 +104,93 @@ class FcmTokenManager @Inject constructor(
                 android.provider.Settings.Secure.ANDROID_ID
             )
 
-            // Register token with backend
-            val result = notificationsRepository.registerFcmToken(
-                userId = userId,
-                superAccountId = superAccountId,
-                fcmToken = token,
-                platform = "android",
+            // Collect device metadata
+            val manufacturer = Build.MANUFACTURER
+            val model = Build.MODEL
+            val version = Build.VERSION.RELEASE
+            val brand = Build.BRAND
+            val deviceName = Build.DEVICE // Use Build.DEVICE for device name
+            val os = "Android"
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Registering device with backend:")
+                Log.d(TAG, "  device_id: $deviceId")
+                Log.d(TAG, "  account: $superAccountId")
+                Log.d(TAG, "  childAccount: $userId")
+                Log.d(TAG, "  manufacturer: $manufacturer")
+                Log.d(TAG, "  model: $model")
+                Log.d(TAG, "  version: $version")
+                Log.d(TAG, "  app_version: ${BuildConfig.VERSION_NAME}")
+                Log.d(TAG, "  name: $deviceName")
+                Log.d(TAG, "  token: ${token.take(20)}...")
+                Log.d(TAG, "  brand: $brand")
+                Log.d(TAG, "  os: $os")
+                Log.d(TAG, "Calling POST /devices/unauthorized...")
+            }
+
+            // Register device with full metadata (new spec)
+            val result = notificationsRepository.registerDevice(
                 deviceId = deviceId,
-                appVersion = BuildConfig.VERSION_NAME
+                account = superAccountId,
+                childAccount = userId,
+                manufacturer = manufacturer,
+                model = model,
+                version = version,
+                appVersion = BuildConfig.VERSION_NAME,
+                name = deviceName,
+                token = token,
+                brand = brand,
+                os = os
             )
 
             result.onSuccess {
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "FCM token synced successfully with backend")
+                    Log.d(TAG, "✅ Device registered successfully with backend")
+                    Log.d(TAG, "Device: $manufacturer $model, OS: $os $version")
                 }
             }.onFailure { error ->
                 if (BuildConfig.DEBUG) {
-                    Log.e(TAG, "Failed to sync FCM token with backend: ${error.message}")
+                    Log.e(TAG, "❌ Failed to register device with backend: ${error.message}")
+                    error.printStackTrace()
                 }
             }
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
-                Log.e(TAG, "Error syncing FCM token", e)
+                Log.e(TAG, "❌ Error syncing device registration", e)
+                e.printStackTrace()
             }
         }
     }
 
     /**
-     * Unregister FCM token from backend.
+     * Unregister device from push notifications.
      * Called on logout.
      */
     suspend fun unregisterToken() {
         try {
-            val token = preferencesManager.getFcmToken() ?: return
-            val userId = tokenManager.getUserId() ?: return
-
-            // Unregister from backend
-            val result = notificationsRepository.unregisterFcmToken(
-                userId = userId,
-                fcmToken = token
+            // Get device ID
+            val deviceId = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
             )
+
+            // Sign out device from backend
+            val result = notificationsRepository.signoutDevice(deviceId)
 
             result.onSuccess {
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "FCM token unregistered successfully")
+                    Log.d(TAG, "Device signed out successfully")
                 }
                 // Clear local token
                 preferencesManager.clearFcmToken()
             }.onFailure { error ->
                 if (BuildConfig.DEBUG) {
-                    Log.e(TAG, "Failed to unregister FCM token: ${error.message}")
+                    Log.e(TAG, "Failed to sign out device: ${error.message}")
                 }
             }
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
-                Log.e(TAG, "Error unregistering FCM token", e)
+                Log.e(TAG, "Error signing out device", e)
             }
         }
     }

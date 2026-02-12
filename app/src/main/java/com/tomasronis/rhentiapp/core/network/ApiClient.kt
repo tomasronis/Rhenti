@@ -175,6 +175,13 @@ interface ApiClient {
     @POST("/fcm/unregister")
     suspend fun unregisterFcmToken(@Body request: FcmUnregisterRequest): FcmTokenResponse
 
+    // Device Registration Endpoints (Updated spec)
+    @POST("/devices/unauthorized")
+    suspend fun registerDevice(@Body request: DeviceRegistrationRequest): DeviceRegistrationResponse
+
+    @PUT("/devices/{device_id}/signout")
+    suspend fun signoutDevice(@Path("device_id") deviceId: String): DeviceRegistrationResponse
+
     // ============================================================================
     // App Version Endpoint
     // ============================================================================
