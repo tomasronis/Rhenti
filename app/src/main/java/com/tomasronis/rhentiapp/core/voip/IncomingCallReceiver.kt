@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import com.tomasronis.rhentiapp.BuildConfig
 import com.tomasronis.rhentiapp.R
 import com.tomasronis.rhentiapp.core.notifications.NotificationChannels
-import com.tomasronis.rhentiapp.presentation.calls.active.IncomingCallActivity
+import com.tomasronis.rhentiapp.presentation.MainActivity
 import com.twilio.voice.CallInvite
 import com.twilio.voice.CancelledCallInvite
 
@@ -90,9 +90,10 @@ class IncomingCallReceiver : BroadcastReceiver() {
 
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            // Create intent to launch incoming call screen
-            val fullScreenIntent = Intent(context, IncomingCallActivity::class.java).apply {
+            // Create intent to launch main activity (will show incoming call screen)
+            val fullScreenIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                action = "com.rhentimobile.INCOMING_CALL"
                 putExtra("CALL_INVITE", callInvite)
                 putExtra("CALLER_NUMBER", callInvite.from)
             }
@@ -105,8 +106,9 @@ class IncomingCallReceiver : BroadcastReceiver() {
             )
 
             // Create answer intent
-            val answerIntent = Intent(context, IncomingCallActivity::class.java).apply {
+            val answerIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                action = "com.rhentimobile.INCOMING_CALL"
                 putExtra("CALL_INVITE", callInvite)
                 putExtra("CALLER_NUMBER", callInvite.from)
                 putExtra("AUTO_ANSWER", true)
@@ -133,11 +135,11 @@ class IncomingCallReceiver : BroadcastReceiver() {
             )
 
             // Format caller name/number
-            val callerName = callInvite.from.substringAfter("client:").takeIf { it.isNotBlank() }
-                ?: callInvite.from
+            val callerName = callInvite.from?.substringAfter("client:")?.takeIf { it.isNotBlank() }
+                ?: callInvite.from ?: "Unknown Caller"
 
             // Build notification
-            val notification = NotificationCompat.Builder(context, NotificationChannels.CHANNEL_INCOMING_CALL)
+            val notification = NotificationCompat.Builder(context, NotificationChannels.INCOMING_CALL_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("Incoming Call")
                 .setContentText(callerName)
