@@ -18,6 +18,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
 
+    <!-- Push notifications (Phase 8) - Android 13+ requires explicit permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".RhentiApplication"
         android:allowBackup="true"
@@ -32,10 +35,24 @@
         <activity
             android:name=".presentation.MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Rhenti.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep link intent filters for notifications (Phase 8) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="rhenti" android:host="thread" />
+                <data android:scheme="rhenti" android:host="contact" />
+                <data android:scheme="rhenti" android:host="call" />
+                <data android:scheme="rhenti" android:host="chats" />
+                <data android:scheme="rhenti" android:host="contacts" />
+                <data android:scheme="rhenti" android:host="calls" />
             </intent-filter>
         </activity>
 
@@ -59,6 +76,20 @@
             android:name=".core.voip.CallService"
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
+
+        <!-- Firebase Cloud Messaging Service (Phase 8) -->
+        <service
+            android:name=".core.notifications.RhentiFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Default notification channel for FCM -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/default_notification_channel_id" />
 
     </application>
 

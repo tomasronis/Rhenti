@@ -43,11 +43,6 @@ fun PreApprovedViewingSheet(
     val datePickerState = rememberDatePickerState(
         initialSelectedDateMillis = System.currentTimeMillis() + 86400_000L // Tomorrow
     )
-    val timePickerState = rememberTimePickerState(
-        initialHour = 10,
-        initialMinute = 0,
-        is24Hour = false
-    )
 
     val displayDateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val displayTimeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
@@ -318,36 +313,17 @@ fun PreApprovedViewingSheet(
         }
     }
 
-    // Time picker dialog
+    // Time picker dialog (grid-based)
     if (showTimePicker) {
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text("Select viewing time") },
-            text = {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    TimePicker(state = timePickerState)
-                }
+        GridTimePicker(
+            onDismiss = { showTimePicker = false },
+            onTimeSelected = { hour, minute ->
+                selectedHour = hour
+                selectedMinute = minute
+                hasSelectedTime = true
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedHour = timePickerState.hour
-                        selectedMinute = timePickerState.minute
-                        hasSelectedTime = true
-                        showTimePicker = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
-                    Text("Cancel")
-                }
-            }
+            initialHour = selectedHour,
+            initialMinute = selectedMinute
         )
     }
 }

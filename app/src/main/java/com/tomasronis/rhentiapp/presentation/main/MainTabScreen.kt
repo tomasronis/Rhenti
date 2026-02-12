@@ -47,6 +47,12 @@ fun MainTabScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Pass ViewModel reference to MainActivity for deep link handling (Phase 8)
+    DisposableEffect(viewModel) {
+        (context as? com.tomasronis.rhentiapp.presentation.MainActivity)?.setMainTabViewModel(viewModel)
+        onDispose { }
+    }
+
     // State for pending phone number (waiting for permission)
     var pendingPhoneNumber by remember { mutableStateOf<String?>(null) }
 

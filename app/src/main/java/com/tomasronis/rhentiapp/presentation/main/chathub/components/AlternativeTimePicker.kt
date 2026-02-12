@@ -37,11 +37,6 @@ fun AlternativeTimePicker(
     // State for the time picker dialog
     var showTimePicker by remember { mutableStateOf(false) }
     var pendingDateMillis by remember { mutableStateOf<Long?>(null) }
-    val timePickerState = rememberTimePickerState(
-        initialHour = 10,
-        initialMinute = 0,
-        is24Hour = false
-    )
 
     val displayDateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val displayTimeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
@@ -231,53 +226,29 @@ fun AlternativeTimePicker(
         }
     }
 
-    // Time picker dialog
+    // Time picker dialog (grid-based)
     if (showTimePicker && pendingDateMillis != null) {
-        AlertDialog(
-            onDismissRequest = {
+        GridTimePicker(
+            onDismiss = {
                 showTimePicker = false
                 pendingDateMillis = null
             },
-            title = { Text("Select viewing time") },
-            text = {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    TimePicker(state = timePickerState)
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingDateMillis?.let { dateMillis ->
-                            // Combine date and time
-                            val calendar = Calendar.getInstance().apply {
-                                timeInMillis = dateMillis
-                                set(Calendar.HOUR_OF_DAY, timePickerState.hour)
-                                set(Calendar.MINUTE, timePickerState.minute)
-                                set(Calendar.SECOND, 0)
-                                set(Calendar.MILLISECOND, 0)
-                            }
-                            selectedTimes = selectedTimes + TimeSlot(calendar.timeInMillis)
-                        }
-                        showTimePicker = false
-                        pendingDateMillis = null
+            onTimeSelected = { hour, minute ->
+                pendingDateMillis?.let { dateMillis ->
+                    // Combine date and time
+                    val calendar = Calendar.getInstance().apply {
+                        timeInMillis = dateMillis
+                        set(Calendar.HOUR_OF_DAY, hour)
+                        set(Calendar.MINUTE, minute)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
                     }
-                ) {
-                    Text("Add")
+                    selectedTimes = selectedTimes + TimeSlot(calendar.timeInMillis)
                 }
+                pendingDateMillis = null
             },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showTimePicker = false
-                        pendingDateMillis = null
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
+            initialHour = 10,
+            initialMinute = 0
         )
     }
 }

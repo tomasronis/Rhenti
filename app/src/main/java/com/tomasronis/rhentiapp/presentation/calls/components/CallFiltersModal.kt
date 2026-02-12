@@ -59,7 +59,7 @@ fun CallFiltersModal(
                     .wrapContentHeight()
                     .heightIn(max = 480.dp) // 40dp taller
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                    .background(Color(0xFF1C1C1E)) // Dark background
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 94.dp)
                     .clickable(enabled = false) {} // Prevent clicks from dismissing
             ) {
@@ -77,7 +77,7 @@ fun CallFiltersModal(
                         text = "Filters",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     TextButton(onClick = onDismiss) {
@@ -103,7 +103,7 @@ fun CallFiltersModal(
                     Text(
                         text = "Call Type",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color(0xFF8E8E93), // Gray text
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.SemiBold
                     )
 
@@ -197,7 +197,7 @@ private fun CallTypeOption(
     ) {
         Text(
             text = label,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontSize = 17.sp
         )
 

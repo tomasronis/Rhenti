@@ -9,8 +9,15 @@ import android.os.Build
  * Notification channels for the app.
  */
 object NotificationChannels {
+    // VoIP Call channels (Phase 7)
     const val CALL_CHANNEL_ID = "ongoing_calls"
     const val INCOMING_CALL_CHANNEL_ID = "incoming_calls"
+
+    // Push Notification channels (Phase 8)
+    const val MESSAGES_CHANNEL_ID = "messages"
+    const val VIEWINGS_CHANNEL_ID = "viewings"
+    const val APPLICATIONS_CHANNEL_ID = "applications"
+    const val GENERAL_CHANNEL_ID = "general"
 
     /**
      * Create notification channels.
@@ -44,8 +51,56 @@ object NotificationChannels {
                 enableLights(true)
             }
 
+            // Messages channel (high importance)
+            val messagesChannel = NotificationChannel(
+                MESSAGES_CHANNEL_ID,
+                "Messages",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications for new messages"
+                setShowBadge(true)
+                enableVibration(true)
+                enableLights(true)
+            }
+
+            // Viewing requests channel (high importance)
+            val viewingsChannel = NotificationChannel(
+                VIEWINGS_CHANNEL_ID,
+                "Viewing Requests",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notifications for new viewing requests"
+                setShowBadge(true)
+                enableVibration(true)
+                enableLights(true)
+            }
+
+            // Applications channel (default importance)
+            val applicationsChannel = NotificationChannel(
+                APPLICATIONS_CHANNEL_ID,
+                "Applications",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Notifications for application updates"
+                setShowBadge(true)
+            }
+
+            // General channel (default importance)
+            val generalChannel = NotificationChannel(
+                GENERAL_CHANNEL_ID,
+                "General",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "General notifications"
+                setShowBadge(false)
+            }
+
             notificationManager.createNotificationChannel(callChannel)
             notificationManager.createNotificationChannel(incomingCallChannel)
+            notificationManager.createNotificationChannel(messagesChannel)
+            notificationManager.createNotificationChannel(viewingsChannel)
+            notificationManager.createNotificationChannel(applicationsChannel)
+            notificationManager.createNotificationChannel(generalChannel)
         }
     }
 }

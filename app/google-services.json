@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "782429544800",
+    "firebase_url": "https://rhenti-chat.firebaseio.com",
+    "project_id": "rhenti-chat",
+    "storage_bucket": "rhenti-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:782429544800:android:2ad3d67935d8d47c683e05",
+        "android_client_info": {
+          "package_name": "com.rhentimobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "782429544800-dm642v0e71p95qhh6is8qta355o28kuv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCE2dBjk2b1fkziYZ4-t0fr7fWvFo75xHY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "782429544800-dm642v0e71p95qhh6is8qta355o28kuv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

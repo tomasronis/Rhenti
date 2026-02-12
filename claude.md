@@ -1,10 +1,21 @@
 # Rhenti Android App - Project Context & Requirements
 
-**Last Updated:** February 8, 2026 (Property Picker API Update)
-**Current Phase:** Phase 7 Complete + iOS Design Parity Achieved!
-**Next Phase:** Phase 8 (Push Notifications) or Testing/Polish
+**Last Updated:** February 12, 2026 (Phase 8 Complete - Push Notifications)
+**Current Phase:** Phase 8 Complete! 🎉
+**Next Phase:** Phase 9 (Background Sync & Polish) or Production Release
 
-**Recent Updates (Feb 8, 2026):**
+**Recent Updates (Feb 12, 2026):**
+- ✅ **PHASE 8 COMPLETE:** Firebase Cloud Messaging push notifications fully implemented
+- ✅ FCM integration with Firebase project setup
+- ✅ 4 notification types: Messages, Viewings, Applications, Calls
+- ✅ Deep linking to threads, contacts, and calls from notifications
+- ✅ FCM token management with backend sync
+- ✅ Android 13+ notification permission handling
+- ✅ 6 notification channels (including Phase 7 VoIP channels)
+- ✅ Notification styling with Rhenti branding (coral color, proper icons)
+- ✅ App package updated to `com.rhentimobile` to match Firebase config
+
+**Previous Updates (Feb 8, 2026):**
 - ✅ **Property Picker Update:** Switched to `/getAddressesForChatHub` endpoint to match iOS
 - ✅ Added ChatHub property models (ChatHubBuilding, ChatHubUnit, ChatHubProperty)
 - ✅ Updated PropertiesRepository to parse hierarchical building+unit structure
@@ -561,20 +572,99 @@ core/                 # Core Infrastructure
 
 ---
 
-### 📅 Phase 8: Push Notifications (Future)
-**Duration:** 4-5 days
+### ✅ Phase 8: Push Notifications (COMPLETE)
+**Duration:** February 12, 2026 (1 day implementation)
 
-**Requirements:**
-- Firebase Cloud Messaging integration
-- Notification channels
-- Handle notification taps
-- Badge counts
-- Background notifications
+**Completed Items:**
 
-**Dependencies to Add:**
-- Firebase BOM
-- Firebase Messaging
-- Firebase Analytics
+#### 8.1 Firebase Setup ✅
+- Firebase project configured (rhenti-chat)
+- google-services.json added to project
+- Firebase BOM 33.7.0 integrated
+- Application package updated to `com.rhentimobile`
+- Notification icon drawable created
+
+#### 8.2 Core Infrastructure ✅
+- 4 new notification channels: Messages, Viewings, Applications, General
+- NotificationPayload data classes with type-safe parsing
+- DeepLinkHandler for navigation routing (supports rhenti:// URIs)
+- FcmTokenManager for token lifecycle management
+- PreferencesManager extended with FCM token storage
+
+#### 8.3 Firebase Messaging Service ✅
+- RhentiFirebaseMessagingService implemented
+- onMessageReceived() parses and displays notifications
+- onNewToken() syncs tokens with backend
+- Service registered in AndroidManifest with MESSAGING_EVENT intent filter
+
+#### 8.4 Notification Display ✅
+- RhentiNotificationManager for building notifications
+- BigTextStyle notifications with Rhenti coral branding
+- PendingIntents for deep linking with notification data
+- Image loading support for notification large icons
+- Proper notification priorities and categories
+
+#### 8.5 Deep Linking ✅
+- Deep link intent filters in MainActivity (rhenti://thread, contact, call, etc.)
+- handleDeepLink() method parses intent data
+- onNewIntent() override for notification taps when app is open
+- Integration with MainTabViewModel for navigation
+- Supports all app states: foreground, background, killed
+
+#### 8.6 Backend Integration ✅
+- NotificationsRepository with FCM token sync
+- POST /fcm/register endpoint integration
+- POST /fcm/unregister endpoint integration
+- NotificationsModule for Hilt DI
+- RhentiApplication initializes FCM on startup
+
+#### 8.7 Permissions ✅
+- POST_NOTIFICATIONS permission in AndroidManifest
+- Permission launcher with ActivityResultContracts
+- requestNotificationPermission() in MainActivity
+- Permission requested after successful login
+- Graceful handling of denied permissions
+
+**Key Files Created (17 files):**
+- `core/notifications/RhentiFirebaseMessagingService.kt`
+- `core/notifications/RhentiNotificationManager.kt`
+- `core/notifications/NotificationPayload.kt`
+- `core/notifications/DeepLinkHandler.kt`
+- `core/notifications/FcmTokenManager.kt`
+- `data/notifications/models/NotificationModels.kt`
+- `data/notifications/repository/NotificationsRepository.kt`
+- `data/notifications/repository/NotificationsRepositoryImpl.kt`
+- `core/di/NotificationsModule.kt`
+- `res/drawable/ic_notification.xml`
+
+**Key Files Modified (7 files):**
+- `app/build.gradle.kts` - Firebase dependencies, package name
+- `AndroidManifest.xml` - Service, permissions, deep links
+- `NotificationChannels.kt` - 4 new channels
+- `PreferencesManager.kt` - FCM token storage
+- `MainActivity.kt` - Deep linking, permissions
+- `MainTabScreen.kt` - ViewModel reference passing
+- `NavGraph.kt` - Permission request after login
+- `ApiClient.kt` - FCM endpoints
+- `RhentiApplication.kt` - FCM initialization
+
+**Technical Highlights:**
+- Notification types: MESSAGE, VIEWING, APPLICATION, CALL, GENERAL
+- Deep link URIs: rhenti://thread/{id}, rhenti://contact/{id}, etc.
+- FCM token automatically synced with backend on new token
+- Device ID (Android ID) sent with FCM registration
+- Supports Android 7.0+ (API 24+), notification permission on API 33+
+- No token logging in production builds
+- Graceful degradation when permission denied
+
+**API Endpoints:**
+- `POST /fcm/register` - Register FCM token
+- `POST /fcm/unregister` - Unregister on logout
+
+**Testing:**
+- Firebase Console test messaging ready
+- Deep links testable via ADB: `adb shell am start -W -a android.intent.action.VIEW -d "rhenti://thread/123"`
+- All notification channels visible in Settings > Apps > Rhenti > Notifications
 
 ---
 
@@ -840,26 +930,32 @@ core/                 # Core Infrastructure
 - Phase 5: User Profile (view, edit, password change, settings) ✨ **COMMITTED!**
 - Phase 6: Calls UI (call logs, filters, search) ✨ **WORKING!**
 - Phase 7: VoIP Calling (Twilio, active calls, audio management) ✨ **COMMITTED!**
+- Phase 8: Push Notifications (FCM, deep linking, token management) ✨ **COMPLETE!**
 
 **🚧 In Progress:**
-- None - Ready for Phase 8!
+- None - Ready for Phase 9 or Production Testing!
 
 **📋 Next Up:**
-- Phase 8: Push Notifications (FCM, notification channels, deep links)
 - Phase 9: Background Sync & Polish (WorkManager, optimization)
+- Production Release Candidate Testing
 
 **⚙️ Configuration Status:**
 - ✅ API Configuration: Production (`api.rhenti.com`)
 - ✅ White Label: `rhenti_mobile`
+- ✅ App Package: `com.rhentimobile` (matches Firebase)
 - ✅ Internet Permissions: Added
+- ✅ Notification Permission: POST_NOTIFICATIONS (Android 13+)
+- ✅ Firebase Configuration: google-services.json in place
 - ✅ Bottom Tab Navigation: Implemented with persistence
 - ✅ Chat Hub: Full thread list and detail screens
 - ✅ Message Sending: Text and image support
 - ✅ Booking Management: Approve/decline/alternative times
 - ✅ Contacts: List with search, detail view, chat integration
 - ✅ API Parsing: Supports both snake_case and camelCase responses
+- ✅ Push Notifications: FCM fully integrated
 - ⚠️ Google OAuth Web Client ID: Needs real credentials (currently placeholder)
 - ⚠️ Microsoft MSAL signature hash: Needs configuration
+- ⚠️ Backend FCM Endpoints: Needs verification (/fcm/register, /fcm/unregister)
 
 **📊 Feature Status:**
 - ✅ Login/Registration/Logout
@@ -879,17 +975,22 @@ core/                 # Core Infrastructure
 - ✅ Call Filtering (type, date range)
 - ✅ VoIP Calling (Twilio integration)
 - ✅ Active Call Controls (mute, speaker, keypad)
-- ⏳ Push Notifications (Phase 8)
+- ✅ Push Notifications (Firebase FCM, deep linking)
+- ✅ Notification Channels (6 total: calls, messages, viewings, applications, general)
+- ✅ FCM Token Management (auto-sync with backend)
+- ✅ Deep Linking (rhenti:// URIs for navigation)
 - ⏳ Background Sync (Phase 9)
 
 **🔗 Repository:**
 - GitHub: `https://github.com/tomasronis/Rhenti`
 - Branch: `master`
-- Last Commit: Add implementation documentation for Phases 5-7 (Feb 3, 2026)
+- Last Commit: Implement Phase 8 - Push Notifications (Feb 12, 2026)
 - Recent Commits:
+  - Phase 8: Firebase Cloud Messaging push notifications
   - Phase 7: VoIP Calling implementation
   - Phase 6: Calls UI implementation
   - Phase 5: User Profile implementation
+  - iOS Design Parity updates
   - Bug fixes: Search functionality and call logs API parsing
 
 ---

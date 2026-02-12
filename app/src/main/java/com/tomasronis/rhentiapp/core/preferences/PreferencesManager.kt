@@ -53,6 +53,7 @@ class PreferencesManager @Inject constructor(
         private val MEDIA_RETENTION_KEY = stringPreferencesKey("media_retention")
         private val MESSAGES_PER_CHAT_KEY = intPreferencesKey("messages_per_chat")
         private val LAST_MEDIA_CLEANUP_KEY = longPreferencesKey("last_media_cleanup")
+        private val FCM_TOKEN_KEY = stringPreferencesKey("fcm_token")
     }
 
     /**
@@ -142,6 +143,42 @@ class PreferencesManager @Inject constructor(
     suspend fun setLastMediaCleanup(timestamp: Long) {
         dataStore.edit { preferences ->
             preferences[LAST_MEDIA_CLEANUP_KEY] = timestamp
+        }
+    }
+
+    /**
+     * Flow that emits the current FCM token.
+     */
+    val fcmToken: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[FCM_TOKEN_KEY]
+    }
+
+    /**
+     * Save the FCM token.
+     */
+    suspend fun saveFcmToken(token: String) {
+        dataStore.edit { preferences ->
+            preferences[FCM_TOKEN_KEY] = token
+        }
+    }
+
+    /**
+     * Get the FCM token synchronously (for immediate use).
+     */
+    suspend fun getFcmToken(): String? {
+        var token: String? = null
+        dataStore.edit { preferences ->
+            token = preferences[FCM_TOKEN_KEY]
+        }
+        return token
+    }
+
+    /**
+     * Clear the FCM token (on logout).
+     */
+    suspend fun clearFcmToken() {
+        dataStore.edit { preferences ->
+            preferences.remove(FCM_TOKEN_KEY)
         }
     }
 }

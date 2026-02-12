@@ -64,10 +64,10 @@ fun MessageFiltersModal(
                 modifier = modifier
                     .fillMaxWidth()
                     .wrapContentHeight()
-                    .heightIn(max = 680.dp) // Reduced by 20dp
+                    .heightIn(max = 560.dp) // Reduced height
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                    .background(Color(0xFF1C1C1E)) // Dark background
-                    .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp) // Reduced top padding
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp)
                     .clickable(enabled = false) {} // Prevent clicks from dismissing
             ) {
             // Header
@@ -82,7 +82,7 @@ fun MessageFiltersModal(
                     text = "Filters",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 TextButton(onClick = onDismiss) {
@@ -108,7 +108,7 @@ fun MessageFiltersModal(
                 Text(
                     text = "Status Filters",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF8E8E93), // Gray text
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -120,7 +120,7 @@ fun MessageFiltersModal(
                 ) {
                     Text(
                         text = "Unread Only",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 17.sp
                     )
 
@@ -142,7 +142,7 @@ fun MessageFiltersModal(
                 Text(
                     text = "Application Status",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF8E8E93),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -159,7 +159,7 @@ fun MessageFiltersModal(
                 Text(
                     text = "Viewing Status",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF8E8E93),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -209,7 +209,7 @@ private fun FilterDropdown(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    color = Color(0xFF2C2C2E), // Dark gray background
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(12.dp)
                 )
                 .clickable { expanded = true }
@@ -219,7 +219,7 @@ private fun FilterDropdown(
         ) {
             Text(
                 text = label,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 17.sp
             )
 
@@ -229,14 +229,14 @@ private fun FilterDropdown(
             ) {
                 Text(
                     text = selectedValue,
-                    color = Color(0xFF8E8E93),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 17.sp
                 )
 
                 androidx.compose.material3.Icon(
                     imageVector = androidx.compose.material.icons.Icons.Filled.KeyboardArrowDown,
                     contentDescription = "Expand",
-                    tint = Color(0xFF8E8E93),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -247,14 +247,14 @@ private fun FilterDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF2C2C2E))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             options.forEach { option ->
                 DropdownMenuItem(
                     text = {
                         Text(
                             text = option,
-                            color = if (option == selectedValue) Color(0xFFE8998D) else Color.White,
+                            color = if (option == selectedValue) Color(0xFFE8998D) else MaterialTheme.colorScheme.onSurface,
                             fontSize = 17.sp
                         )
                     },
@@ -263,7 +263,7 @@ private fun FilterDropdown(
                         expanded = false
                     },
                     colors = MenuDefaults.itemColors(
-                        textColor = Color.White
+                        textColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             }

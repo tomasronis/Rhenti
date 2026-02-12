@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.core.network
 
 import com.tomasronis.rhentiapp.data.auth.models.*
+import com.tomasronis.rhentiapp.data.notifications.models.*
 import okhttp3.ResponseBody
 import retrofit2.http.*
 
@@ -163,6 +164,16 @@ interface ApiClient {
 
     @GET("/getAddressesForChatHub")
     suspend fun getAddressesForChatHub(): List<Map<String, @JvmSuppressWildcards Any>>
+
+    // ============================================================================
+    // FCM Push Notifications Endpoints (Phase 8)
+    // ============================================================================
+
+    @POST("/fcm/register")
+    suspend fun registerFcmToken(@Body request: FcmTokenRequest): FcmTokenResponse
+
+    @POST("/fcm/unregister")
+    suspend fun unregisterFcmToken(@Body request: FcmUnregisterRequest): FcmTokenResponse
 
     // ============================================================================
     // App Version Endpoint
