@@ -169,8 +169,6 @@ fun ThreadListScreen(
             MessageFiltersModal(
                 unreadOnly = uiState.unreadOnly,
                 onUnreadOnlyChange = { viewModel.setUnreadOnly(it) },
-                noActivity = uiState.noActivity,
-                onNoActivityChange = { viewModel.setNoActivity(it) },
                 applicationStatus = uiState.applicationStatus,
                 onApplicationStatusChange = { viewModel.setApplicationStatus(it) },
                 viewingStatus = uiState.viewingStatus,

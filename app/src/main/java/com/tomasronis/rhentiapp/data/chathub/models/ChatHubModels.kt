@@ -52,8 +52,20 @@ data class ChatMessage(
     val type: String, // "text", "image", "booking"
     val attachmentUrl: String?,
     val metadata: MessageMetadata?,
+    val displayProps: MessageDisplayProps?, // Display properties including bot flag
     val status: String, // "sending", "sent", "failed"
     val createdAt: Long
+)
+
+/**
+ * Display properties for a message (from API displayProps field).
+ * Contains information about the sender's display characteristics.
+ */
+@Immutable
+data class MessageDisplayProps(
+    val name: String?,
+    val avatar: String?,
+    val isBot: Boolean = false
 )
 
 /**

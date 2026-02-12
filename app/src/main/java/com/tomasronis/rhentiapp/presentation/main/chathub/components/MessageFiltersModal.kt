@@ -29,8 +29,6 @@ import androidx.compose.ui.window.DialogProperties
 fun MessageFiltersModal(
     unreadOnly: Boolean,
     onUnreadOnlyChange: (Boolean) -> Unit,
-    noActivity: Boolean,
-    onNoActivityChange: (Boolean) -> Unit,
     applicationStatus: String,
     onApplicationStatusChange: (String) -> Unit,
     viewingStatus: String,
@@ -134,30 +132,6 @@ fun MessageFiltersModal(
                             checkedTrackColor = Color(0xFF34C759), // iOS green
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = Color(0xFF39393D) // Dark gray
-                        )
-                    )
-                }
-
-                // No Activity toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "No Activity",
-                        color = Color.White,
-                        fontSize = 17.sp
-                    )
-
-                    Switch(
-                        checked = noActivity,
-                        onCheckedChange = onNoActivityChange,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF34C759),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFF39393D)
                         )
                     )
                 }

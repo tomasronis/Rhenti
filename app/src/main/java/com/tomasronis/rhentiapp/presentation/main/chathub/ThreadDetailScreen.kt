@@ -19,8 +19,10 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -59,6 +61,9 @@ fun ThreadDetailScreen(
     var showPropertySelection by remember { mutableStateOf(false) }
     var showPreApprovedViewing by remember { mutableStateOf(false) }
     var pendingLinkType by remember { mutableStateOf<String?>(null) } // "viewing-link" or "application-link"
+    var showQuestionnaireModal by remember { mutableStateOf(false) }
+    var questionnaireData by remember { mutableStateOf<Map<String, Any>?>(null) }
+    val scope = rememberCoroutineScope()
 
     // Get all properties from ViewModel
     val allProperties by propertiesViewModel.properties.collectAsState()
@@ -260,21 +265,12 @@ fun ThreadDetailScreen(
             }
         },
         bottomBar = {
-            // Detect keyboard visibility for conditional positioning
-            val density = LocalDensity.current
-            val imeBottomPadding = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-            val isKeyboardVisible = imeBottomPadding > 0.dp
-
-            // Offset down when keyboard visible to compensate for over-positioning
-            // Final adjustment: 120dp + 8dp for remaining 2mm = 128dp total
-            val offsetY = if (isKeyboardVisible) 128.dp else 0.dp
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .imePadding() // Position above keyboard
-                    .offset(y = offsetY) // Move down when keyboard visible to fix positioning
-                    .padding(bottom = if (isKeyboardVisible) 0.dp else 6.dp)
+                    .navigationBarsPadding() // Position above system navigation bar
+                    .imePadding() // When keyboard appears, position above it
+                    .offset(y = 8.dp) // Move 8dp closer to navigation bar
             ) {
                 MessageInputBar(
                     onSendMessage = { text ->
@@ -287,23 +283,11 @@ fun ThreadDetailScreen(
             }
         }
     ) { paddingValues ->
-        // Detect keyboard visibility for conditional content padding
-        val density = LocalDensity.current
-        val imeBottomPadding = with(density) { WindowInsets.ime.getBottom(this).toDp() }
-        val isKeyboardVisible = imeBottomPadding > 0.dp
-
-        // Bottom padding: 3mm gap when keyboard visible, 12mm higher when hidden
-        val contentBottomPadding = if (isKeyboardVisible) 12.dp else 57.dp
-
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .padding(
-                    top = paddingValues.calculateTopPadding(),
-                    start = paddingValues.calculateLeftPadding(layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr),
-                    end = paddingValues.calculateRightPadding(layoutDirection = androidx.compose.ui.unit.LayoutDirection.Ltr),
-                    bottom = contentBottomPadding
-                )
+                .padding(paddingValues)
+                .padding(top = 8.dp) // Spacing from top
         ) {
             when {
                 uiState.isLoading && uiState.displayMessages.isEmpty() -> {
@@ -341,8 +325,17 @@ fun ThreadDetailScreen(
                         onCheckInBooking = { bookingId ->
                             viewModel.checkInViewing(bookingId)
                         },
+                        onQuestionnaireClick = { bookingId ->
+                            scope.launch {
+                                viewModel.fetchBookingDetails(bookingId)?.let { data ->
+                                    questionnaireData = data
+                                    showQuestionnaireModal = true
+                                }
+                            }
+                        },
                         listState = listState,
-                        hasMoreMessages = uiState.hasMoreMessages
+                        hasMoreMessages = uiState.hasMoreMessages,
+                        renterName = thread.displayName  // Pass renter name to identify Leasa
                     )
                 }
             }
@@ -471,6 +464,27 @@ fun ThreadDetailScreen(
                 }
             )
         }
+
+        // Renter Questionnaire Modal
+        questionnaireData?.let { data ->
+            if (showQuestionnaireModal) {
+                @Suppress("UNCHECKED_CAST")
+                val renterAssessment = data["renterAssessment"] as? Map<String, Any>
+                @Suppress("UNCHECKED_CAST")
+                val booking = data["booking"] as? Map<String, Any>
+                @Suppress("UNCHECKED_CAST")
+                val bookingInfo = booking?.get("booking_info") as? Map<String, Any>
+
+                RenterQuestionnaireModal(
+                    renterAssessment = renterAssessment,
+                    bookingInfo = bookingInfo,
+                    onDismiss = {
+                        showQuestionnaireModal = false
+                        questionnaireData = null
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -509,8 +523,10 @@ private fun MessageList(
     onDeclineBooking: (String) -> Unit,
     onProposeAlternative: (String) -> Unit,
     onCheckInBooking: (String) -> Unit,
+    onQuestionnaireClick: ((String) -> Unit)? = null,
     listState: androidx.compose.foundation.lazy.LazyListState,
-    hasMoreMessages: Boolean
+    hasMoreMessages: Boolean,
+    renterName: String? = null  // Name of the renter (for identifying Leasa)
 ) {
     LazyColumn(
         state = listState,
@@ -557,7 +573,8 @@ private fun MessageList(
                                         onApprove = onApproveBooking,
                                         onDecline = onDeclineBooking,
                                         onProposeAlternative = onProposeAlternative,
-                                        onCheckIn = onCheckInBooking
+                                        onCheckIn = onCheckInBooking,
+                                        onQuestionnaireClick = onQuestionnaireClick
                                     )
                                 }
                             }
@@ -580,7 +597,8 @@ private fun MessageList(
                             else -> {
                                 MessageBubble(
                                     message = message,
-                                    onRetry = null // Server messages don't need retry
+                                    onRetry = null, // Server messages don't need retry
+                                    senderName = if (message.sender == "renter") renterName else null
                                 )
                             }
                         }
@@ -597,6 +615,7 @@ private fun MessageList(
                         type = pending.type,
                         attachmentUrl = pending.imageData,
                         metadata = pending.metadata,
+                        displayProps = null, // Pending messages don't have display props
                         status = when (displayMessage.status) {
                             com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENDING -> "sending"
                             com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.SENT -> "sent"
@@ -630,7 +649,8 @@ private fun MessageList(
                                     onApprove = onApproveBooking,
                                     onDecline = onDeclineBooking,
                                     onProposeAlternative = onProposeAlternative,
-                                    onCheckIn = onCheckInBooking
+                                    onCheckIn = onCheckInBooking,
+                                    onQuestionnaireClick = onQuestionnaireClick
                                 )
                             }
                         }
@@ -651,7 +671,8 @@ private fun MessageList(
                                 message = chatMessage,
                                 onRetry = if (displayMessage.status == com.tomasronis.rhentiapp.data.chathub.models.MessageStatus.FAILED) {
                                     { onRetryMessage(pending.localId) }
-                                } else null
+                                } else null,
+                                senderName = if (chatMessage.sender == "renter") renterName else null
                             )
                         }
                     }

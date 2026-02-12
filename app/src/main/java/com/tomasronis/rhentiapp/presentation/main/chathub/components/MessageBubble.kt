@@ -1,5 +1,6 @@
 package com.tomasronis.rhentiapp.presentation.main.chathub.components
 
+import android.text.Html
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,10 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.text.HtmlCompat
 import com.tomasronis.rhentiapp.data.chathub.models.ChatMessage
 import com.tomasronis.rhentiapp.presentation.theme.*
 import java.text.SimpleDateFormat
@@ -34,19 +37,19 @@ fun MessageBubble(
     senderName: String? = null,  // Deprecated - kept for compatibility
     modifier: Modifier = Modifier
 ) {
-    val isOwner = message.sender == "owner"
     val isBot = message.displayProps?.isBot == true
+    val isOwner = message.sender == "owner"  // All owner messages (including bot-assisted)
 
-    // Determine bubble color and text color
+    // Determine bubble color and text color (check bot first for color!)
     val bubbleColor = when {
-        isOwner -> ChatBubbleUser  // Darker blue for user messages
-        isBot -> ChatBubbleLeasa  // Coral/pink for bot messages
-        else -> ChatBubbleRenter  // Gray for other contacts
+        isBot -> ChatBubbleLeasa  // Coral/pink for AI-assisted owner messages
+        isOwner -> ChatBubbleUser  // Darker blue for regular owner messages
+        else -> ChatBubbleRenter  // Gray for renter/contact messages
     }
 
     val textColor = when {
-        isOwner -> Color.White  // White text on blue
         isBot -> ChatBubbleLeasaText  // Dark text on coral/pink
+        isOwner -> Color.White  // White text on blue
         else -> Color.Black  // Black text on gray
     }
 
@@ -76,20 +79,33 @@ fun MessageBubble(
                         .padding(12.dp)
                 ) {
                     if (message.text != null) {
+                        // Decode HTML for bot messages
+                        val displayText = if (isBot) {
+                            // Parse HTML and convert to plain text
+                            HtmlCompat.fromHtml(message.text, HtmlCompat.FROM_HTML_MODE_COMPACT).toString().trim()
+                        } else {
+                            message.text
+                        }
+
                         Text(
-                            text = message.text,
+                            text = displayText,
                             style = MaterialTheme.typography.bodyMedium,
                             color = textColor
                         )
                     }
                 }
 
-                // Bot avatar for bot messages
+                // Bot avatar for AI-assisted owner messages (top-right corner)
                 if (isBot) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .offset(x = (-8).dp, y = 8.dp)
+                            .align(Alignment.TopEnd)
+                            .offset(x = 8.dp, y = (-8).dp)  // Offset to top-right, outside the bubble
+                            .shadow(
+                                elevation = 4.dp,
+                                shape = CircleShape,
+                                clip = false
+                            )
                             .size(32.dp)
                             .clip(CircleShape)
                     ) {

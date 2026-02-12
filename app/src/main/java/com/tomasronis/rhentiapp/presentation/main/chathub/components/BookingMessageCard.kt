@@ -79,7 +79,7 @@ fun BookingMessageCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF2C3E50) // Dark grey background
+                    containerColor = Color(0xFF3C4F63) // Lighter grey background
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -100,12 +100,12 @@ fun BookingMessageCard(
                             modifier = Modifier
                                 .size(48.dp)
                                 .background(
-                                    color = Color(0xFF7B92B2).copy(alpha = 0.2f), // Grey-blue with alpha
+                                    color = Color(0xFF7B92B2).copy(alpha = 0.4f), // More opaque grey-blue
                                     shape = CircleShape
                                 )
                                 .border(
-                                    width = 1.dp,
-                                    color = Color(0xFF7B92B2).copy(alpha = 0.3f),
+                                    width = 1.5.dp,
+                                    color = Color(0xFF7B92B2).copy(alpha = 0.6f), // More visible border
                                     shape = CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -113,8 +113,8 @@ fun BookingMessageCard(
                             Icon(
                                 imageVector = Icons.Filled.Home,
                                 contentDescription = "Property",
-                                tint = Color(0xFF7B92B2), // Grey-blue icon
-                                modifier = Modifier.size(24.dp)
+                                tint = Color(0xFF9AB5D6), // Brighter blue-grey icon
+                                modifier = Modifier.size(26.dp) // Slightly larger icon
                             )
                         }
 
@@ -152,6 +152,15 @@ fun BookingMessageCard(
                     val rawTime = metadata?.bookViewingDateTimeArr?.firstOrNull()
                         ?: metadata?.bookViewingTime
                         ?: metadata?.viewingTime
+
+                    // Debug logging
+                    if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                        android.util.Log.d("BookingMessageCard", "Booking ID: $bookingId")
+                        android.util.Log.d("BookingMessageCard", "bookViewingDateTimeArr: ${metadata?.bookViewingDateTimeArr}")
+                        android.util.Log.d("BookingMessageCard", "bookViewingTime: ${metadata?.bookViewingTime}")
+                        android.util.Log.d("BookingMessageCard", "viewingTime: ${metadata?.viewingTime}")
+                        android.util.Log.d("BookingMessageCard", "rawTime: $rawTime")
+                    }
 
                     val displayTime = if (rawTime != null) {
                         formatViewingDateTime(rawTime)
@@ -483,37 +492,65 @@ private fun formatTimestamp(timestamp: Long): String {
  * Example: "Feb 01, 2026 | 2:00 PM"
  */
 private fun formatViewingDateTime(dateTimeString: String): String {
+    if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+        android.util.Log.d("BookingMessageCard", "formatViewingDateTime input: $dateTimeString")
+    }
+
     return try {
         // Try parsing as Unix timestamp (milliseconds)
         val timestamp = dateTimeString.toLongOrNull()
         val date = if (timestamp != null && timestamp > 1000000000000L) {
             // Valid Unix timestamp in milliseconds
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.d("BookingMessageCard", "Parsed as Unix timestamp: $timestamp")
+            }
             java.util.Date(timestamp)
         } else {
-            // Try parsing as ISO 8601 or other date format
-            val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
-            isoFormat.isLenient = true
+            // Try parsing as ISO 8601 with various formats
             try {
-                isoFormat.parse(dateTimeString)
+                // Try ISO 8601 with milliseconds and timezone: "2026-02-12T15:45:00.000Z"
+                val isoFormatZ = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.getDefault())
+                isoFormatZ.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                isoFormatZ.parse(dateTimeString)
             } catch (e: Exception) {
-                // Try other common formats
                 try {
-                    val altFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-                    altFormat.parse(dateTimeString)
+                    // Try ISO 8601 without milliseconds: "2026-02-12T15:45:00Z"
+                    val isoFormatSimple = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.getDefault())
+                    isoFormatSimple.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    isoFormatSimple.parse(dateTimeString)
                 } catch (e2: Exception) {
-                    // If all parsing fails, return the original string
-                    return dateTimeString
+                    try {
+                        // Try ISO 8601 without timezone: "2026-02-12T15:45:00"
+                        val isoFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                        isoFormat.parse(dateTimeString)
+                    } catch (e3: Exception) {
+                        try {
+                            // Try other common format: "2026-02-12 15:45:00"
+                            val altFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                            altFormat.parse(dateTimeString)
+                        } catch (e4: Exception) {
+                            // If all parsing fails, return the original string
+                            return dateTimeString
+                        }
+                    }
                 }
             }
         }
 
-        // Format as: "MMM DD, YYYY | TIME"
+        // Format as: "MMM dd, yyyy | h:mm a"
         val dateFormat = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
         val timeFormat = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
 
-        "${dateFormat.format(date)} | ${timeFormat.format(date)}"
+        val formatted = "${dateFormat.format(date)} | ${timeFormat.format(date)}"
+        if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+            android.util.Log.d("BookingMessageCard", "Successfully formatted to: $formatted")
+        }
+        formatted
     } catch (e: Exception) {
         // If anything fails, return the original string
+        if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+            android.util.Log.e("BookingMessageCard", "Failed to parse datetime: ${e.message}", e)
+        }
         dateTimeString
     }
 }

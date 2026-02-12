@@ -332,11 +332,11 @@ private fun PlatformTag(
         else -> Color(0xFF5856D6) // Purple for unknown platforms
     }
 
-    // Use dark text on coral background, white text on everything else
-    val textColor = if (channelLower.contains("rhenti")) {
-        Color(0xFF4A2C28) // Dark brown text on coral (same as bot message text)
-    } else {
-        Color.White // White text on all other backgrounds
+    // Use dark text on coral and gray backgrounds, white text on everything else
+    val textColor = when {
+        channelLower.contains("rhenti") -> Color(0xFF4A2C28) // Dark brown text on coral (same as bot message text)
+        channelLower == "other" -> Color(0xFF212121) // Dark gray/black text on gray background
+        else -> Color.White // White text on all other backgrounds
     }
 
     Box(
@@ -368,12 +368,13 @@ private fun getPropertyAddress(thread: ChatThread): String {
  * Maps channel names to display names.
  */
 private fun getPlatformName(thread: ChatThread): String {
-    return when (thread.channel?.lowercase()) {
-        "facebook" -> "Facebook"
-        "kijiji" -> "Kijiji"
-        "zumper" -> "Zumper"
-        "rhenti" -> "rhenti"
-        "facebook-listing-page", "facebook_listing_page" -> "Rhenti-powered listing pages"
+    val channelLower = thread.channel?.lowercase() ?: ""
+    return when {
+        channelLower == "facebook" -> "Facebook"
+        channelLower == "kijiji" -> "Kijiji"
+        channelLower == "zumper" -> "Zumper"
+        channelLower == "rhenti" || channelLower == "rhenti.com" -> "Rhenti"
+        channelLower == "facebook-listing-page" || channelLower == "facebook_listing_page" -> "Rhenti-powered listing pages"
         else -> thread.channel?.replaceFirstChar { it.uppercase() } ?: "Rhenti"
     }
 }

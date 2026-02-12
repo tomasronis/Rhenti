@@ -92,11 +92,11 @@ val DividerLight = Color(0xFFE0E0E0)  // Light divider
 // Chat Colors
 val ChatBubbleOwner = Color(0xFF1E3A5F)  // Owner messages in dark blue
 val ChatBubbleUser = Color(0xFF1E3A5F)  // User/Owner messages in dark blue
-val ChatBubbleLeasa = Color(0xFFFA9483)  // AI bot messages in coral/pink (from bot icon)
+val ChatBubbleLeasa = RhentiCoral  // AI bot messages in coral/pink (matches brand color)
 val ChatBubbleRenter = Color(0xFFE8E9F3)  // Other contacts in light gray
 val ChatBubbleOwnerDark = DarkSurface
 val ChatBubbleRenterDark = DarkSurfaceVariant
-val ChatBubbleLeasaText = Color(0xFF4A2C28)  // Darker text for Leasa messages
+val ChatBubbleLeasaText = Color(0xFF4A2C28)  // Dark brown text for Leasa messages (good contrast on coral)
 
 // Status Colors
 val UnreadBadge = Color(0xFFFF3B30)

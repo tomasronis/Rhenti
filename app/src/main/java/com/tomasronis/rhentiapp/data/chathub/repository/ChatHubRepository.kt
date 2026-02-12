@@ -48,6 +48,21 @@ interface ChatHubRepository {
     ): NetworkResult<List<ChatMessage>>
 
     /**
+     * Get viewings and applications for a specific thread.
+     * Returns booking/viewing details with datetime information.
+     *
+     * @param threadId The thread ID
+     */
+    suspend fun getViewingsAndApplications(threadId: String): NetworkResult<Map<String, Any>>
+
+    /**
+     * Get booking details including renter questionnaire.
+     *
+     * @param bookingId The booking ID
+     */
+    suspend fun getBookingDetails(bookingId: String): NetworkResult<Map<String, Any>>
+
+    /**
      * Send a text message.
      *
      * @param senderId The sender's user ID

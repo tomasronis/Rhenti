@@ -80,7 +80,6 @@ class ChatHubViewModel @Inject constructor(
                 skip = 0,
                 limit = 20,
                 unreadOnly = currentState.unreadOnly,
-                noActivity = currentState.noActivity,
                 applicationStatus = currentState.applicationStatus,
                 viewingStatus = currentState.viewingStatus
             )) {
@@ -133,7 +132,6 @@ class ChatHubViewModel @Inject constructor(
                 skip = skip,
                 limit = 20,
                 unreadOnly = currentState.unreadOnly,
-                noActivity = currentState.noActivity,
                 applicationStatus = currentState.applicationStatus,
                 viewingStatus = currentState.viewingStatus
             )) {
@@ -821,6 +819,23 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
+     * Fetch booking details including renter questionnaire.
+     * Returns the booking data or null if the request fails.
+     */
+    suspend fun fetchBookingDetails(bookingId: String): Map<String, Any>? {
+        return when (val result = repository.getBookingDetails(bookingId)) {
+            is NetworkResult.Success -> result.data
+            is NetworkResult.Error -> {
+                _uiState.update {
+                    it.copy(error = "Failed to load questionnaire")
+                }
+                null
+            }
+            is NetworkResult.Loading -> null
+        }
+    }
+
+    /**
      * Handle an incoming message from real-time updates (future: WebSocket/FCM).
      * Matches iOS handleIncomingMessage() implementation.
      * Returns true if the message was for the current thread and was added.
@@ -876,7 +891,7 @@ class ChatHubViewModel @Inject constructor(
         if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
             android.util.Log.d("ChatHubViewModel", "=== APPLYING FILTERS ===")
             android.util.Log.d("ChatHubViewModel", "Total threads: ${_rawThreads.value.size}")
-            android.util.Log.d("ChatHubViewModel", "Filters: unreadOnly=${currentState.unreadOnly}, noActivity=${currentState.noActivity}, appStatus=${currentState.applicationStatus}, viewStatus=${currentState.viewingStatus}")
+            android.util.Log.d("ChatHubViewModel", "Filters: unreadOnly=${currentState.unreadOnly}, appStatus=${currentState.applicationStatus}, viewStatus=${currentState.viewingStatus}")
         }
 
         // Apply search filter
@@ -899,21 +914,6 @@ class ChatHubViewModel @Inject constructor(
             }
             if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
                 android.util.Log.d("ChatHubViewModel", "After unread filter: ${filtered.size} threads")
-            }
-        }
-
-        // Apply no activity filter (threads with no messages)
-        if (currentState.noActivity) {
-            val beforeCount = filtered.size
-            filtered = filtered.filter { thread ->
-                val hasNoActivity = thread.lastMessage.isNullOrEmpty()
-                if (com.tomasronis.rhentiapp.BuildConfig.DEBUG && hasNoActivity) {
-                    android.util.Log.d("ChatHubViewModel", "Thread '${thread.displayName}' has no activity (lastMessage=${thread.lastMessage})")
-                }
-                hasNoActivity
-            }
-            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
-                android.util.Log.d("ChatHubViewModel", "After no activity filter: ${filtered.size} threads (was $beforeCount)")
             }
         }
 
@@ -953,14 +953,6 @@ class ChatHubViewModel @Inject constructor(
     }
 
     /**
-     * Update filter: No Activity
-     */
-    fun setNoActivity(enabled: Boolean) {
-        _uiState.update { it.copy(noActivity = enabled) }
-        applyFilters()
-    }
-
-    /**
      * Update filter: Application Status
      */
     fun setApplicationStatus(status: String) {
@@ -983,7 +975,6 @@ class ChatHubViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 unreadOnly = false,
-                noActivity = false,
                 applicationStatus = "All",
                 viewingStatus = "All"
             )
@@ -1011,7 +1002,6 @@ data class ChatHubUiState(
     val hasMoreThreads: Boolean = true,
     // Filter state
     val unreadOnly: Boolean = false,
-    val noActivity: Boolean = false,
     val applicationStatus: String = "All",
     val viewingStatus: String = "All"
 ) {
@@ -1019,7 +1009,7 @@ data class ChatHubUiState(
      * Check if any filters are currently active.
      */
     val hasActiveFilters: Boolean
-        get() = unreadOnly || noActivity ||
+        get() = unreadOnly ||
                 applicationStatus != "All" ||
                 viewingStatus != "All"
 

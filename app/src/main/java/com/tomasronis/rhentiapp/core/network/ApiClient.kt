@@ -76,6 +76,9 @@ interface ApiClient {
     @GET("/getViewingAndApplicationsByThreadId/{threadId}")
     suspend fun getViewingsAndApplications(@Path("threadId") threadId: String): Map<String, @JvmSuppressWildcards Any>
 
+    @GET("/schedule/booking/{bookingId}")
+    suspend fun getBookingDetails(@Path("bookingId") bookingId: String): Map<String, @JvmSuppressWildcards Any>
+
     @POST("/activity/newLead")
     suspend fun createNewLead(@Body request: Map<String, @JvmSuppressWildcards Any>): Map<String, @JvmSuppressWildcards Any>
 

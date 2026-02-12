@@ -27,10 +27,6 @@ class VoipAudioManager(private val context: Context) {
         BLUETOOTH
     }
 
-    init {
-        requestAudioFocus()
-    }
-
     /**
      * Set audio route
      */
@@ -64,9 +60,9 @@ class VoipAudioManager(private val context: Context) {
     }
 
     /**
-     * Request audio focus
+     * Request audio focus when starting a call
      */
-    private fun requestAudioFocus() {
+    fun requestAudioFocus() {
         previousAudioMode = audioManager.mode
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

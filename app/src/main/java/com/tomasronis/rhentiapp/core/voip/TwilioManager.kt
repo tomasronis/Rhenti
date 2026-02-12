@@ -342,6 +342,7 @@ class TwilioManager @Inject constructor(
                 .build()
 
             activeCall = Voice.connect(context, connectOptions, callListener)
+            audioManager.requestAudioFocus()
             audioManager.setAudioRoute(VoipAudioManager.AudioRoute.EARPIECE)
 
         } catch (e: Exception) {
@@ -422,6 +423,7 @@ class TwilioManager @Inject constructor(
             activeCall = invite.accept(context, acceptOptions, callListener)
             callInvite = null
 
+            audioManager.requestAudioFocus()
             audioManager.setAudioRoute(VoipAudioManager.AudioRoute.EARPIECE)
 
         } catch (e: Exception) {

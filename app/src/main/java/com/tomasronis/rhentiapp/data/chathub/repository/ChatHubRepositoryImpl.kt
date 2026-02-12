@@ -129,6 +129,46 @@ class ChatHubRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getViewingsAndApplications(threadId: String): NetworkResult<Map<String, Any>> {
+        return try {
+            val response = apiClient.getViewingsAndApplications(threadId)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Viewings and applications response: $response")
+            }
+
+            NetworkResult.Success(response)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Get viewings and applications failed", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
+    override suspend fun getBookingDetails(bookingId: String): NetworkResult<Map<String, Any>> {
+        return try {
+            val response = apiClient.getBookingDetails(bookingId)
+
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("ChatHubRepository", "Booking details response: $response")
+            }
+
+            NetworkResult.Success(response)
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("ChatHubRepository", "Get booking details failed", e)
+            }
+            NetworkResult.Error(
+                exception = e,
+                cachedData = null
+            )
+        }
+    }
+
     override suspend fun sendTextMessage(
         senderId: String,
         userName: String,
@@ -755,6 +795,21 @@ class ChatHubRepositoryImpl @Inject constructor(
                     parseMessageMetadata(metadataMap ?: messageData)
                 } else null
 
+                // Parse displayProps for bot detection
+                @Suppress("UNCHECKED_CAST")
+                val displayPropsMap = messageData["displayProps"] as? Map<String, Any>
+                val displayProps = if (displayPropsMap != null) {
+                    MessageDisplayProps(
+                        name = displayPropsMap["name"] as? String,
+                        avatar = displayPropsMap["avatar"] as? String,
+                        isBot = displayPropsMap["isBot"] as? Boolean ?: false
+                    )
+                } else null
+
+                if (BuildConfig.DEBUG && displayProps?.isBot == true) {
+                    android.util.Log.d("ChatHubRepository", "Bot message detected: ${displayProps.name}")
+                }
+
                 messages.add(
                     ChatMessage(
                         id = id,
@@ -764,6 +819,7 @@ class ChatHubRepositoryImpl @Inject constructor(
                         type = type,
                         attachmentUrl = attachmentUrl,
                         metadata = metadata,
+                        displayProps = displayProps,
                         status = "sent",
                         createdAt = createdAt
                     )
@@ -835,6 +891,7 @@ class ChatHubRepositoryImpl @Inject constructor(
             type = type,
             attachmentUrl = attachmentUrl,
             metadata = metadata,
+            displayProps = null, // This function doesn't parse displayProps
             status = "sent",
             createdAt = createdAt
         )
@@ -1043,6 +1100,7 @@ private fun CachedMessage.toDomainModel(): ChatMessage {
         type = type,
         attachmentUrl = attachmentUrl,
         metadata = metadataObject,
+        displayProps = null, // Cached messages don't have displayProps
         status = status,
         createdAt = createdAt
     )
