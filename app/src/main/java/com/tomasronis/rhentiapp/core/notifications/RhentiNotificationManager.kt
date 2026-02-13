@@ -41,8 +41,19 @@ class RhentiNotificationManager @Inject constructor(
     fun showNotification(payload: NotificationPayload) {
         scope.launch {
             try {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "========================================")
+                    Log.d(TAG, "🔔 Building Notification")
+                    Log.d(TAG, "========================================")
+                }
+
                 // Load image if URL provided
-                val largeIcon = payload.imageUrl?.let { loadImage(it) }
+                val largeIcon = payload.imageUrl?.let {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "Loading notification image: ${it.take(50)}...")
+                    }
+                    loadImage(it)
+                }
 
                 // Build notification
                 val notification = buildNotification(payload, largeIcon)
@@ -52,11 +63,19 @@ class RhentiNotificationManager @Inject constructor(
                 notificationManager.notify(notificationId, notification.build())
 
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Notification displayed: id=$notificationId, type=${payload.type}")
+                    Log.d(TAG, "✅ NOTIFICATION DISPLAYED SUCCESSFULLY")
+                    Log.d(TAG, "  Notification ID: $notificationId")
+                    Log.d(TAG, "  Type: ${payload.type}")
+                    Log.d(TAG, "  Title: ${payload.title}")
+                    Log.d(TAG, "  Body: ${payload.body}")
+                    Log.d(TAG, "  Channel: ${payload.getChannelId()}")
+                    Log.d(TAG, "========================================")
                 }
             } catch (e: Exception) {
                 if (BuildConfig.DEBUG) {
-                    Log.e(TAG, "Failed to show notification", e)
+                    Log.e(TAG, "❌ FAILED TO SHOW NOTIFICATION", e)
+                    Log.e(TAG, "  Type: ${payload.type}")
+                    Log.e(TAG, "  Title: ${payload.title}")
                 }
             }
         }
@@ -72,13 +91,21 @@ class RhentiNotificationManager @Inject constructor(
         val channelId = payload.getChannelId()
         val intent = createIntentForPayload(payload)
 
+        // Use a unique request code to avoid stale PendingIntents.
+        // Combine notification ID with current time to ensure uniqueness.
+        val requestCode = payload.getNotificationId() xor System.currentTimeMillis().toInt()
+
         // Create PendingIntent for notification tap
         val pendingIntent = PendingIntent.getActivity(
             context,
-            payload.getNotificationId(),
+            requestCode,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "PendingIntent created: requestCode=$requestCode, intent=$intent")
+        }
 
         return NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
@@ -110,14 +137,42 @@ class RhentiNotificationManager @Inject constructor(
      * Create intent with notification data for deep linking.
      */
     private fun createIntentForPayload(payload: NotificationPayload): Intent {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val dataUri = when (payload.type) {
+            NotificationType.MESSAGE, NotificationType.VIEWING, NotificationType.APPLICATION -> {
+                payload.threadId?.let { android.net.Uri.parse("rhenti://thread/$it") }
+                    ?: android.net.Uri.parse("rhenti://chats")
+            }
+            NotificationType.CALL -> {
+                payload.contactId?.let { android.net.Uri.parse("rhenti://contact/$it") }
+                    ?: payload.phoneNumber?.let { android.net.Uri.parse("rhenti://call/$it") }
+                    ?: android.net.Uri.parse("rhenti://calls")
+            }
+            NotificationType.GENERAL -> android.net.Uri.parse("rhenti://chats")
         }
 
-        // Add notification data as extras
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "📱 Creating Notification Intent:")
+            Log.d(TAG, "  Action: ${Intent.ACTION_VIEW}")
+            Log.d(TAG, "  Data URI: $dataUri")
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            action = Intent.ACTION_VIEW
+            data = dataUri
+        }
+
+        // Also add notification data as extras for fallback parsing
         val extras = DeepLinkHandler.createIntentExtras(payload)
         extras.forEach { (key, value) ->
             intent.putExtra(key, value)
+        }
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "  Intent Extras:")
+            extras.forEach { (key, value) ->
+                Log.d(TAG, "    $key = $value")
+            }
         }
 
         return intent

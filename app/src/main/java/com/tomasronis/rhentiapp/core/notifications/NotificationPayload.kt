@@ -41,29 +41,66 @@ data class NotificationPayload(
     val imageUrl: String? = null
 ) {
     companion object {
+        private const val TAG = "NotificationPayload"
+
         /**
          * Parse FCM RemoteMessage into NotificationPayload.
+         * Tries data payload first, then falls back to notification object.
          */
         fun fromRemoteMessage(remoteMessage: RemoteMessage): NotificationPayload? {
             val data = remoteMessage.data
 
-            // Extract required fields
-            val title = data["title"] ?: return null
-            val body = data["body"] ?: return null
-            val type = NotificationType.fromString(data["type"])
+            // Try data payload first (data-only messages from backend)
+            if (data.isNotEmpty()) {
+                val title = data["title"]
+                val body = data["body"]
+                if (title != null && body != null) {
+                    val type = NotificationType.fromString(data["type"])
+                    if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                        android.util.Log.d(TAG, "Parsed from data payload: type=$type, title=$title")
+                    }
+                    return NotificationPayload(
+                        type = type,
+                        title = title,
+                        body = body,
+                        threadId = data["threadId"],
+                        bookingId = data["bookingId"],
+                        applicationId = data["applicationId"],
+                        contactId = data["contactId"],
+                        phoneNumber = data["phoneNumber"],
+                        propertyAddress = data["propertyAddress"],
+                        imageUrl = data["imageUrl"]
+                    )
+                }
+            }
 
-            return NotificationPayload(
-                type = type,
-                title = title,
-                body = body,
-                threadId = data["threadId"],
-                bookingId = data["bookingId"],
-                applicationId = data["applicationId"],
-                contactId = data["contactId"],
-                phoneNumber = data["phoneNumber"],
-                propertyAddress = data["propertyAddress"],
-                imageUrl = data["imageUrl"]
-            )
+            // Fall back to notification object (Firebase Console or notification+data messages)
+            remoteMessage.notification?.let { notification ->
+                val title = notification.title ?: return@let
+                val body = notification.body ?: ""
+                // Try to infer type from data payload even if title/body came from notification
+                val type = NotificationType.fromString(data["type"])
+                if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                    android.util.Log.d(TAG, "Parsed from notification object: type=$type, title=$title")
+                }
+                return NotificationPayload(
+                    type = type,
+                    title = title,
+                    body = body,
+                    threadId = data["threadId"],
+                    bookingId = data["bookingId"],
+                    applicationId = data["applicationId"],
+                    contactId = data["contactId"],
+                    phoneNumber = data["phoneNumber"],
+                    propertyAddress = data["propertyAddress"],
+                    imageUrl = notification.imageUrl?.toString() ?: data["imageUrl"]
+                )
+            }
+
+            if (com.tomasronis.rhentiapp.BuildConfig.DEBUG) {
+                android.util.Log.w(TAG, "Could not parse: data=${data.keys}, notification=${remoteMessage.notification != null}")
+            }
+            return null
         }
     }
 

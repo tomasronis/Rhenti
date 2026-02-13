@@ -82,8 +82,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Handle deep link if present
-        handleDeepLink(intent)
+        // Handle deep link if present (only on fresh launch, not configuration change)
+        if (savedInstanceState == null) {
+            handleDeepLink(intent)
+        }
 
         setContent {
             val authViewModel: AuthViewModel = hiltViewModel()
@@ -118,22 +120,249 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent) // Important: Update the activity's intent
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "========================================")
+            Log.d(TAG, "onNewIntent called")
+            Log.d(TAG, "  action: ${intent.action}")
+            Log.d(TAG, "  data: ${intent.data}")
+            Log.d(TAG, "  flags: 0x${Integer.toHexString(intent.flags)}")
+            Log.d(TAG, "  extras: ${intent.extras?.keySet()?.joinToString()}")
+            Log.d(TAG, "========================================")
+        }
+
         // Handle deep link when app is already open and notification is tapped
         handleDeepLink(intent)
     }
 
     /**
      * Handle deep link from notification or URI.
+     * Also handles FCM data extras from auto-displayed notifications.
      */
     private fun handleDeepLink(intent: Intent?) {
-        intent ?: return
+        if (intent == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "handleDeepLink: Intent is null")
+            }
+            return
+        }
 
-        val destination = DeepLinkHandler.parseIntent(intent)
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "========================================")
+            Log.d(TAG, "🔗 handleDeepLink called")
+            Log.d(TAG, "========================================")
+            Log.d(TAG, "Intent Details:")
+            Log.d(TAG, "  action: ${intent.action}")
+            Log.d(TAG, "  data: ${intent.data}")
+            Log.d(TAG, "  categories: ${intent.categories?.joinToString()}")
+
+            // Log all extras
+            intent.extras?.let { bundle ->
+                Log.d(TAG, "Intent Extras (${bundle.keySet().size} keys):")
+                bundle.keySet().forEach { key ->
+                    val value = bundle.get(key)
+                    Log.d(TAG, "    $key = $value")
+                }
+            } ?: run {
+                Log.d(TAG, "Intent Extras: none")
+            }
+            Log.d(TAG, "========================================")
+        }
+
+        // Check if this is a Firebase auto-displayed notification tap (OPEN_ACTIVITY action).
+        // When the app is in background and FCM has a notification field, Firebase auto-displays
+        // the notification. Tapping it fires an intent with action "OPEN_ACTIVITY".
+        val isFirebaseAutoNotificationTap = intent.action == "OPEN_ACTIVITY"
+        if (isFirebaseAutoNotificationTap && BuildConfig.DEBUG) {
+            Log.d(TAG, "Detected Firebase auto-displayed notification tap (OPEN_ACTIVITY)")
+        }
+
+        // First try normal deep link parsing (URI or notification_type extras)
+        var destination = DeepLinkHandler.parseIntent(intent)
+
+        // If that fails, try extracting FCM data fields directly
+        // (Firebase passes data payload as extras when auto-displaying notifications)
+        if (destination == null) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Trying to parse FCM data extras...")
+            }
+            destination = parseFcmDataExtras(intent)
+        }
+
+        // If still no destination but this looks like a notification tap, use smart default
+        if (destination == null) {
+            destination = getDefaultNotificationDestination(intent)
+        }
+
+        // For Firebase auto-displayed notification taps, always navigate to Messages tab
+        // even if we couldn't parse a specific destination from the intent
+        if (destination == null && isFirebaseAutoNotificationTap) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Firebase auto notification tap with no specific destination -> Messages tab")
+            }
+            destination = DeepLinkDestination.ChatsTab
+        }
+
         if (destination != null) {
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Deep link destination: $destination")
+                Log.d(TAG, "✅ Deep link destination parsed: $destination")
             }
             routeToDestination(destination)
+
+            // Clear the intent data to prevent re-processing on configuration change
+            intent?.let {
+                it.action = null
+                it.data = null
+                it.replaceExtras(null as android.os.Bundle?)
+            }
+        } else {
+            if (BuildConfig.DEBUG) {
+                Log.w(TAG, "❌ No deep link destination found")
+            }
+        }
+    }
+
+    /**
+     * Check if this intent came from a notification tap.
+     * Returns the appropriate default destination based on notification type.
+     * Detects both our custom PendingIntent and Firebase auto-displayed notification taps.
+     */
+    private fun getDefaultNotificationDestination(intent: Intent): DeepLinkDestination? {
+        val extras = intent.extras
+
+        // Check if launched from notification by looking at extras
+        val hasNotificationExtras = extras?.keySet()?.any { key ->
+            key.startsWith("google.") ||
+            key.startsWith("gcm.") ||
+            key == "from" ||
+            key == "collapse_key"
+        } ?: false
+
+        // Also check if the intent has our custom notification extras
+        val hasCustomExtras = extras?.containsKey(DeepLinkHandler.EXTRA_NOTIFICATION_TYPE) == true
+
+        // Check if launched via ACTION_VIEW with rhenti:// scheme (our PendingIntent)
+        val hasRhentiUri = intent.data?.scheme == "rhenti"
+
+        if (!hasNotificationExtras && !hasCustomExtras && !hasRhentiUri) {
+            return null
+        }
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Detected notification tap (firebase=$hasNotificationExtras, custom=$hasCustomExtras, uri=$hasRhentiUri)")
+        }
+
+        // Check notification type from title/body to determine default destination
+        val notificationTitle = extras?.getString("gcm.notification.title") ?: ""
+        val notificationBody = extras?.getString("gcm.notification.body") ?: ""
+        val notificationText = "$notificationTitle $notificationBody".lowercase()
+
+        // Check for call-related keywords
+        val isCallNotification = notificationText.contains("call") ||
+                                notificationText.contains("missed") ||
+                                notificationText.contains("incoming") ||
+                                notificationText.contains("voicemail")
+
+        return if (isCallNotification) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Call-related notification detected -> Opening Calls tab")
+            }
+            DeepLinkDestination.CallsTab
+        } else {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Message notification detected -> Opening Messages tab")
+            }
+            DeepLinkDestination.ChatsTab
+        }
+    }
+
+    /**
+     * Check if this intent came from a notification tap.
+     */
+    private fun isNotificationIntent(intent: Intent): Boolean {
+        return getDefaultNotificationDestination(intent) != null
+    }
+
+    /**
+     * Parse FCM data extras from intent.
+     * When Firebase auto-displays notifications (app in background with notification field),
+     * it passes the data payload as intent extras when the notification is tapped.
+     */
+    private fun parseFcmDataExtras(intent: Intent): DeepLinkDestination? {
+        val extras = intent.extras ?: return null
+
+        // Try to extract FCM data fields
+        val type = extras.getString("type")
+        val threadId = extras.getString("threadId")
+        val contactId = extras.getString("contactId")
+        val phoneNumber = extras.getString("phoneNumber")
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "FCM Data Extras Found:")
+            Log.d(TAG, "  type: $type")
+            Log.d(TAG, "  threadId: $threadId")
+            Log.d(TAG, "  contactId: $contactId")
+            Log.d(TAG, "  phoneNumber: $phoneNumber")
+        }
+
+        // Route based on type and available data
+        return when (type?.lowercase()) {
+            "message", "viewing", "application" -> {
+                if (!threadId.isNullOrBlank()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "✅ Parsed FCM extras → Thread destination: $threadId")
+                    }
+                    DeepLinkDestination.Thread(threadId)
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "ℹ️ Message type but no threadId, navigating to Chats tab")
+                    }
+                    DeepLinkDestination.ChatsTab
+                }
+            }
+            "call" -> {
+                when {
+                    !contactId.isNullOrBlank() -> {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "✅ Parsed FCM extras → Contact destination: $contactId")
+                        }
+                        DeepLinkDestination.Contact(contactId)
+                    }
+                    !phoneNumber.isNullOrBlank() -> {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "✅ Parsed FCM extras → Call destination: $phoneNumber")
+                        }
+                        DeepLinkDestination.Call(phoneNumber)
+                    }
+                    else -> {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "ℹ️ Call type but no contactId/phoneNumber, navigating to Calls tab")
+                        }
+                        DeepLinkDestination.CallsTab
+                    }
+                }
+            }
+            else -> {
+                // If we found threadId even without type, use it
+                if (!threadId.isNullOrBlank()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "✅ Found threadId in extras (no type), navigating to thread: $threadId")
+                    }
+                    DeepLinkDestination.Thread(threadId)
+                } else if (!contactId.isNullOrBlank()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "✅ Found contactId in extras (no type), navigating to contact: $contactId")
+                    }
+                    DeepLinkDestination.Contact(contactId)
+                } else {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "⚠️ No recognizable FCM data in extras")
+                    }
+                    // Don't return a default here - let the caller decide
+                    null
+                }
+            }
         }
     }
 
@@ -163,30 +392,48 @@ class MainActivity : ComponentActivity() {
     private fun applyDeepLinkNavigation(viewModel: MainTabViewModel, destination: DeepLinkDestination) {
         lifecycleScope.launch {
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Applying deep link navigation: $destination")
+                Log.d(TAG, "✅ Applying deep link navigation: $destination")
             }
 
             when (destination) {
                 is DeepLinkDestination.Thread -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "  → Opening thread: ${destination.threadId}")
+                    }
                     viewModel.setThreadIdToOpen(destination.threadId)
                     viewModel.setSelectedTab(0) // Navigate to Chats tab
                 }
                 is DeepLinkDestination.Contact -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "  → Opening contact: ${destination.contactId}")
+                    }
                     viewModel.setContactIdToOpen(destination.contactId)
                     viewModel.setSelectedTab(1) // Navigate to Contacts tab
                 }
                 is DeepLinkDestination.Call -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "  → Opening call: ${destination.phoneNumber}")
+                    }
                     // Navigate to Calls tab with phone number
                     viewModel.setSelectedTab(2)
                     // TODO: Implement call initiation if needed
                 }
                 is DeepLinkDestination.ChatsTab -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "  → Opening Chats tab")
+                    }
                     viewModel.setSelectedTab(0)
                 }
                 is DeepLinkDestination.ContactsTab -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "  → Opening Contacts tab")
+                    }
                     viewModel.setSelectedTab(1)
                 }
                 is DeepLinkDestination.CallsTab -> {
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "  → Opening Calls tab")
+                    }
                     viewModel.setSelectedTab(2)
                 }
             }

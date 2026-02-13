@@ -34,6 +34,9 @@ class IncomingCallReceiver : BroadcastReceiver() {
             "com.twilio.voice.CANCEL" -> {
                 handleCancelledCall(context, intent)
             }
+            "com.rhentimobile.DECLINE_CALL" -> {
+                handleDeclineCall(context, intent)
+            }
         }
     }
 
@@ -171,6 +174,32 @@ class IncomingCallReceiver : BroadcastReceiver() {
             if (BuildConfig.DEBUG) {
                 Log.e(TAG, "Failed to show incoming call notification", e)
             }
+        }
+    }
+
+    /**
+     * Handle decline call action from notification
+     */
+    private fun handleDeclineCall(context: Context, intent: Intent) {
+        try {
+            val callInvite = intent.getParcelableExtra<CallInvite>("CALL_INVITE")
+            if (callInvite != null) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Declining call from: ${callInvite.from}")
+                }
+
+                // Reject the call
+                callInvite.reject(context)
+
+                // Cancel the notification
+                cancelIncomingCallNotification(context)
+            }
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.e(TAG, "Failed to decline call", e)
+            }
+            // Still cancel the notification even if decline fails
+            cancelIncomingCallNotification(context)
         }
     }
 

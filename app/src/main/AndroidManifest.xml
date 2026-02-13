@@ -42,6 +42,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Firebase auto-displayed notification click action.
+                 When the app is in background and Firebase auto-displays a notification,
+                 tapping it fires an intent with action OPEN_ACTIVITY. Without this filter,
+                 the system cannot resolve the intent and the app never opens. -->
+            <intent-filter>
+                <action android:name="OPEN_ACTIVITY" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
             <!-- Deep link intent filters for notifications (Phase 8) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -85,6 +94,17 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Incoming Call Receiver (Phase 7) -->
+        <receiver
+            android:name=".core.voip.IncomingCallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.twilio.voice.INCOMING" />
+                <action android:name="com.twilio.voice.CANCEL" />
+                <action android:name="com.rhentimobile.DECLINE_CALL" />
+            </intent-filter>
+        </receiver>
 
         <!-- Default notification channel for FCM -->
         <meta-data

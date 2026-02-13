@@ -62,7 +62,8 @@ class TwilioManager @Inject constructor(
     private val callsRepository: CallsRepository,
     private val tokenManager: TokenManager,
     private val contactsRepository: com.tomasronis.rhentiapp.data.contacts.repository.ContactsRepository,
-    private val chatHubRepository: ChatHubRepository
+    private val chatHubRepository: ChatHubRepository,
+    private val preferencesManager: com.tomasronis.rhentiapp.core.preferences.PreferencesManager
 ) {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val audioManager = VoipAudioManager(context)
@@ -236,6 +237,9 @@ class TwilioManager @Inject constructor(
                     clientIdentity = userId  // Store user ID for call parameters
                     Voice.setLogLevel(if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.ERROR)
 
+                    // Register for incoming call invites
+                    registerForIncomingCalls(result.data)
+
                     if (BuildConfig.DEBUG) {
                         Log.d(TAG, "Twilio SDK initialized successfully")
                     }
@@ -252,6 +256,101 @@ class TwilioManager @Inject constructor(
         } catch (e: Exception) {
             if (BuildConfig.DEBUG) {
                 Log.e(TAG, "Failed to initialize Twilio SDK", e)
+            }
+        }
+    }
+
+    /**
+     * Register for incoming call invites.
+     * This enables the app to receive incoming VoIP calls.
+     */
+    private fun registerForIncomingCalls(accessToken: String) {
+        scope.launch {
+            try {
+                // Get FCM token from preferences
+                val fcmToken = preferencesManager.getFcmToken()
+                if (fcmToken.isNullOrBlank()) {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "Cannot register for incoming calls: FCM token not available yet")
+                    }
+                    return@launch
+                }
+
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Registering for incoming call invites with FCM token: ${fcmToken.take(20)}...")
+                }
+
+                Voice.register(
+                    accessToken,
+                    Voice.RegistrationChannel.FCM,
+                    fcmToken,
+                    object : RegistrationListener {
+                        override fun onRegistered(accessToken: String, fcmToken: String) {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "✅ Registered for incoming calls successfully")
+                            }
+                        }
+
+                        override fun onError(
+                            registrationException: RegistrationException,
+                            accessToken: String,
+                            fcmToken: String
+                        ) {
+                            if (BuildConfig.DEBUG) {
+                                Log.e(TAG, "❌ Failed to register for incoming calls: ${registrationException.message}", registrationException)
+                            }
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(TAG, "❌ Exception while registering for incoming calls", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Unregister from incoming call invites.
+     * Called when user logs out or app is being destroyed.
+     */
+    fun unregisterForIncomingCalls() {
+        scope.launch {
+            try {
+                val token = accessToken ?: return@launch
+                val fcmToken = preferencesManager.getFcmToken()
+                if (fcmToken.isNullOrBlank()) return@launch
+
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Unregistering from incoming call invites")
+                }
+
+                Voice.unregister(
+                    token,
+                    Voice.RegistrationChannel.FCM,
+                    fcmToken,
+                    object : UnregistrationListener {
+                        override fun onUnregistered(accessToken: String, fcmToken: String) {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "✅ Unregistered from incoming calls successfully")
+                            }
+                        }
+
+                        override fun onError(
+                            registrationException: RegistrationException,
+                            accessToken: String,
+                            fcmToken: String
+                        ) {
+                            if (BuildConfig.DEBUG) {
+                                Log.e(TAG, "❌ Failed to unregister from incoming calls: ${registrationException.message}", registrationException)
+                            }
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(TAG, "❌ Exception while unregistering from incoming calls", e)
+                }
             }
         }
     }
