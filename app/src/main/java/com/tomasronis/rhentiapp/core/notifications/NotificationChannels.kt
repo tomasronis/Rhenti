@@ -3,8 +3,6 @@ package com.tomasronis.rhentiapp.core.notifications
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 
 /**
@@ -13,7 +11,9 @@ import android.os.Build
 object NotificationChannels {
     // VoIP Call channels (Phase 7)
     const val CALL_CHANNEL_ID = "ongoing_calls"
-    const val INCOMING_CALL_CHANNEL_ID = "incoming_calls_v2"
+    // v4: vibration enabled so system recognizes as high-priority for fullScreenIntent.
+    // Ringtone is handled by IncomingCallService MediaPlayer (looping).
+    const val INCOMING_CALL_CHANNEL_ID = "incoming_calls_v4"
 
     // Push Notification channels (Phase 8)
     const val MESSAGES_CHANNEL_ID = "messages"
@@ -41,13 +41,9 @@ object NotificationChannels {
                 setSound(null, null)
             }
 
-            // Incoming calls channel (max importance with ringtone/vibration)
-            val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-            val audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-
+            // Incoming calls channel – HIGH importance with vibration so the system
+            // treats it as high-priority and honours fullScreenIntent.
+            // No sound on the channel – ringtone is looped by IncomingCallService MediaPlayer.
             val incomingCallChannel = NotificationChannel(
                 INCOMING_CALL_CHANNEL_ID,
                 "Incoming Calls",
@@ -56,10 +52,10 @@ object NotificationChannels {
                 description = "Notifications for incoming VoIP calls"
                 setShowBadge(true)
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
+                vibrationPattern = longArrayOf(0, 1000, 500, 1000)
                 enableLights(true)
                 lightColor = android.graphics.Color.GREEN
-                setSound(ringtoneUri, audioAttributes)
+                setSound(null, null)
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 setBypassDnd(true)
             }
@@ -108,9 +104,10 @@ object NotificationChannels {
                 setShowBadge(false)
             }
 
-            // Delete old incoming calls channel (Android caches channel settings after
-            // first creation, so we need a new channel ID to ensure correct settings)
+            // Delete old incoming calls channels (Android caches channel settings)
             notificationManager.deleteNotificationChannel("incoming_calls")
+            notificationManager.deleteNotificationChannel("incoming_calls_v2")
+            notificationManager.deleteNotificationChannel("incoming_calls_v3")
 
             notificationManager.createNotificationChannel(callChannel)
             notificationManager.createNotificationChannel(incomingCallChannel)

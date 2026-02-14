@@ -15,8 +15,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.tomasronis.rhentiapp.BuildConfig
-import com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService
 import com.tomasronis.rhentiapp.core.voip.CallState
+import com.tomasronis.rhentiapp.core.voip.IncomingCallService
 import com.tomasronis.rhentiapp.core.voip.TwilioManager
 import com.tomasronis.rhentiapp.presentation.theme.RhentiAppTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -43,11 +43,11 @@ class IncomingCallActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            val invite = RhentiFirebaseMessagingService.activeCallInvite
+            val invite = IncomingCallService.activeCallInvite
                 ?: twilioManager.getCallInvite()
             if (invite != null) {
                 twilioManager.acceptIncomingCall(invite)
-                RhentiFirebaseMessagingService.clearCallInvite()
+                IncomingCallService.accept(this)
             }
         }
     }
@@ -94,20 +94,17 @@ class IncomingCallActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            // Do NOT call requestDismissKeyguard - we want the call screen
-            // to appear over the lock screen without requiring unlock
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                // No FLAG_DISMISS_KEYGUARD - show over lock screen without unlock
             )
         }
     }
 
     private fun handleCallIntent(intent: Intent?) {
-        val callInvite = RhentiFirebaseMessagingService.activeCallInvite
+        val callInvite = IncomingCallService.activeCallInvite
         if (callInvite == null) {
             if (BuildConfig.DEBUG) {
                 Log.w(TAG, "No active CallInvite - call may have been cancelled")
@@ -116,31 +113,25 @@ class IncomingCallActivity : ComponentActivity() {
             return
         }
 
-        // Cancel the incoming call notification
-        RhentiFirebaseMessagingService.cancelIncomingCallNotification(this)
-
         when (intent?.action) {
             ACTION_ANSWER_CALL -> {
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "Auto-answering call from: ${callInvite.from}")
                 }
-                // Check microphone permission before accepting
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                     != PackageManager.PERMISSION_GRANTED) {
-                    // Show ringing UI and request permission
                     twilioManager.handleIncomingCallInvite(callInvite)
                     micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 } else {
-                    twilioManager.handleIncomingCallInvite(callInvite)
                     twilioManager.acceptIncomingCall(callInvite)
-                    RhentiFirebaseMessagingService.clearCallInvite()
+                    IncomingCallService.accept(this)
                 }
             }
             else -> {
                 if (BuildConfig.DEBUG) {
                     Log.d(TAG, "Showing ringing UI for: ${callInvite.from}")
                 }
-                twilioManager.handleIncomingCallInvite(callInvite)
+                // TwilioManager was already set to Ringing by IncomingCallService
             }
         }
     }

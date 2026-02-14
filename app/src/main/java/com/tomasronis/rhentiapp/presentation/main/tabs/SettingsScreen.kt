@@ -2,6 +2,8 @@ package com.tomasronis.rhentiapp.presentation.main.tabs
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,8 +50,21 @@ fun SettingsScreen(
     val twilioStatus by viewModel.twilioRegistrationStatus.collectAsState()
     val twilioDebugInfo by viewModel.twilioDebugInfo.collectAsState()
     val lastFcmEvent by viewModel.lastFcmEvent.collectAsState()
+    val canUseFullScreenIntent by viewModel.canUseFullScreenIntent.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // Refresh full-screen intent permission when returning from system settings
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshFullScreenIntentPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var showUserDetailsDialog by remember { mutableStateOf(false) }
     var showClearCacheDialog by remember { mutableStateOf(false) }
@@ -324,6 +339,42 @@ fun SettingsScreen(
                             onClick = { viewModel.reinitializeTwilio() },
                             showChevron = true
                         )
+
+                        // Full-screen intent permission (Android 14+)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 52.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+
+                            SettingsItem(
+                                icon = Icons.Filled.Fullscreen,
+                                iconTint = if (canUseFullScreenIntent) Color(0xFF34C759) else Color(0xFFFF3B30),
+                                title = "Full-Screen Calls",
+                                value = if (canUseFullScreenIntent) "Enabled" else "DISABLED - Tap to enable",
+                                onClick = {
+                                    if (!canUseFullScreenIntent) {
+                                        try {
+                                            val intent = Intent(
+                                                android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                                                Uri.parse("package:${context.packageName}")
+                                            )
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            // Fallback to app notification settings
+                                            val intent = Intent(
+                                                android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                                            ).apply {
+                                                putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                    }
+                                    viewModel.refreshFullScreenIntentPermission()
+                                },
+                                showChevron = !canUseFullScreenIntent
+                            )
+                        }
                     }
                 }
             }

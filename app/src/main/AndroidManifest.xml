@@ -101,6 +101,12 @@
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
 
+        <!-- Incoming Call Ringing Service - keeps process alive during ringing -->
+        <service
+            android:name=".core.voip.IncomingCallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
+
         <!-- Firebase Cloud Messaging Service (Phase 8) -->
         <service
             android:name=".core.notifications.RhentiFirebaseMessagingService"

@@ -3,6 +3,7 @@ package com.tomasronis.rhentiapp.presentation.calls.active
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tomasronis.rhentiapp.core.voip.CallState
+import com.tomasronis.rhentiapp.core.voip.IncomingCallService
 import com.tomasronis.rhentiapp.core.voip.TwilioManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -41,18 +42,17 @@ class ActiveCallViewModel @Inject constructor(
     }
 
     fun acceptIncomingCall() {
-        // Try FCM service's static holder first, then TwilioManager's stored invite
-        val invite = com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.activeCallInvite
+        val invite = IncomingCallService.activeCallInvite
             ?: twilioManager.getCallInvite()
         if (invite != null) {
             twilioManager.acceptIncomingCall(invite)
-            com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.clearCallInvite()
+            IncomingCallService.clearCallInvite()
         }
     }
 
     fun rejectIncomingCall() {
         twilioManager.rejectIncomingCall()
-        com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.clearCallInvite()
+        IncomingCallService.clearCallInvite()
     }
 
     fun toggleMute() {

@@ -38,6 +38,7 @@ class CallService : Service() {
         private const val ACTION_END_CALL = "END_CALL"
         private const val ACTION_ACCEPT_CALL = "ACCEPT_CALL"
         private const val ACTION_REJECT_CALL = "REJECT_CALL"
+        private const val ACTION_INCOMING_ACCEPTED = "INCOMING_ACCEPTED"
 
         private const val EXTRA_PHONE_NUMBER = "phone_number"
 
@@ -58,6 +59,22 @@ class CallService : Service() {
                 action = ACTION_END_CALL
             }
             context.startService(intent)
+        }
+
+        /**
+         * Start this service as the ongoing-call foreground service after accepting an incoming call.
+         * IncomingCallService calls this so the user sees "Ongoing Call" in the notification tray.
+         */
+        fun startForIncomingAccepted(context: Context, phoneNumber: String) {
+            val intent = Intent(context, CallService::class.java).apply {
+                action = ACTION_INCOMING_ACCEPTED
+                putExtra(EXTRA_PHONE_NUMBER, phoneNumber)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
     }
 
@@ -102,6 +119,10 @@ class CallService : Service() {
                 twilioManager.rejectIncomingCall()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
+            }
+            ACTION_INCOMING_ACCEPTED -> {
+                val phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER) ?: "Unknown"
+                startForeground(notificationId, createNotification("Connected - $phoneNumber"))
             }
         }
 

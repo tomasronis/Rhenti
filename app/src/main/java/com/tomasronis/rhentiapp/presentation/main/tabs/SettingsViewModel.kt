@@ -1,6 +1,8 @@
 package com.tomasronis.rhentiapp.presentation.main.tabs
 
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tomasronis.rhentiapp.core.preferences.MediaRetentionPeriod
@@ -53,8 +55,20 @@ class SettingsViewModel @Inject constructor(
         android.provider.Settings.Secure.ANDROID_ID
     ) ?: "unknown"
 
+    private val _canUseFullScreenIntent = MutableStateFlow(true)
+    val canUseFullScreenIntent: StateFlow<Boolean> = _canUseFullScreenIntent.asStateFlow()
+
     fun refreshFcmDebug() {
         _lastFcmEvent.value = com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.getLastFcmEvent(context)
+    }
+
+    fun refreshFullScreenIntentPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            _canUseFullScreenIntent.value = nm.canUseFullScreenIntent()
+        } else {
+            _canUseFullScreenIntent.value = true
+        }
     }
 
     fun reinitializeTwilio() {
@@ -70,6 +84,7 @@ class SettingsViewModel @Inject constructor(
         calculateStorage()
         checkMediaCleanup()
         refreshFcmDebug()
+        refreshFullScreenIntentPermission()
     }
 
     /**
