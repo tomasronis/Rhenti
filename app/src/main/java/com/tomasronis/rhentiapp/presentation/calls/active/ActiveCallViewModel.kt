@@ -1,11 +1,13 @@
 package com.tomasronis.rhentiapp.presentation.calls.active
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.core.voip.IncomingCallService
 import com.tomasronis.rhentiapp.core.voip.TwilioManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
@@ -23,7 +25,8 @@ data class ActiveCallUiState(
  */
 @HiltViewModel
 class ActiveCallViewModel @Inject constructor(
-    private val twilioManager: TwilioManager
+    private val twilioManager: TwilioManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActiveCallUiState())
@@ -52,7 +55,9 @@ class ActiveCallViewModel @Inject constructor(
 
     fun rejectIncomingCall() {
         twilioManager.rejectIncomingCall()
-        IncomingCallService.clearCallInvite()
+        // Stop the service, remove notification, and stop ringing — all in one call.
+        // This prevents the user from needing to dismiss the notification separately.
+        IncomingCallService.decline(context)
     }
 
     fun toggleMute() {

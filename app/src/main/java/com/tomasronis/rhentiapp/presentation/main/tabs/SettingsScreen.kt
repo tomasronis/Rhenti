@@ -48,18 +48,18 @@ fun SettingsScreen(
     val mediaRetentionPeriod by viewModel.mediaRetentionPeriod.collectAsState()
     val messagesPerChat by viewModel.messagesPerChat.collectAsState()
     val twilioStatus by viewModel.twilioRegistrationStatus.collectAsState()
-    val twilioDebugInfo by viewModel.twilioDebugInfo.collectAsState()
-    val lastFcmEvent by viewModel.lastFcmEvent.collectAsState()
     val canUseFullScreenIntent by viewModel.canUseFullScreenIntent.collectAsState()
+    val canDrawOverlays by viewModel.canDrawOverlays.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    // Refresh full-screen intent permission when returning from system settings
+    // Refresh permissions when returning from system settings
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshFullScreenIntentPermission()
+                viewModel.refreshOverlayPermission()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -283,61 +283,11 @@ fun SettingsScreen(
 
                         SettingsItem(
                             icon = Icons.Filled.Phone,
-                            iconTint = when {
-                                twilioStatus.startsWith("REGISTERED") -> Color(0xFF34C759)
-                                twilioStatus.startsWith("ERROR") || twilioStatus.startsWith("REGISTER FAILED") -> Color(0xFFFF3B30)
-                                else -> Color(0xFFFF9500)
-                            },
+                            iconTint = if (twilioStatus.startsWith("REGISTERED")) Color(0xFF34C759) else Color(0xFFFF3B30),
                             title = "VoIP Status",
-                            value = twilioStatus,
+                            value = if (twilioStatus.startsWith("REGISTERED")) "Ready" else "Not Ready",
                             onClick = { /* Info only */ },
                             showChevron = false
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 52.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-
-                        SettingsItem(
-                            icon = Icons.Filled.Notifications,
-                            iconTint = if (lastFcmEvent.contains("CallInvite")) Color(0xFF34C759) else MaterialTheme.colorScheme.primary,
-                            title = "Last FCM",
-                            value = lastFcmEvent.ifEmpty { "None" },
-                            onClick = { viewModel.refreshFcmDebug() },
-                            showChevron = false
-                        )
-
-                        // Twilio debug details
-                        if (twilioDebugInfo.isNotBlank()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 52.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                            )
-
-                            SettingsItem(
-                                icon = Icons.Filled.BugReport,
-                                iconTint = if (twilioDebugInfo.contains("MISSING")) Color(0xFFFF3B30) else Color(0xFF34C759),
-                                title = "Token Grants",
-                                value = twilioDebugInfo,
-                                onClick = { /* Info only */ },
-                                showChevron = false
-                            )
-                        }
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 52.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-
-                        // Re-register button
-                        SettingsItem(
-                            icon = Icons.Filled.Refresh,
-                            iconTint = Color(0xFF007AFF),
-                            title = "Re-register VoIP",
-                            value = "Tap to force re-register with Twilio",
-                            onClick = { viewModel.reinitializeTwilio() },
-                            showChevron = true
                         )
 
                         // Full-screen intent permission (Android 14+)
@@ -375,6 +325,39 @@ fun SettingsScreen(
                                 showChevron = !canUseFullScreenIntent
                             )
                         }
+
+                        // Display over other apps permission (needed for screen-on incoming calls)
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        SettingsItem(
+                            icon = Icons.Filled.PhoneInTalk,
+                            iconTint = if (canDrawOverlays) Color(0xFF34C759) else Color(0xFFFF3B30),
+                            title = "Display Over Apps",
+                            value = if (canDrawOverlays) "Enabled" else "DISABLED - Tap to enable",
+                            onClick = {
+                                if (!canDrawOverlays) {
+                                    try {
+                                        val intent = Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Fallback to general app settings
+                                        val intent = Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                        context.startActivity(intent)
+                                    }
+                                }
+                                viewModel.refreshOverlayPermission()
+                            },
+                            showChevron = !canDrawOverlays
+                        )
                     }
                 }
             }

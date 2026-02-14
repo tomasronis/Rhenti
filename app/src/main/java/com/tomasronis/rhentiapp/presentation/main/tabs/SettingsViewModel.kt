@@ -58,6 +58,9 @@ class SettingsViewModel @Inject constructor(
     private val _canUseFullScreenIntent = MutableStateFlow(true)
     val canUseFullScreenIntent: StateFlow<Boolean> = _canUseFullScreenIntent.asStateFlow()
 
+    private val _canDrawOverlays = MutableStateFlow(false)
+    val canDrawOverlays: StateFlow<Boolean> = _canDrawOverlays.asStateFlow()
+
     fun refreshFcmDebug() {
         _lastFcmEvent.value = com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.getLastFcmEvent(context)
     }
@@ -69,6 +72,10 @@ class SettingsViewModel @Inject constructor(
         } else {
             _canUseFullScreenIntent.value = true
         }
+    }
+
+    fun refreshOverlayPermission() {
+        _canDrawOverlays.value = android.provider.Settings.canDrawOverlays(context)
     }
 
     fun reinitializeTwilio() {
@@ -85,6 +92,7 @@ class SettingsViewModel @Inject constructor(
         checkMediaCleanup()
         refreshFcmDebug()
         refreshFullScreenIntentPermission()
+        refreshOverlayPermission()
     }
 
     /**

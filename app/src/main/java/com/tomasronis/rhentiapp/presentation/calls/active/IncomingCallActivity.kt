@@ -58,6 +58,10 @@ class IncomingCallActivity : ComponentActivity() {
         setupLockScreenFlags()
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // Tell the service to demote the notification to silent so the user
+        // doesn't see both this full-screen activity AND a heads-up popup.
+        IncomingCallService.onActivityShown(this)
+
         if (savedInstanceState == null) {
             handleCallIntent(intent)
         }

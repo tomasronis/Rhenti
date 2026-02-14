@@ -117,9 +117,9 @@ fun MainTabScreen(
         contactsViewModel.refreshContacts()
     }
 
-    // Check if we should show the active call screen
+    // Check if we should show the active call screen.
+    // Ringing is excluded because IncomingCallActivity handles incoming calls.
     val showActiveCallScreen = callState is CallState.Active ||
-            callState is CallState.Ringing ||
             callState is CallState.Dialing
 
     Scaffold(

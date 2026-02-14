@@ -3,8 +3,10 @@ package com.tomasronis.rhentiapp.presentation
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -69,6 +71,17 @@ class MainActivity : ComponentActivity() {
         }
         if (permissions[Manifest.permission.POST_NOTIFICATIONS] == true) {
             fcmTokenManager.refreshToken()
+        }
+        // After runtime permissions are handled, prompt for overlay if needed
+        requestOverlayPermissionIfNeeded()
+    }
+
+    // Launcher for overlay permission (returns from system Settings page)
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Overlay permission result: canDrawOverlays=${Settings.canDrawOverlays(this)}")
         }
     }
 
@@ -490,6 +503,32 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "All permissions already granted")
             }
             fcmTokenManager.refreshToken()
+            // Check overlay permission if runtime permissions are already granted
+            requestOverlayPermissionIfNeeded()
+        }
+    }
+
+    /**
+     * Prompt user to enable "Display over other apps" permission.
+     * Required for showing incoming call screen when the device screen is on.
+     * This is not a runtime permission — it opens the system Settings page.
+     */
+    private fun requestOverlayPermissionIfNeeded() {
+        if (!Settings.canDrawOverlays(this)) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Overlay permission not granted, launching system settings")
+            }
+            try {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                overlayPermissionLauncher.launch(intent)
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "Failed to launch overlay permission settings", e)
+                }
+            }
         }
     }
 }

@@ -17,6 +17,7 @@ import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
@@ -66,6 +67,7 @@ class IncomingCallService : Service() {
         private const val ACTION_ACCEPT = "ACTION_ACCEPT"
         private const val ACTION_DECLINE = "ACTION_DECLINE"
         private const val ACTION_CANCELLED = "ACTION_CANCELLED"
+        private const val ACTION_ACTIVITY_SHOWN = "ACTION_ACTIVITY_SHOWN"
 
         private const val EXTRA_CALL_SID = "CALL_SID"
         private const val EXTRA_CALLER = "CALLER"
@@ -122,6 +124,24 @@ class IncomingCallService : Service() {
             }
         }
 
+        /**
+         * Called when IncomingCallActivity is visible.
+         * Replaces the heads-up notification with a silent version so the user
+         * doesn't see both the full-screen activity AND a heads-up popup.
+         */
+        fun onActivityShown(context: Context) {
+            val intent = Intent(context, IncomingCallService::class.java).apply {
+                action = ACTION_ACTIVITY_SHOWN
+            }
+            try {
+                context.startService(intent)
+            } catch (e: Exception) {
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "onActivityShown: service not running")
+                }
+            }
+        }
+
         /** Remote party cancelled the call. Stop service. */
         fun callCancelled(context: Context) {
             activeCallInvite = null
@@ -168,6 +188,7 @@ class IncomingCallService : Service() {
             ACTION_ACCEPT -> handleAccept()
             ACTION_DECLINE -> handleDecline()
             ACTION_CANCELLED -> handleCancelled()
+            ACTION_ACTIVITY_SHOWN -> demoteNotification()
             else -> stopSelf()
         }
         return START_REDELIVER_INTENT
@@ -201,9 +222,24 @@ class IncomingCallService : Service() {
         // 1. Wake the screen
         acquireWakeLock()
 
-        // 2. Go foreground with the CallStyle notification.
-        //    fullScreenIntent fires ONLY when screen is off/locked (system rule).
-        val notification = buildCallNotification(callerDisplay, caller)
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val screenOn = pm.isInteractive
+        val canOverlay = Settings.canDrawOverlays(this)
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Screen on=$screenOn, canDrawOverlays=$canOverlay")
+        }
+
+        // 2. Go foreground with the appropriate notification.
+        //    - Screen OFF: Full CallStyle notification with fullScreenIntent (system shows
+        //      the activity over lock screen). This MUST be PRIORITY_MAX.
+        //    - Screen ON: Silent notification to avoid a heads-up flash. We'll launch
+        //      the activity directly via startActivity() instead.
+        val notification = if (screenOn) {
+            buildSilentNotification()
+        } else {
+            buildCallNotification(callerDisplay, caller)
+        }
         startForeground(NOTIFICATION_ID, notification)
 
         // 3. Start ringtone + vibration
@@ -217,11 +253,10 @@ class IncomingCallService : Service() {
 
         // 6. Launch IncomingCallActivity directly.
         //    After startForeground(), we have background-activity-start privileges.
-        //    Post to handler so the system has time to process foreground promotion.
-        //    This is the ONLY mechanism for screen-on cases (both foreground and background).
+        //    Use a 300ms delay to ensure the system has fully processed foreground promotion.
         //    For screen-off, the fullScreenIntent above already handled it, and
-        //    IncomingCallActivity's singleTop mode will just onNewIntent() - not duplicate.
-        handler.post {
+        //    IncomingCallActivity's singleTop mode will just onNewIntent() — not duplicate.
+        handler.postDelayed({
             try {
                 val activityIntent = Intent(this, IncomingCallActivity::class.java).apply {
                     this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -233,15 +268,25 @@ class IncomingCallService : Service() {
                 }
                 startActivity(activityIntent)
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "startActivity() succeeded")
+                    Log.d(TAG, "startActivity() succeeded (screenOn=$screenOn, overlay=$canOverlay)")
                 }
             } catch (e: Exception) {
-                // fullScreenIntent on the notification is the fallback
+                // If startActivity() fails and screen is on, upgrade to full notification
+                // so the user at least gets the heads-up CallStyle as fallback.
+                if (screenOn) {
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "startActivity() failed, upgrading to full notification")
+                    }
+                    try {
+                        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                        nm.notify(NOTIFICATION_ID, buildCallNotification(callerDisplay, caller))
+                    } catch (_: Exception) {}
+                }
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "startActivity() failed (fullScreenIntent is fallback): ${e.message}")
+                    Log.w(TAG, "startActivity() failed (screenOn=$screenOn, overlay=$canOverlay): ${e.message}")
                 }
             }
-        }
+        }, 300)
     }
 
     private fun handleAccept() {
@@ -299,6 +344,66 @@ class IncomingCallService : Service() {
         } catch (e: Exception) {
             // Ignore
         }
+    }
+
+    /**
+     * Replace the heads-up notification with a silent one.
+     * Called when IncomingCallActivity is visible so the user doesn't see
+     * both the full-screen activity AND a heads-up popup.
+     */
+    private fun demoteNotification() {
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Demoting notification to silent (activity is visible)")
+        }
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, buildSilentNotification())
+        } catch (e: Exception) {
+            if (BuildConfig.DEBUG) {
+                Log.w(TAG, "Failed to demote notification", e)
+            }
+        }
+    }
+
+    /**
+     * Build a silent notification that keeps the foreground service alive
+     * but doesn't show as heads-up or full-screen.
+     */
+    private fun buildSilentNotification(): Notification {
+        // Decline action → broadcast to IncomingCallReceiver
+        val declineIntent = Intent(this, IncomingCallReceiver::class.java).apply {
+            action = "com.rhentimobile.DECLINE_CALL"
+        }
+        val declinePi = PendingIntent.getBroadcast(
+            this, NOTIFICATION_ID + 2,
+            declineIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+
+        // Content intent → re-open IncomingCallActivity if user taps notification
+        val contentIntent = Intent(this, IncomingCallActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            action = IncomingCallActivity.ACTION_INCOMING_CALL
+        }
+        val contentPi = PendingIntent.getActivity(
+            this, NOTIFICATION_ID,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, NotificationChannels.INCOMING_CALL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Incoming Call")
+            .setContentText("Tap to return to call")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setOngoing(true)
+            .setSilent(true)
+            .setContentIntent(contentPi)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePi)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .build()
     }
 
     // ─── Notification ──────────────────────────────────────────────
