@@ -1,10 +1,21 @@
 # Rhenti Android App - Project Context & Requirements
 
-**Last Updated:** February 12, 2026 (Phase 8 Complete - Push Notifications)
-**Current Phase:** Phase 8 Complete! 🎉
+**Last Updated:** February 14, 2026 (Incoming Call Full-Screen Notifications)
+**Current Phase:** Phase 8 Complete + Incoming Call Polish
 **Next Phase:** Phase 9 (Background Sync & Polish) or Production Release
 
-**Recent Updates (Feb 12, 2026):**
+**Recent Updates (Feb 14, 2026):**
+- ✅ **INCOMING CALL FULL-SCREEN NOTIFICATIONS:** Reliable in ALL device states
+- ✅ Full-screen incoming call activity works: screen off, screen on, app foreground/background/closed
+- ✅ `SYSTEM_ALERT_WINDOW` permission for reliable screen-on activity launch
+- ✅ No heads-up notification flash (silent notification on screen-on, CallStyle only on screen-off)
+- ✅ Single decline action dismisses everything (activity + service + notification)
+- ✅ No duplicate call screen (MainTabScreen no longer shows ActiveCallScreen for Ringing state)
+- ✅ Auto-prompt overlay permission after login
+- ✅ Settings: "Display Over Apps" toggle, simplified VoIP Status (Ready/Not Ready)
+- ✅ Settings: Removed debug items (Re-register VoIP, Last FCM, Token Grants)
+
+**Previous Updates (Feb 12, 2026):**
 - ✅ **PHASE 8 COMPLETE:** Firebase Cloud Messaging push notifications fully implemented
 - ✅ FCM integration with Firebase project setup
 - ✅ 4 notification types: Messages, Viewings, Applications, Calls
@@ -668,6 +679,83 @@ core/                 # Core Infrastructure
 
 ---
 
+### ✅ Incoming Call Full-Screen Notifications (Feb 14, 2026)
+**Duration:** 1 day of iterative refinement
+
+**Problem Solved:**
+Incoming VoIP calls need to show a full-screen activity reliably in ALL device states — screen off/locked, screen on with app closed, screen on with app in background, and screen on with app in foreground. Samsung Android 16 has strict restrictions on background activity launches.
+
+**Architecture:**
+
+```
+FCM Push → Voice.handleMessage() → onCallInvite()
+    → IncomingCallService.start(context, callInvite)
+        → startForeground() with notification
+        → startRinging() + acquireWakeLock()
+        → 300ms delay → startActivity(IncomingCallActivity)
+```
+
+**Components:**
+
+| Component | File | Role |
+|---|---|---|
+| IncomingCallService | `core/voip/IncomingCallService.kt` | Foreground service — owns ringing lifecycle (ringtone, vibration, wake lock, 45s timeout, notification) |
+| IncomingCallActivity | `presentation/calls/active/IncomingCallActivity.kt` | Full-screen UI with `setShowWhenLocked(true)` + `setTurnScreenOn(true)` |
+| IncomingCallReceiver | `core/voip/IncomingCallReceiver.kt` | BroadcastReceiver — fast `callInvite.reject()` from notification decline button |
+| ActiveCallViewModel | `presentation/calls/active/ActiveCallViewModel.kt` | ViewModel for accept/decline from full-screen UI, stops service on decline |
+
+**Screen-State Strategy:**
+
+| Screen State | Notification Type | Activity Launch | Requires |
+|---|---|---|---|
+| Screen OFF/locked | Full CallStyle (PRIORITY_MAX + fullScreenIntent) | System fires fullScreenIntent | `USE_FULL_SCREEN_INTENT` permission |
+| Screen ON | Silent (PRIORITY_LOW, no fullScreenIntent) | `startActivity()` after 300ms delay | `SYSTEM_ALERT_WINDOW` permission |
+| Fallback (startActivity fails) | Upgrades to full CallStyle | User taps heads-up notification | Nothing extra |
+
+**Key Design Decisions:**
+1. **Silent notification on screen-on**: Prevents heads-up flash when activity is about to launch
+2. **300ms postDelayed**: Gives system time to process foreground promotion before startActivity()
+3. **demoteNotification()**: If screen was off and fullScreenIntent fires, IncomingCallActivity calls `onActivityShown()` to replace PRIORITY_MAX notification with silent version
+4. **Decline flow**: ActiveCallViewModel calls `IncomingCallService.decline(context)` which stops service + removes notification in one action
+5. **No Ringing in MainTabScreen**: `MainTabScreen` only shows ActiveCallScreen for `Active`/`Dialing` states — IncomingCallActivity exclusively handles `Ringing`
+6. **singleTop launch mode**: Prevents duplicate activities when both fullScreenIntent and startActivity() fire
+
+**Permissions:**
+- `SYSTEM_ALERT_WINDOW` — "Display over other apps" (auto-prompted after login)
+- `USE_FULL_SCREEN_INTENT` — Full-screen notifications (toggle in Settings)
+- `FOREGROUND_SERVICE_PHONE_CALL` — Foreground service type
+- `WAKE_LOCK` — Wake screen on incoming call
+
+**Notification Channel:** `incoming_calls_v4` (HIGH importance, vibration ON, no sound — MediaPlayer handles ringtone)
+
+**State Transitions:**
+```
+Idle → Ringing (IncomingCallService starts)
+    ├→ User Accepts → Active (CallService takes over) → Ended → Idle
+    ├→ User Declines → Idle (receiver/ViewModel rejects, service stops)
+    ├→ Remote Cancels → Idle (onCancelledCallInvite)
+    └→ 45s Timeout → Idle (auto-reject)
+```
+
+**Settings UI:**
+- "VoIP Status" — Ready (green) / Not Ready (red)
+- "Full-Screen Calls" — Shows `canUseFullScreenIntent()` status, tap to enable (Android 14+)
+- "Display Over Apps" — Shows `canDrawOverlays()` status, tap to enable
+
+**Key Files Modified:**
+- `AndroidManifest.xml` — SYSTEM_ALERT_WINDOW permission
+- `IncomingCallService.kt` — Silent vs CallStyle notification strategy, demoteNotification()
+- `IncomingCallActivity.kt` — Calls onActivityShown() on create
+- `ActiveCallViewModel.kt` — Decline calls IncomingCallService.decline()
+- `MainTabScreen.kt` — Excluded Ringing from showActiveCallScreen
+- `MainActivity.kt` — Auto-prompt overlay permission after login
+- `SettingsScreen.kt` — Display Over Apps toggle, simplified VoIP Status
+- `SettingsViewModel.kt` — canDrawOverlays state
+
+**Tested On:** Samsung S24 Ultra, Android 16
+
+---
+
 ### 📅 Phase 9: Background Sync & Polish (Future)
 **Duration:** 5-6 days
 
@@ -925,12 +1013,13 @@ core/                 # Core Infrastructure
 **✅ Completed:**
 - Phase 1: Foundation (networking, database, security) ✨
 - Phase 2: Authentication (email, Google, Microsoft, registration) ✨
-- Phase 3: UI/Navigation - Main Features (bottom tabs, chat threads, messaging, bookings) ✨ **WORKING!**
-- Phase 4: Contacts (list, detail, search, chat navigation) ✨ **WORKING!**
-- Phase 5: User Profile (view, edit, password change, settings) ✨ **COMMITTED!**
-- Phase 6: Calls UI (call logs, filters, search) ✨ **WORKING!**
-- Phase 7: VoIP Calling (Twilio, active calls, audio management) ✨ **COMMITTED!**
-- Phase 8: Push Notifications (FCM, deep linking, token management) ✨ **COMPLETE!**
+- Phase 3: UI/Navigation - Main Features (bottom tabs, chat threads, messaging, bookings) ✨
+- Phase 4: Contacts (list, detail, search, chat navigation) ✨
+- Phase 5: User Profile (view, edit, password change, settings) ✨
+- Phase 6: Calls UI (call logs, filters, search) ✨
+- Phase 7: VoIP Calling (Twilio, active calls, audio management) ✨
+- Phase 8: Push Notifications (FCM, deep linking, token management) ✨
+- Incoming Call Full-Screen Notifications (all device states, Samsung S24 Ultra tested) ✨
 
 **🚧 In Progress:**
 - None - Ready for Phase 9 or Production Testing!
@@ -945,6 +1034,8 @@ core/                 # Core Infrastructure
 - ✅ App Package: `com.rhentimobile` (matches Firebase)
 - ✅ Internet Permissions: Added
 - ✅ Notification Permission: POST_NOTIFICATIONS (Android 13+)
+- ✅ Overlay Permission: SYSTEM_ALERT_WINDOW (auto-prompted after login)
+- ✅ Full-Screen Intent: USE_FULL_SCREEN_INTENT (toggle in Settings)
 - ✅ Firebase Configuration: google-services.json in place
 - ✅ Bottom Tab Navigation: Implemented with persistence
 - ✅ Chat Hub: Full thread list and detail screens
@@ -979,19 +1070,21 @@ core/                 # Core Infrastructure
 - ✅ Notification Channels (6 total: calls, messages, viewings, applications, general)
 - ✅ FCM Token Management (auto-sync with backend)
 - ✅ Deep Linking (rhenti:// URIs for navigation)
+- ✅ Incoming Call Full-Screen (all device states, no flash, single decline)
+- ✅ Overlay Permission Auto-Prompt (after login)
 - ⏳ Background Sync (Phase 9)
 
 **🔗 Repository:**
 - GitHub: `https://github.com/tomasronis/Rhenti`
 - Branch: `master`
-- Last Commit: Implement Phase 8 - Push Notifications (Feb 12, 2026)
+- Last Commit: Fix incoming call notifications (Feb 14, 2026)
 - Recent Commits:
+  - Fix incoming call: no heads-up flash, single decline, overlay permission, clean settings
+  - Fix incoming call: single activity launch, reliable decline, notification cleanup
+  - Add IncomingCallService foreground service for reliable incoming call ringing
+  - Show incoming call screen over lock screen without requiring unlock
+  - Add Rhenti branding to incoming/active call screen
   - Phase 8: Firebase Cloud Messaging push notifications
-  - Phase 7: VoIP Calling implementation
-  - Phase 6: Calls UI implementation
-  - Phase 5: User Profile implementation
-  - iOS Design Parity updates
-  - Bug fixes: Search functionality and call logs API parsing
 
 ---
 
