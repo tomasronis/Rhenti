@@ -50,6 +50,10 @@ class MainTabViewModel @Inject constructor(
     private val _isTwilioInitialized = MutableStateFlow(false)
     val isTwilioInitialized: StateFlow<Boolean> = _isTwilioInitialized.asStateFlow()
 
+    // Incremented each time Messages tab is navigated to, to trigger a refresh
+    private val _messagesRefreshTrigger = MutableStateFlow(0)
+    val messagesRefreshTrigger: StateFlow<Int> = _messagesRefreshTrigger.asStateFlow()
+
     // Observe call state from TwilioManager
     val callState: StateFlow<CallState> = twilioManager.callState
         .stateIn(
@@ -119,6 +123,16 @@ class MainTabViewModel @Inject constructor(
     suspend fun setSelectedTab(tabIndex: Int) {
         _selectedTab.value = tabIndex
         preferencesManager.setSelectedTab(tabIndex)
+        if (tabIndex == 0) {
+            _messagesRefreshTrigger.value++
+        }
+    }
+
+    /**
+     * Request a messages tab refresh (e.g. after notification deep link).
+     */
+    fun requestMessagesRefresh() {
+        _messagesRefreshTrigger.value++
     }
 
     /**

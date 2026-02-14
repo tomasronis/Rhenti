@@ -20,6 +20,7 @@ import com.tomasronis.rhentiapp.presentation.main.contacts.ContactsViewModel
 fun ChatsTabContent(
     contactToStartChat: Contact? = null,
     threadIdToOpen: String? = null,
+    refreshTrigger: Int = 0,
     onContactChatOpened: () -> Unit = {},
     onThreadOpened: () -> Unit = {},
     onStartCall: (String) -> Unit = {},
@@ -29,6 +30,11 @@ fun ChatsTabContent(
     val contactsViewModel: ContactsViewModel = hiltViewModel()
     val chatUiState by chatViewModel.uiState.collectAsState()
     val contactsUiState by contactsViewModel.uiState.collectAsState()
+
+    // Refresh threads whenever the trigger changes (notification tap, tab switch)
+    LaunchedEffect(refreshTrigger) {
+        chatViewModel.refreshThreads()
+    }
 
     var selectedThread by remember { mutableStateOf<ChatThread?>(null) }
     var selectedContactFromThread by remember { mutableStateOf<Contact?>(null) }

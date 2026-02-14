@@ -39,10 +39,6 @@ fun ThreadListScreen(
     var showDeleteDialog by remember { mutableStateOf<ChatThread?>(null) }
     var showFiltersModal by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        viewModel.refreshThreads()
-    }
-
     Scaffold(
         topBar = {
             Column(

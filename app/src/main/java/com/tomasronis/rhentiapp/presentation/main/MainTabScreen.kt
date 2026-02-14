@@ -43,6 +43,7 @@ fun MainTabScreen(
     val contactIdToOpen by viewModel.contactIdToOpen.collectAsState()
     val contactThreadIdToOpen by viewModel.contactThreadIdToOpen.collectAsState()
     val callState by viewModel.callState.collectAsState()
+    val messagesRefreshTrigger by viewModel.messagesRefreshTrigger.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -302,6 +303,7 @@ fun MainTabScreen(
                 0 -> ChatsTabContent(
                     contactToStartChat = contactToStartChat,
                     threadIdToOpen = threadIdToOpen,
+                    refreshTrigger = messagesRefreshTrigger,
                     onContactChatOpened = {
                         viewModel.clearContactToStartChat()
                     },
