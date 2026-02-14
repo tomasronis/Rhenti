@@ -1,10 +1,14 @@
 # Rhenti Android App - Project Context & Requirements
 
-**Last Updated:** February 14, 2026 (Incoming Call Full-Screen Notifications)
-**Current Phase:** Phase 8 Complete + Incoming Call Polish
+**Last Updated:** February 14, 2026 (Messages Refresh Fix + Production Testing)
+**Current Phase:** Phase 8 Complete + Incoming Call Polish + Production Testing
 **Next Phase:** Phase 9 (Background Sync & Polish) or Production Release
 
 **Recent Updates (Feb 14, 2026):**
+- ✅ **MESSAGES TAB REFRESH FIX:** Messages now always refresh on notification tap
+  - Added `messagesRefreshTrigger` counter in MainTabViewModel
+  - ChatsTabContent observes trigger and calls refreshThreads() on change
+  - Works for notification deep links, tab clicks, and cross-tab navigation
 - ✅ **INCOMING CALL FULL-SCREEN NOTIFICATIONS:** Reliable in ALL device states
 - ✅ Full-screen incoming call activity works: screen off, screen on, app foreground/background/closed
 - ✅ `SYSTEM_ALERT_WINDOW` permission for reliable screen-on activity launch
@@ -14,6 +18,9 @@
 - ✅ Auto-prompt overlay permission after login
 - ✅ Settings: "Display Over Apps" toggle, simplified VoIP Status (Ready/Not Ready)
 - ✅ Settings: Removed debug items (Re-register VoIP, Last FCM, Token Grants)
+
+**Known Issues (Production Testing - Feb 14, 2026):**
+- ⚠️ **Contacts not loading on large production accounts**: `/phone-tracking/getContacts/{superAccountId}` endpoint takes very long (or never responds) for accounts with ~98K threads. Logcat shows 4 redundant identical requests fired simultaneously with no response within capture window. Messages (chat-hub/threads) load fine. Needs investigation: add better error logging, reduce redundant API calls, check if server-side pagination is needed.
 
 **Previous Updates (Feb 12, 2026):**
 - ✅ **PHASE 8 COMPLETE:** Firebase Cloud Messaging push notifications fully implemented
@@ -946,6 +953,8 @@ Idle → Ringing (IncomingCallService starts)
 5. **Error Messages:** Generic error messages - could parse API errors for specifics
 6. **Biometric Auth:** Not implemented yet (planned for future)
 7. **Retry Logic:** Failed requests don't auto-retry (manual retry only)
+8. **Contacts on large accounts:** `/phone-tracking/getContacts/` endpoint slow/unresponsive for accounts with ~98K threads. 4 redundant concurrent calls fired on startup. Needs: reduce to single call, add pagination or timeout handling, better error logging
+9. **Redundant API calls on startup:** ContactsViewModel.init(), MainTabViewModel.preloadDataForSync(), and MainTabScreen LaunchedEffect all independently call refreshContacts() — should deduplicate
 
 ### Future Enhancements (Backlog)
 - Biometric authentication (fingerprint/face)
@@ -1077,14 +1086,14 @@ Idle → Ringing (IncomingCallService starts)
 **🔗 Repository:**
 - GitHub: `https://github.com/tomasronis/Rhenti`
 - Branch: `master`
-- Last Commit: Fix incoming call notifications (Feb 14, 2026)
+- Last Commit: Fix messages tab not refreshing on notification tap (Feb 14, 2026)
 - Recent Commits:
+  - Fix messages tab not refreshing on notification tap
+  - Document incoming call full-screen notification architecture
   - Fix incoming call: no heads-up flash, single decline, overlay permission, clean settings
   - Fix incoming call: single activity launch, reliable decline, notification cleanup
   - Add IncomingCallService foreground service for reliable incoming call ringing
   - Show incoming call screen over lock screen without requiring unlock
-  - Add Rhenti branding to incoming/active call screen
-  - Phase 8: Firebase Cloud Messaging push notifications
 
 ---
 
