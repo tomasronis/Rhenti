@@ -10,8 +10,10 @@ import com.tomasronis.rhentiapp.data.calls.models.CallStatus
 import com.tomasronis.rhentiapp.data.calls.models.CallType
 import com.tomasronis.rhentiapp.data.calls.repository.CallsRepository
 import com.tomasronis.rhentiapp.data.chathub.repository.ChatHubRepository
+import com.google.firebase.messaging.FirebaseMessaging
 import com.twilio.voice.*
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -75,6 +77,14 @@ class TwilioManager @Inject constructor(
 
     private val _callState = MutableStateFlow<CallState>(CallState.Idle)
     val callState: StateFlow<CallState> = _callState.asStateFlow()
+
+    // Debug status for diagnosing incoming call registration issues
+    private val _registrationStatus = MutableStateFlow("Not initialized")
+    val registrationStatus: StateFlow<String> = _registrationStatus.asStateFlow()
+
+    // Detailed debug info for diagnosing push credential issues
+    private val _debugInfo = MutableStateFlow("")
+    val debugInfo: StateFlow<String> = _debugInfo.asStateFlow()
 
     private var callStartTime: Long = 0
     private var durationTimerJob: kotlinx.coroutines.Job? = null
@@ -207,6 +217,54 @@ class TwilioManager @Inject constructor(
     companion object {
         private const val TAG = "TwilioManager"
         private const val TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000 // 5 minutes
+
+        /**
+         * Decode a JWT token payload (without verification) to inspect grants.
+         * Twilio access tokens are JWTs with grants in the payload.
+         */
+        fun decodeJwtPayload(jwt: String): String? {
+            return try {
+                val parts = jwt.split(".")
+                if (parts.size != 3) return null
+                val payload = parts[1]
+                // Add padding if needed
+                val padded = when (payload.length % 4) {
+                    2 -> "$payload=="
+                    3 -> "$payload="
+                    else -> payload
+                }
+                val decoded = android.util.Base64.decode(padded, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                String(decoded, Charsets.UTF_8)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /**
+         * Simple JSON string value extractor - finds "key":"value" patterns.
+         */
+        fun extractJsonValue(json: String?, key: String): String? {
+            if (json == null) return null
+            return try {
+                val pattern = """"$key"\s*:\s*"([^"]+)"""".toRegex()
+                pattern.find(json)?.groupValues?.get(1)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /**
+         * Simple JSON number value extractor - finds "key":123 patterns.
+         */
+        fun extractJsonNumber(json: String?, key: String): Long? {
+            if (json == null) return null
+            return try {
+                val pattern = """"$key"\s*:\s*(\d+)""".toRegex()
+                pattern.find(json)?.groupValues?.get(1)?.toLongOrNull()
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 
     /**
@@ -214,28 +272,98 @@ class TwilioManager @Inject constructor(
      */
     suspend fun initialize() {
         try {
-            val userId = tokenManager.getUserId() ?: return
-            val email = tokenManager.getUserEmail() ?: return
-            val account = tokenManager.getAccount() ?: return
-            val childAccount = tokenManager.getChildAccount() ?: return
-
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Initializing Twilio SDK - userId: $userId, email: $email, account: $account, childAccount: $childAccount")
+            _registrationStatus.value = "Initializing..."
+            val userId = tokenManager.getUserId() ?: run {
+                _registrationStatus.value = "ERROR: No user ID"
+                return
+            }
+            // Match old app: account = super_account_id, childAccount = userId
+            val superAccountId = tokenManager.getSuperAccountId() ?: run {
+                _registrationStatus.value = "ERROR: No super account ID"
+                return
             }
 
-            // Get Twilio access token from API
-            // Use userId as identity (iOS uses device unique ID, but userId works as unique identifier)
+            // Use device ID as identity (matches old app's DeviceInfo.getUniqueId())
+            val deviceId = android.provider.Settings.Secure.getString(
+                context.contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            )
+
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Initializing Twilio SDK - identity(deviceId): $deviceId, account(superAccountId): $superAccountId, childAccount(userId): $userId")
+            }
+
+            _registrationStatus.value = "Fetching access token..."
+
+            // Get Twilio access token from API - match old app's parameters exactly
             when (val result = callsRepository.getTwilioAccessToken(
-                identity = userId,
+                identity = deviceId,
                 os = "android",
-                email = email,
-                account = account,
-                childAccount = childAccount
+                email = "", // old app doesn't send email
+                account = superAccountId,
+                childAccount = userId
             )) {
                 is NetworkResult.Success -> {
                     accessToken = result.data
-                    clientIdentity = userId  // Store user ID for call parameters
+                    clientIdentity = deviceId
                     Voice.setLogLevel(if (BuildConfig.DEBUG) LogLevel.DEBUG else LogLevel.ERROR)
+
+                    // Decode JWT to inspect grants and check for push_credential_sid
+                    val jwtPayload = decodeJwtPayload(result.data)
+                    val hasPushCred = jwtPayload?.contains("push_credential_sid") == true ||
+                                     jwtPayload?.contains("pushCredentialSid") == true
+                    val hasVoiceGrant = jwtPayload?.contains("voice") == true
+
+                    // Extract key JWT claims
+                    val pushCredSid = extractJsonValue(jwtPayload, "push_credential_sid")
+                        ?: extractJsonValue(jwtPayload, "pushCredentialSid")
+                    val expClaim = extractJsonNumber(jwtPayload, "exp")
+                    val iatClaim = extractJsonNumber(jwtPayload, "iat")
+                    val issClaim = extractJsonValue(jwtPayload, "iss")
+                    val subClaim = extractJsonValue(jwtPayload, "sub")
+
+                    val nowSec = System.currentTimeMillis() / 1000
+                    val isExpired = expClaim != null && expClaim < nowSec
+                    val ttlMin = if (expClaim != null && iatClaim != null) (expClaim - iatClaim) / 60 else null
+                    val expiresIn = if (expClaim != null) (expClaim - nowSec) / 60 else null
+
+                    val debugLines = StringBuilder()
+                    debugLines.appendLine("Identity: $deviceId")
+                    debugLines.appendLine("Voice Grant: ${if (hasVoiceGrant) "YES" else "NO"}")
+                    debugLines.appendLine("Push Cred: ${pushCredSid ?: if (hasPushCred) "YES" else "MISSING!"}")
+                    debugLines.appendLine("Issuer (API Key): ${issClaim ?: "?"}")
+                    debugLines.appendLine("Account: ${subClaim ?: "?"}")
+                    if (isExpired) {
+                        debugLines.appendLine("TOKEN EXPIRED! (${-(expiresIn ?: 0)}min ago)")
+                    } else if (expiresIn != null) {
+                        debugLines.appendLine("Expires in: ${expiresIn}min (TTL: ${ttlMin}min)")
+                    }
+
+                    if (BuildConfig.DEBUG) {
+                        Log.d(TAG, "========================================")
+                        Log.d(TAG, "Twilio Access Token Analysis:")
+                        Log.d(TAG, "  Identity: $deviceId")
+                        Log.d(TAG, "  Voice Grant: $hasVoiceGrant")
+                        Log.d(TAG, "  Push Cred SID: $pushCredSid")
+                        Log.d(TAG, "  Issuer (API Key SID): $issClaim")
+                        Log.d(TAG, "  Subject (Account SID): $subClaim")
+                        Log.d(TAG, "  Expired: $isExpired, Expires in: ${expiresIn}min")
+                        Log.d(TAG, "  Token length: ${result.data.length}")
+                        Log.d(TAG, "  JWT Payload: $jwtPayload")
+                        Log.d(TAG, "========================================")
+                    }
+
+                    if (!hasPushCred) {
+                        debugLines.appendLine("WARNING: No push_credential_sid!")
+                        Log.w(TAG, "ACCESS TOKEN MISSING PUSH CREDENTIAL SID")
+                    }
+
+                    _debugInfo.value = debugLines.toString().trim()
+                    _registrationStatus.value = when {
+                        isExpired -> "Token EXPIRED!"
+                        hasPushCred -> "Token OK. Registering..."
+                        else -> "Token OK but NO push credential!"
+                    }
 
                     // Register for incoming call invites
                     registerForIncomingCalls(result.data)
@@ -245,6 +373,7 @@ class TwilioManager @Inject constructor(
                     }
                 }
                 is NetworkResult.Error -> {
+                    _registrationStatus.value = "ERROR: Token fetch failed - ${result.exception?.message}"
                     if (BuildConfig.DEBUG) {
                         Log.e(TAG, "Failed to get Twilio access token", result.exception)
                     }
@@ -254,6 +383,7 @@ class TwilioManager @Inject constructor(
                 }
             }
         } catch (e: Exception) {
+            _registrationStatus.value = "ERROR: Init exception - ${e.message}"
             if (BuildConfig.DEBUG) {
                 Log.e(TAG, "Failed to initialize Twilio SDK", e)
             }
@@ -267,11 +397,31 @@ class TwilioManager @Inject constructor(
     private fun registerForIncomingCalls(accessToken: String) {
         scope.launch {
             try {
-                // Get FCM token from preferences
-                val fcmToken = preferencesManager.getFcmToken()
+                // Get FCM token from preferences, or fetch directly from Firebase if not yet saved
+                var fcmToken = preferencesManager.getFcmToken()
                 if (fcmToken.isNullOrBlank()) {
                     if (BuildConfig.DEBUG) {
-                        Log.w(TAG, "Cannot register for incoming calls: FCM token not available yet")
+                        Log.d(TAG, "FCM token not in preferences, fetching directly from Firebase...")
+                    }
+                    try {
+                        fcmToken = FirebaseMessaging.getInstance().token.await()
+                        if (!fcmToken.isNullOrBlank()) {
+                            preferencesManager.saveFcmToken(fcmToken)
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "FCM token fetched and saved: ${fcmToken.take(20)}...")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (BuildConfig.DEBUG) {
+                            Log.e(TAG, "Failed to fetch FCM token from Firebase", e)
+                        }
+                    }
+                }
+
+                if (fcmToken.isNullOrBlank()) {
+                    _registrationStatus.value = "ERROR: FCM token unavailable"
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "Cannot register for incoming calls: FCM token not available")
                     }
                     return@launch
                 }
@@ -280,14 +430,21 @@ class TwilioManager @Inject constructor(
                     Log.d(TAG, "Registering for incoming call invites with FCM token: ${fcmToken.take(20)}...")
                 }
 
+                _registrationStatus.value = "Calling Voice.register()..."
+
                 Voice.register(
                     accessToken,
                     Voice.RegistrationChannel.FCM,
                     fcmToken,
                     object : RegistrationListener {
                         override fun onRegistered(accessToken: String, fcmToken: String) {
+                            _registrationStatus.value = "REGISTERED - Ready for incoming calls"
+                            // Append FCM token info to debug
+                            val currentDebug = _debugInfo.value
+                            _debugInfo.value = "$currentDebug\nFCM Token: ${fcmToken.take(20)}...\nRegistration: SUCCESS"
                             if (BuildConfig.DEBUG) {
                                 Log.d(TAG, "✅ Registered for incoming calls successfully")
+                                Log.d(TAG, "  FCM Token used: ${fcmToken.take(30)}...")
                             }
                         }
 
@@ -296,8 +453,11 @@ class TwilioManager @Inject constructor(
                             accessToken: String,
                             fcmToken: String
                         ) {
+                            _registrationStatus.value = "REGISTER FAILED: ${registrationException.errorCode} - ${registrationException.message}"
+                            val currentDebug = _debugInfo.value
+                            _debugInfo.value = "$currentDebug\nRegistration: FAILED (${registrationException.errorCode})"
                             if (BuildConfig.DEBUG) {
-                                Log.e(TAG, "❌ Failed to register for incoming calls: ${registrationException.message}", registrationException)
+                                Log.e(TAG, "❌ Failed to register for incoming calls: ${registrationException.message} (code: ${registrationException.errorCode})", registrationException)
                             }
                         }
                     }
@@ -469,10 +629,65 @@ class TwilioManager @Inject constructor(
     }
 
     /**
+     * Get the currently stored CallInvite (for accepting from UI).
+     */
+    fun getCallInvite(): CallInvite? = callInvite
+
+    /**
+     * Handle incoming call invite - sets state to Ringing so the UI shows.
+     * Called from MainActivity when a notification is tapped.
+     */
+    fun handleIncomingCallInvite(invite: CallInvite) {
+        callInvite = invite
+        currentCallPhoneNumber = invite.from
+        currentCallType = CallType.INCOMING
+
+        val callerNumber = invite.from ?: "Unknown"
+        _callState.value = CallState.Ringing(
+            phoneNumber = callerNumber,
+            callSid = invite.callSid
+        )
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Set Ringing state for incoming call from: $callerNumber")
+        }
+
+        // Look up contact info in background
+        scope.launch {
+            val contactInfo = lookupContactInfoByPhone(callerNumber)
+            if (contactInfo != null) {
+                currentContactId = contactInfo.id
+                currentContactName = contactInfo.displayName
+                currentContactAvatar = contactInfo.avatarUrl
+                val current = _callState.value
+                if (current is CallState.Ringing) {
+                    _callState.value = current.copy(
+                        contactName = contactInfo.displayName,
+                        contactAvatar = contactInfo.avatarUrl
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * Accept incoming call
      */
     fun acceptIncomingCall(invite: CallInvite) {
         try {
+            // Check microphone permission before accepting
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    context, android.Manifest.permission.RECORD_AUDIO
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                if (BuildConfig.DEBUG) {
+                    Log.e(TAG, "RECORD_AUDIO permission not granted - cannot accept call")
+                }
+                _callState.value = CallState.Failed(
+                    "Microphone permission required. Please grant permission and try again."
+                )
+                return
+            }
+
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Accepting incoming call from: ${invite.from}")
             }
@@ -480,38 +695,37 @@ class TwilioManager @Inject constructor(
             // Store for call logging
             currentCallPhoneNumber = invite.from
             currentCallType = CallType.INCOMING
+            callInvite = invite
 
-            // Look up contact info for the caller (from contacts AND threads)
-            val callerNumber = invite.from
-            if (callerNumber != null) {
-                scope.launch {
-                    val contactInfo = lookupContactInfoByPhone(callerNumber)
-                    if (contactInfo != null) {
-                        currentContactId = contactInfo.id
-                        currentContactName = contactInfo.displayName
-                        currentContactAvatar = contactInfo.avatarUrl
+            val callerNumber = invite.from ?: "Unknown"
 
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Found incoming caller info: ${contactInfo.displayName}, avatar: ${contactInfo.avatarUrl}")
-                        }
+            // Set state immediately so ActiveCallScreen shows
+            _callState.value = CallState.Ringing(
+                phoneNumber = callerNumber,
+                callSid = invite.callSid,
+                contactName = currentContactName,
+                contactAvatar = currentContactAvatar
+            )
 
-                        // Update call state with contact info
-                        val currentState = _callState.value
-                        when (currentState) {
-                            is CallState.Ringing -> {
-                                _callState.value = currentState.copy(
-                                    contactName = contactInfo.displayName,
-                                    contactAvatar = contactInfo.avatarUrl
-                                )
-                            }
-                            is CallState.Active -> {
-                                _callState.value = currentState.copy(
-                                    contactName = contactInfo.displayName,
-                                    contactAvatar = contactInfo.avatarUrl
-                                )
-                            }
-                            else -> {} // Do nothing for other states
-                        }
+            // Look up contact info for the caller in background
+            scope.launch {
+                val contactInfo = lookupContactInfoByPhone(callerNumber)
+                if (contactInfo != null) {
+                    currentContactId = contactInfo.id
+                    currentContactName = contactInfo.displayName
+                    currentContactAvatar = contactInfo.avatarUrl
+
+                    val currentState = _callState.value
+                    when (currentState) {
+                        is CallState.Ringing -> _callState.value = currentState.copy(
+                            contactName = contactInfo.displayName,
+                            contactAvatar = contactInfo.avatarUrl
+                        )
+                        is CallState.Active -> _callState.value = currentState.copy(
+                            contactName = contactInfo.displayName,
+                            contactAvatar = contactInfo.avatarUrl
+                        )
+                        else -> {}
                     }
                 }
             }
@@ -520,7 +734,6 @@ class TwilioManager @Inject constructor(
                 .build()
 
             activeCall = invite.accept(context, acceptOptions, callListener)
-            callInvite = null
 
             audioManager.requestAudioFocus()
             audioManager.setAudioRoute(VoipAudioManager.AudioRoute.EARPIECE)
@@ -842,6 +1055,17 @@ class TwilioManager @Inject constructor(
         currentContactAvatar = null
         stopDurationTimer()
         audioManager.cleanup()
+    }
+
+    /**
+     * Force re-initialization. Useful for debugging.
+     */
+    suspend fun reinitialize() {
+        _registrationStatus.value = "Re-initializing..."
+        _debugInfo.value = ""
+        accessToken = null
+        clientIdentity = null
+        initialize()
     }
 
     /**

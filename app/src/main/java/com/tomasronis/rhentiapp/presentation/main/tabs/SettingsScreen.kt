@@ -45,6 +45,9 @@ fun SettingsScreen(
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
     val mediaRetentionPeriod by viewModel.mediaRetentionPeriod.collectAsState()
     val messagesPerChat by viewModel.messagesPerChat.collectAsState()
+    val twilioStatus by viewModel.twilioRegistrationStatus.collectAsState()
+    val twilioDebugInfo by viewModel.twilioDebugInfo.collectAsState()
+    val lastFcmEvent by viewModel.lastFcmEvent.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -224,7 +227,7 @@ fun SettingsScreen(
                 }
             }
 
-            // About Section (without Connection)
+            // About Section
             item {
                 SectionHeader(title = "About")
                 Spacer(modifier = Modifier.height(8.dp))
@@ -234,14 +237,94 @@ fun SettingsScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
-                    SettingsItem(
-                        icon = Icons.Filled.Info,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "Version",
-                        value = "2.0.0 (22)",
-                        onClick = { /* Future: Show version details */ },
-                        showChevron = false
-                    )
+                    Column {
+                        SettingsItem(
+                            icon = Icons.Filled.Info,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = "Version",
+                            value = "2.0.0 (22)",
+                            onClick = { /* Future: Show version details */ },
+                            showChevron = false
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        SettingsItem(
+                            icon = Icons.Filled.Smartphone,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = "Device ID",
+                            value = viewModel.deviceId,
+                            onClick = { /* Info only */ },
+                            showChevron = false
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        SettingsItem(
+                            icon = Icons.Filled.Phone,
+                            iconTint = when {
+                                twilioStatus.startsWith("REGISTERED") -> Color(0xFF34C759)
+                                twilioStatus.startsWith("ERROR") || twilioStatus.startsWith("REGISTER FAILED") -> Color(0xFFFF3B30)
+                                else -> Color(0xFFFF9500)
+                            },
+                            title = "VoIP Status",
+                            value = twilioStatus,
+                            onClick = { /* Info only */ },
+                            showChevron = false
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        SettingsItem(
+                            icon = Icons.Filled.Notifications,
+                            iconTint = if (lastFcmEvent.contains("CallInvite")) Color(0xFF34C759) else MaterialTheme.colorScheme.primary,
+                            title = "Last FCM",
+                            value = lastFcmEvent.ifEmpty { "None" },
+                            onClick = { viewModel.refreshFcmDebug() },
+                            showChevron = false
+                        )
+
+                        // Twilio debug details
+                        if (twilioDebugInfo.isNotBlank()) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 52.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+
+                            SettingsItem(
+                                icon = Icons.Filled.BugReport,
+                                iconTint = if (twilioDebugInfo.contains("MISSING")) Color(0xFFFF3B30) else Color(0xFF34C759),
+                                title = "Token Grants",
+                                value = twilioDebugInfo,
+                                onClick = { /* Info only */ },
+                                showChevron = false
+                            )
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+
+                        // Re-register button
+                        SettingsItem(
+                            icon = Icons.Filled.Refresh,
+                            iconTint = Color(0xFF007AFF),
+                            title = "Re-register VoIP",
+                            value = "Tap to force re-register with Twilio",
+                            onClick = { viewModel.reinitializeTwilio() },
+                            showChevron = true
+                        )
+                    }
                 }
             }
 

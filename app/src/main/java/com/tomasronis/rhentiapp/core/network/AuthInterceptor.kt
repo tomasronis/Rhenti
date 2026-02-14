@@ -28,8 +28,19 @@ class AuthInterceptor @Inject constructor(
         val isAuthEndpoint = url.contains("/login") ||
                            url.contains("/register") ||
                            url.contains("/forgot")
+        // Twilio access token endpoint must be called without auth headers
+        // to match the old app's behavior - the backend may use different
+        // Twilio credentials based on white-label/auth headers
+        val isTwilioTokenEndpoint = url.contains("/phone-tracking/accessToken")
 
         runBlocking {
+            // Skip ALL custom headers for Twilio access token endpoint (matches old app behavior)
+            if (isTwilioTokenEndpoint) {
+                // Only add Content-Type, no auth/white-label headers
+                requestBuilder.addHeader("Content-Type", "application/json")
+                return@runBlocking
+            }
+
             // Add Authorization header only for authenticated endpoints
             if (!isAuthEndpoint) {
                 tokenManager.getAuthToken()?.let { token ->
@@ -51,10 +62,12 @@ class AuthInterceptor @Inject constructor(
             }
         }
 
-        // Add standard headers
-        requestBuilder.addHeader("Content-Type", "application/json")
-        requestBuilder.addHeader("Accept", "application/json")
-        requestBuilder.addHeader("x-language", "en")
+        if (!isTwilioTokenEndpoint) {
+            // Add standard headers for non-Twilio endpoints
+            requestBuilder.addHeader("Content-Type", "application/json")
+            requestBuilder.addHeader("Accept", "application/json")
+            requestBuilder.addHeader("x-language", "en")
+        }
 
         return chain.proceed(requestBuilder.build())
     }

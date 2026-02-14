@@ -1,11 +1,13 @@
 package com.tomasronis.rhentiapp.presentation
 
 import android.Manifest
+import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -52,21 +54,25 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var fcmTokenManager: FcmTokenManager
 
+    @Inject
+    lateinit var twilioManager: com.tomasronis.rhentiapp.core.voip.TwilioManager
+
     // Store reference to MainTabViewModel for deep link navigation
     private var mainTabViewModel: MainTabViewModel? = null
 
     // Store pending deep link destination when ViewModel not yet available
     private var pendingDeepLink: DeepLinkDestination? = null
 
-    // Permission launcher for notification permission (Android 13+)
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
+    // Permission launcher for notification + microphone permissions
+    private val permissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "Notification permission granted: $isGranted")
+            permissions.forEach { (perm, granted) ->
+                Log.d(TAG, "Permission $perm granted: $granted")
+            }
         }
-        if (isGranted) {
-            // Permission granted - trigger device registration
+        if (permissions[Manifest.permission.POST_NOTIFICATIONS] == true) {
             fcmTokenManager.refreshToken()
         }
     }
@@ -81,6 +87,21 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Enable showing over lock screen for incoming calls
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            val keyguardManager = getSystemService(KeyguardManager::class.java)
+            keyguardManager?.requestDismissKeyguard(this, null)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+            )
+        }
 
         // Handle deep link if present (only on fresh launch, not configuration change)
         if (savedInstanceState == null) {
@@ -123,13 +144,16 @@ class MainActivity : ComponentActivity() {
         setIntent(intent) // Important: Update the activity's intent
 
         if (BuildConfig.DEBUG) {
-            Log.d(TAG, "========================================")
-            Log.d(TAG, "onNewIntent called")
-            Log.d(TAG, "  action: ${intent.action}")
-            Log.d(TAG, "  data: ${intent.data}")
-            Log.d(TAG, "  flags: 0x${Integer.toHexString(intent.flags)}")
-            Log.d(TAG, "  extras: ${intent.extras?.keySet()?.joinToString()}")
-            Log.d(TAG, "========================================")
+            Log.d(TAG, "onNewIntent: action=${intent.action}, extras=${intent.extras?.keySet()?.joinToString()}")
+        }
+
+        // Wake screen for incoming call intents
+        val isCallIntent = intent.action == "com.rhentimobile.INCOMING_CALL" ||
+                           intent.action == "com.rhentimobile.ANSWER_CALL"
+        if (isCallIntent) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setTurnScreenOn(true)
+            }
         }
 
         // Handle deep link when app is already open and notification is tapped
@@ -168,6 +192,14 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "Intent Extras: none")
             }
             Log.d(TAG, "========================================")
+        }
+
+        // Handle incoming call actions from notification
+        val isIncomingCallAction = intent.action == "com.rhentimobile.INCOMING_CALL" ||
+                                   intent.action == "com.rhentimobile.ANSWER_CALL"
+        if (isIncomingCallAction) {
+            handleIncomingCallIntent(intent)
+            return
         }
 
         // Check if this is a Firebase auto-displayed notification tap (OPEN_ACTIVITY action).
@@ -367,6 +399,64 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Handle incoming call intent from notification tap (Answer or view incoming call).
+     * Uses the static CallInvite stored by RhentiFirebaseMessagingService.
+     */
+    private fun handleIncomingCallIntent(intent: Intent) {
+        val callSid = intent.getStringExtra("CALL_SID")
+        val callerNumber = intent.getStringExtra("CALLER_NUMBER")
+        val autoAnswer = intent.action == "com.rhentimobile.ANSWER_CALL"
+
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Handling incoming call intent: action=${intent.action}, callSid=$callSid, autoAnswer=$autoAnswer")
+        }
+
+        // Cancel the notification
+        com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.cancelIncomingCallNotification(this)
+
+        // Get the CallInvite from the static holder
+        val callInvite = com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.activeCallInvite
+        if (callInvite == null) {
+            if (BuildConfig.DEBUG) {
+                Log.w(TAG, "No active CallInvite found - call may have been cancelled")
+            }
+            return
+        }
+
+        if (autoAnswer) {
+            // Check microphone permission before accepting
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                if (BuildConfig.DEBUG) {
+                    Log.w(TAG, "RECORD_AUDIO not granted, showing ringing UI and requesting permission")
+                }
+                // Show ringing UI instead of auto-answering
+                twilioManager.handleIncomingCallInvite(callInvite)
+                // Request the permission so user can accept after granting
+                permissionsLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
+                return
+            }
+
+            // Answer the call immediately
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Auto-answering incoming call from: ${callInvite.from}")
+            }
+            twilioManager.acceptIncomingCall(callInvite)
+            com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.clearCallInvite()
+        } else {
+            // Show the ringing UI (ActiveCallScreen will show as overlay)
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Showing ringing UI for incoming call from: ${callInvite.from}")
+            }
+            twilioManager.handleIncomingCallInvite(callInvite)
+        }
+
+        // Clear intent to prevent re-processing
+        intent.action = null
+        intent.replaceExtras(null as android.os.Bundle?)
+    }
+
+    /**
      * Route to the appropriate destination based on deep link.
      */
     private fun routeToDestination(destination: DeepLinkDestination) {
@@ -462,37 +552,31 @@ class MainActivity : ComponentActivity() {
      * Should be called after login.
      */
     fun requestNotificationPermission() {
-        // Only needed on Android 13 (API 33) and above
+        val permissionsToRequest = mutableListOf<String>()
+
+        // Notification permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "Notification permission already granted")
-                    }
-                    // Permission already granted - trigger device registration
-                    fcmTokenManager.refreshToken()
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    if (BuildConfig.DEBUG) {
-                        Log.d(TAG, "Showing notification permission rationale")
-                    }
-                    // Show rationale to user (optional - can be implemented with a dialog)
-                    // For now, just request the permission
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                else -> {
-                    // Request permission
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
+        }
+
+        // Microphone permission (needed for VoIP calls)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Requesting permissions: $permissionsToRequest")
+            }
+            permissionsLauncher.launch(permissionsToRequest.toTypedArray())
         } else {
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Notification permission not required on this Android version")
+                Log.d(TAG, "All permissions already granted")
             }
-            // On Android <13, permission not required - trigger device registration
             fcmTokenManager.refreshToken()
         }
     }

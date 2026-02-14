@@ -123,10 +123,10 @@ class CallsRepositoryImpl @Inject constructor(
         childAccount: String
     ): NetworkResult<String> {
         return try {
+            // Match old app's request format exactly - no email field
             val request = mapOf(
                 "identity" to identity,
                 "os" to os,
-                "email" to email,
                 "account" to account,
                 "childAccount" to childAccount
             )

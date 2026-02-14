@@ -40,6 +40,21 @@ class ActiveCallViewModel @Inject constructor(
         twilioManager.endCall()
     }
 
+    fun acceptIncomingCall() {
+        // Try FCM service's static holder first, then TwilioManager's stored invite
+        val invite = com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.activeCallInvite
+            ?: twilioManager.getCallInvite()
+        if (invite != null) {
+            twilioManager.acceptIncomingCall(invite)
+            com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.clearCallInvite()
+        }
+    }
+
+    fun rejectIncomingCall() {
+        twilioManager.rejectIncomingCall()
+        com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.clearCallInvite()
+    }
+
     fun toggleMute() {
         val newMuteState = twilioManager.toggleMute()
         _uiState.update { it.copy(isMuted = newMuteState) }

@@ -21,6 +21,12 @@
     <!-- Push notifications (Phase 8) - Android 13+ requires explicit permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Required for incoming call full-screen notification on Android 14+ (API 34+) -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Required for waking screen on incoming calls -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:name=".RhentiApplication"
         android:allowBackup="true"

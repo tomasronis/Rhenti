@@ -18,6 +18,10 @@ import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.core.voip.CallState
 import com.tomasronis.rhentiapp.presentation.calls.active.components.CallControlsRow
 import com.tomasronis.rhentiapp.presentation.calls.active.components.DialPad
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.ui.graphics.Color
+import com.tomasronis.rhentiapp.presentation.theme.Success
 
 /**
  * Active call screen showing call status and controls.
@@ -191,34 +195,99 @@ fun ActiveCallScreen(
                 }
             }
 
-            // Dialpad (if visible)
-            if (uiState.isKeypadVisible) {
-                DialPad(
-                    onDigitPressed = { digit ->
-                        viewModel.sendDigits(digit)
-                    },
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
-            } else {
-                Spacer(modifier = Modifier.weight(1f))
-            }
+            // Show different controls based on call state
+            // Incoming ringing = Ringing state with a pending CallInvite to accept
+            val isIncomingRinging = callState is CallState.Ringing
 
-            // Call controls
-            CallControlsRow(
-                isMuted = uiState.isMuted,
-                isSpeakerOn = uiState.isSpeakerOn,
-                isKeypadVisible = uiState.isKeypadVisible,
-                onMuteClick = { viewModel.toggleMute() },
-                onSpeakerClick = { viewModel.toggleSpeaker() },
-                onKeypadClick = {
-                    if (uiState.isKeypadVisible) {
-                        viewModel.hideKeypad()
-                    } else {
-                        viewModel.showKeypad()
+            if (isIncomingRinging) {
+                // Incoming call - show Accept/Decline buttons
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = "Incoming Call",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Decline button (matches BookingMessageCard style)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        FilledIconButton(
+                            onClick = { viewModel.rejectIncomingCall() },
+                            modifier = Modifier.size(72.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color(0xFFFF3B30),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CallEnd,
+                                contentDescription = "Decline",
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Decline", style = MaterialTheme.typography.labelMedium)
                     }
-                },
-                onEndCallClick = { viewModel.endCall() }
-            )
+
+                    // Accept button (matches BookingMessageCard style)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        FilledIconButton(
+                            onClick = { viewModel.acceptIncomingCall() },
+                            modifier = Modifier.size(72.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Success,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Call,
+                                contentDescription = "Accept",
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Accept", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                // Push buttons up from bottom (~30mm)
+                Spacer(modifier = Modifier.height(120.dp))
+            } else {
+                // Active/Dialing call - show normal controls
+                if (uiState.isKeypadVisible) {
+                    DialPad(
+                        onDigitPressed = { digit ->
+                            viewModel.sendDigits(digit)
+                        },
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+
+                CallControlsRow(
+                    isMuted = uiState.isMuted,
+                    isSpeakerOn = uiState.isSpeakerOn,
+                    isKeypadVisible = uiState.isKeypadVisible,
+                    onMuteClick = { viewModel.toggleMute() },
+                    onSpeakerClick = { viewModel.toggleSpeaker() },
+                    onKeypadClick = {
+                        if (uiState.isKeypadVisible) {
+                            viewModel.hideKeypad()
+                        } else {
+                            viewModel.showKeypad()
+                        }
+                    },
+                    onEndCallClick = { viewModel.endCall() }
+                )
+            }
         }
     }
 }

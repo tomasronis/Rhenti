@@ -26,7 +26,8 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tokenManager: TokenManager,
     private val preferencesManager: PreferencesManager,
-    private val chatHubRepository: ChatHubRepository
+    private val chatHubRepository: ChatHubRepository,
+    private val twilioManager: com.tomasronis.rhentiapp.core.voip.TwilioManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -41,12 +42,34 @@ class SettingsViewModel @Inject constructor(
     private val _messagesPerChat = MutableStateFlow(-1) // -1 means unlimited
     val messagesPerChat: StateFlow<Int> = _messagesPerChat.asStateFlow()
 
+    val twilioRegistrationStatus: StateFlow<String> = twilioManager.registrationStatus
+    val twilioDebugInfo: StateFlow<String> = twilioManager.debugInfo
+
+    private val _lastFcmEvent = MutableStateFlow("")
+    val lastFcmEvent: StateFlow<String> = _lastFcmEvent.asStateFlow()
+
+    val deviceId: String = android.provider.Settings.Secure.getString(
+        context.contentResolver,
+        android.provider.Settings.Secure.ANDROID_ID
+    ) ?: "unknown"
+
+    fun refreshFcmDebug() {
+        _lastFcmEvent.value = com.tomasronis.rhentiapp.core.notifications.RhentiFirebaseMessagingService.getLastFcmEvent(context)
+    }
+
+    fun reinitializeTwilio() {
+        viewModelScope.launch {
+            twilioManager.reinitialize()
+        }
+    }
+
     init {
         loadUserData()
         loadThemePreference()
         loadStoragePreferences()
         calculateStorage()
         checkMediaCleanup()
+        refreshFcmDebug()
     }
 
     /**
