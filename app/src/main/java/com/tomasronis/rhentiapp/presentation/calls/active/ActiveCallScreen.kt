@@ -1,6 +1,7 @@
 package com.tomasronis.rhentiapp.presentation.calls.active
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -10,9 +11,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tomasronis.rhentiapp.core.voip.CallState
@@ -20,11 +26,19 @@ import com.tomasronis.rhentiapp.presentation.calls.active.components.CallControl
 import com.tomasronis.rhentiapp.presentation.calls.active.components.DialPad
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
-import androidx.compose.ui.graphics.Color
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoralDark
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoralLight
 import com.tomasronis.rhentiapp.presentation.theme.Success
+
+// Call screen brand colors
+private val CallScreenDark = Color(0xFF1A1A2E)
+private val CallScreenDarkAccent = Color(0xFF16213E)
+private val CoralGlow = Color(0x33E8998D) // 20% opacity coral
 
 /**
  * Active call screen showing call status and controls.
+ * Branded with Rhenti coral accents and logo.
  */
 @Composable
 fun ActiveCallScreen(
@@ -45,23 +59,54 @@ fun ActiveCallScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(CallScreenDark, CallScreenDarkAccent, Color(0xFF0F3460))
+                )
+            )
+            .drawBehind {
+                // Subtle coral decorative circles in the background
+                drawCircle(
+                    color = CoralGlow,
+                    radius = size.width * 0.45f,
+                    center = Offset(size.width * 0.85f, size.height * 0.12f)
+                )
+                drawCircle(
+                    color = Color(0x1AE8998D), // 10% opacity
+                    radius = size.width * 0.35f,
+                    center = Offset(size.width * 0.1f, size.height * 0.85f)
+                )
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Spacer(modifier = Modifier.height(64.dp))
+            // Top: Rhenti logo
+            Text(
+                text = "rhenti",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 2.sp
+                ),
+                color = RhentiCoral.copy(alpha = 0.7f),
+                modifier = Modifier.padding(top = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Call info section
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Avatar - show contact avatar if available
+                // Avatar with coral ring
                 val avatarUrl = when (val state = callState) {
                     is CallState.Active -> state.contactAvatar
                     is CallState.Ringing -> state.contactAvatar
@@ -78,32 +123,36 @@ fun ActiveCallScreen(
 
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(130.dp)
+                        .border(
+                            width = 3.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(RhentiCoral, RhentiCoralLight, RhentiCoralDark)
+                            ),
+                            shape = CircleShape
+                        )
+                        .padding(6.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(CallScreenDarkAccent),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Show initials or fallback person icon
                     if (!contactName.isNullOrBlank() && avatarUrl.isNullOrBlank()) {
-                        // Show initials when we have a name but no avatar image
                         val initials = getInitials(contactName)
                         Text(
                             text = initials,
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            color = RhentiCoral
                         )
                     } else {
-                        // Show person icon as fallback (also shown behind avatar image)
                         Icon(
                             imageVector = Icons.Filled.Person,
                             contentDescription = null,
                             modifier = Modifier.size(60.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            tint = RhentiCoral.copy(alpha = 0.6f)
                         )
                     }
 
-                    // Overlay contact avatar if available
                     if (!avatarUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = avatarUrl,
@@ -120,103 +169,95 @@ fun ActiveCallScreen(
                         Text(
                             text = state.contactName ?: state.phoneNumber,
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
 
-                        // Show phone number if we have contact name
                         if (state.contactName != null) {
                             Text(
                                 text = state.phoneNumber,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color.White.copy(alpha = 0.6f)
                             )
                         }
 
-                        // Call duration
+                        // Call duration with coral accent
                         val minutes = state.duration / 60
                         val seconds = state.duration % 60
                         Text(
                             text = String.format("%02d:%02d", minutes, seconds),
                             style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = RhentiCoral
                         )
                     }
                     is CallState.Ringing -> {
                         Text(
                             text = state.contactName ?: state.phoneNumber,
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
 
-                        // Show phone number if we have contact name
                         if (state.contactName != null) {
                             Text(
                                 text = state.phoneNumber,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color.White.copy(alpha = 0.6f)
                             )
                         }
 
                         Text(
-                            text = "Ringing...",
+                            text = "Incoming Call",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = RhentiCoral
                         )
                     }
                     is CallState.Dialing -> {
                         Text(
                             text = state.contactName ?: state.phoneNumber,
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
 
-                        // Show phone number if we have contact name
                         if (state.contactName != null) {
                             Text(
                                 text = state.phoneNumber,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color.White.copy(alpha = 0.6f)
                             )
                         }
 
                         Text(
                             text = "Calling...",
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = RhentiCoral
                         )
                     }
                     else -> {
                         Text(
                             text = "Unknown",
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
                 }
             }
 
-            // Show different controls based on call state
-            // Incoming ringing = Ringing state with a pending CallInvite to accept
+            // Controls section
             val isIncomingRinging = callState is CallState.Ringing
 
             if (isIncomingRinging) {
-                // Incoming call - show Accept/Decline buttons
                 Spacer(modifier = Modifier.weight(1f))
 
-                Text(
-                    text = "Incoming Call",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
+                // Accept/Decline buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Decline button (matches BookingMessageCard style)
+                    // Decline button
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         FilledIconButton(
                             onClick = { viewModel.rejectIncomingCall() },
@@ -233,10 +274,14 @@ fun ActiveCallScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Decline", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "Decline",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
                     }
 
-                    // Accept button (matches BookingMessageCard style)
+                    // Accept button
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         FilledIconButton(
                             onClick = { viewModel.acceptIncomingCall() },
@@ -253,14 +298,17 @@ fun ActiveCallScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Accept", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "Accept",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
                     }
                 }
 
-                // Push buttons up from bottom (~30mm)
-                Spacer(modifier = Modifier.height(120.dp))
+                Spacer(modifier = Modifier.height(100.dp))
             } else {
-                // Active/Dialing call - show normal controls
+                // Active/Dialing call controls
                 if (uiState.isKeypadVisible) {
                     DialPad(
                         onDigitPressed = { digit ->
@@ -285,9 +333,12 @@ fun ActiveCallScreen(
                             viewModel.showKeypad()
                         }
                     },
-                    onEndCallClick = { viewModel.endCall() }
+                    onEndCallClick = { viewModel.endCall() },
+                    darkMode = true
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.tomasronis.rhentiapp.presentation.theme.RhentiCoral
 
 /**
  * Call controls row with mute, speaker, keypad, and end call buttons.
@@ -22,7 +23,8 @@ fun CallControlsRow(
     onSpeakerClick: () -> Unit,
     onKeypadClick: () -> Unit,
     onEndCallClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    darkMode: Boolean = false
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -34,28 +36,28 @@ fun CallControlsRow(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Mute button
             ControlButton(
                 icon = if (isMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
                 label = "Mute",
                 isActive = isMuted,
-                onClick = onMuteClick
+                onClick = onMuteClick,
+                darkMode = darkMode
             )
 
-            // Speaker button
             ControlButton(
                 icon = if (isSpeakerOn) Icons.Filled.VolumeUp else Icons.Filled.VolumeDown,
                 label = "Speaker",
                 isActive = isSpeakerOn,
-                onClick = onSpeakerClick
+                onClick = onSpeakerClick,
+                darkMode = darkMode
             )
 
-            // Keypad button
             ControlButton(
                 icon = Icons.Filled.Dialpad,
                 label = "Keypad",
                 isActive = isKeypadVisible,
-                onClick = onKeypadClick
+                onClick = onKeypadClick,
+                darkMode = darkMode
             )
         }
 
@@ -89,8 +91,18 @@ private fun ControlButton(
     label: String,
     isActive: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    darkMode: Boolean = false
 ) {
+    // Colors adapt based on dark mode and active state
+    val activeContainerColor = if (darkMode) RhentiCoral else MaterialTheme.colorScheme.primary
+    val activeContentColor = if (darkMode) Color.White else MaterialTheme.colorScheme.onPrimary
+    val inactiveContainerColor = if (darkMode) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
+    val inactiveContentColor = if (darkMode) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val labelColor = if (darkMode) Color.White.copy(alpha = 0.7f) else {
+        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -100,16 +112,8 @@ private fun ControlButton(
             onClick = onClick,
             modifier = Modifier.size(56.dp),
             colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = if (isActive) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                },
-                contentColor = if (isActive) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                containerColor = if (isActive) activeContainerColor else inactiveContainerColor,
+                contentColor = if (isActive) activeContentColor else inactiveContentColor
             )
         ) {
             Icon(
@@ -122,11 +126,7 @@ private fun ControlButton(
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = if (isActive) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            color = labelColor
         )
     }
 }
