@@ -1,7 +1,6 @@
 package com.tomasronis.rhentiapp.presentation.calls.active
 
 import android.Manifest
-import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -95,14 +94,14 @@ class IncomingCallActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val keyguardManager = getSystemService(KeyguardManager::class.java)
-            keyguardManager?.requestDismissKeyguard(this, null)
+            // Do NOT call requestDismissKeyguard - we want the call screen
+            // to appear over the lock screen without requiring unlock
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                // No FLAG_DISMISS_KEYGUARD - show over lock screen without unlock
             )
         }
     }
