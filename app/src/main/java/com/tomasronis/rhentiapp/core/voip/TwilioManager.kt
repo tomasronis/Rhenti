@@ -747,6 +747,15 @@ class TwilioManager @Inject constructor(
     }
 
     /**
+     * Handle call invite cancelled by the remote party or declined from notification.
+     * Resets call state so the UI (IncomingCallActivity) dismisses.
+     */
+    fun handleCallCancelled() {
+        callInvite = null
+        _callState.value = CallState.Idle
+    }
+
+    /**
      * Reject incoming call
      */
     fun rejectIncomingCall() {

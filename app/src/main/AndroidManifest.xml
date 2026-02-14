@@ -71,6 +71,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Incoming Call Full-Screen Activity -->
+        <activity
+            android:name=".presentation.calls.active.IncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.RhentiApp" />
+
         <!-- MSAL Browser Tab Activity -->
         <activity
             android:name="com.microsoft.identity.client.BrowserTabActivity"

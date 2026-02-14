@@ -126,8 +126,8 @@ fun MainTabScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // Hide bottom bar when showing detail screens for more screen space
-            if (!isShowingDetail) {
+            // Hide bottom bar when showing detail screens or active call for more screen space
+            if (!isShowingDetail && !showActiveCallScreen) {
                 // iOS-styled bottom navigation with rounded pill container matching search bar
                 Surface(
                 modifier = Modifier

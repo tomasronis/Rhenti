@@ -14,7 +14,8 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.tomasronis.rhentiapp.BuildConfig
 import com.tomasronis.rhentiapp.R
-import com.tomasronis.rhentiapp.presentation.MainActivity
+import com.tomasronis.rhentiapp.core.voip.TwilioManager
+import com.tomasronis.rhentiapp.presentation.calls.active.IncomingCallActivity
 import com.twilio.voice.CallInvite
 import com.twilio.voice.CancelledCallInvite
 import com.twilio.voice.MessageListener
@@ -43,6 +44,9 @@ class RhentiFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
     lateinit var notificationManager: RhentiNotificationManager
+
+    @Inject
+    lateinit var twilioManager: TwilioManager
 
     companion object {
         private const val TAG = "FCMService"
@@ -154,6 +158,9 @@ class RhentiFirebaseMessagingService : FirebaseMessagingService() {
                         // Clear the stored invite and dismiss notification
                         activeCallInvite = null
                         cancelIncomingCallNotification(this@RhentiFirebaseMessagingService)
+
+                        // Reset TwilioManager state so IncomingCallActivity dismisses
+                        twilioManager.handleCallCancelled()
                     }
                 }
             )
@@ -203,10 +210,10 @@ class RhentiFirebaseMessagingService : FirebaseMessagingService() {
                 .removePrefix("client:")
                 .takeIf { it.isNotBlank() } ?: "Unknown Caller"
 
-            // Full-screen intent - opens app to handle the call
-            val fullScreenIntent = Intent(this, MainActivity::class.java).apply {
+            // Full-screen intent - opens dedicated IncomingCallActivity
+            val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                action = "com.rhentimobile.INCOMING_CALL"
+                action = IncomingCallActivity.ACTION_INCOMING_CALL
                 putExtra("CALL_SID", callInvite.callSid)
                 putExtra("CALLER_NUMBER", callerNumber)
             }
@@ -216,10 +223,10 @@ class RhentiFirebaseMessagingService : FirebaseMessagingService() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            // Answer action - opens app and auto-answers
-            val answerIntent = Intent(this, MainActivity::class.java).apply {
+            // Answer action - opens IncomingCallActivity and auto-answers
+            val answerIntent = Intent(this, IncomingCallActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                action = "com.rhentimobile.ANSWER_CALL"
+                action = IncomingCallActivity.ACTION_ANSWER_CALL
                 putExtra("CALL_SID", callInvite.callSid)
                 putExtra("CALLER_NUMBER", callerNumber)
             }
@@ -268,6 +275,25 @@ class RhentiFirebaseMessagingService : FirebaseMessagingService() {
                 .build()
 
             nm.notify(INCOMING_CALL_NOTIFICATION_ID, notification)
+
+            // Also directly start IncomingCallActivity for immediate full-screen experience
+            // When app is in foreground, the full-screen intent may only show heads-up notification.
+            // This ensures the full-screen call UI always appears.
+            try {
+                val directIntent = Intent(this, IncomingCallActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    action = IncomingCallActivity.ACTION_INCOMING_CALL
+                    putExtra("CALL_SID", callInvite.callSid)
+                    putExtra("CALLER_NUMBER", callerNumber)
+                }
+                startActivity(directIntent)
+            } catch (e: Exception) {
+                // Expected to fail when app is in background on Android 10+
+                // The notification's fullScreenIntent handles that case
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Direct activity start failed (expected in background): ${e.message}")
+                }
+            }
 
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Incoming call notification displayed (CallStyle) for: $callerDisplay")
