@@ -7,7 +7,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
@@ -39,6 +38,12 @@ import javax.inject.Inject
  * Foreground service that keeps the process alive during incoming call ringing.
  * Handles ringtone looping, vibration, wake lock, and the CallStyle notification.
  * Auto-times out after 45 seconds.
+ *
+ * Strategy for launching IncomingCallActivity reliably:
+ *  1. startForeground() with fullScreenIntent notification (screen-off/locked fallback)
+ *  2. startActivity() from the foreground service (works for screen-on cases)
+ *  Only ONE mechanism will actually show the activity — fullScreenIntent only fires
+ *  when the screen is off/locked; startActivity() only succeeds after foreground promotion.
  */
 @AndroidEntryPoint
 class IncomingCallService : Service() {
@@ -101,10 +106,20 @@ class IncomingCallService : Service() {
 
         /** User declined the call. Reject invite and stop service. */
         fun decline(context: Context) {
+            // Reject the invite immediately (don't wait for service round-trip)
+            activeCallInvite?.reject(context)
+            activeCallInvite = null
+
             val intent = Intent(context, IncomingCallService::class.java).apply {
                 action = ACTION_DECLINE
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (e: Exception) {
+                // Service not running — cancel notification directly
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(NOTIFICATION_ID)
+            }
         }
 
         /** Remote party cancelled the call. Stop service. */
@@ -116,9 +131,10 @@ class IncomingCallService : Service() {
             try {
                 context.startService(intent)
             } catch (e: Exception) {
-                // Service may not be running yet
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                nm.cancel(NOTIFICATION_ID)
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "callCancelled: service not running, ignoring")
+                    Log.d(TAG, "callCancelled: service not running, cancelled notification directly")
                 }
             }
         }
@@ -131,8 +147,7 @@ class IncomingCallService : Service() {
         activeCallInvite?.reject(applicationContext)
         activeCallInvite = null
         twilioManager.handleCallCancelled()
-        stopRinging()
-        stopSelf()
+        stopAndCleanup()
     }
 
     override fun onCreate() {
@@ -141,9 +156,7 @@ class IncomingCallService : Service() {
         twilioManager.callState
             .onEach { state ->
                 if (isRinging && state is CallState.Active) {
-                    // Call was accepted (possibly from another path) - stop ringing
-                    stopRinging()
-                    stopSelf()
+                    stopAndCleanup()
                 }
             }
             .launchIn(scope)
@@ -155,10 +168,7 @@ class IncomingCallService : Service() {
             ACTION_ACCEPT -> handleAccept()
             ACTION_DECLINE -> handleDecline()
             ACTION_CANCELLED -> handleCancelled()
-            else -> {
-                // Unexpected - stop self
-                stopSelf()
-            }
+            else -> stopSelf()
         }
         return START_REDELIVER_INTENT
     }
@@ -167,6 +177,7 @@ class IncomingCallService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(timeoutRunnable)
+        handler.removeCallbacksAndMessages(null)
         stopRinging()
         scope.cancel()
         super.onDestroy()
@@ -181,55 +192,40 @@ class IncomingCallService : Service() {
 
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "Incoming call from $callerDisplay (sid=$callSid)")
-
-            // Log full-screen intent permission status (critical on Android 14+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                val canFullScreen = nm.canUseFullScreenIntent()
-                Log.d(TAG, "canUseFullScreenIntent() = $canFullScreen")
-                if (!canFullScreen) {
-                    Log.w(TAG, "FULL_SCREEN_INTENT permission NOT granted! Notification will not launch full-screen activity.")
-                }
+                Log.d(TAG, "canUseFullScreenIntent() = ${nm.canUseFullScreenIntent()}")
             }
         }
 
-        // 1. Wake the screen FIRST (always, not conditionally)
+        // 1. Wake the screen
         acquireWakeLock()
 
-        // 2. Build notification with fullScreenIntent
+        // 2. Go foreground with the CallStyle notification.
+        //    fullScreenIntent fires ONLY when screen is off/locked (system rule).
         val notification = buildCallNotification(callerDisplay, caller)
-
-        // 3. Post via NotificationManager.notify() FIRST.
-        //    Some Samsung/OEM devices only trigger fullScreenIntent from notify(),
-        //    not from startForeground(). Posting first ensures the system sees the
-        //    fullScreenIntent and can launch the activity immediately.
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIFICATION_ID, notification)
-
-        // 4. Then promote to foreground service (takes over the same notification ID)
         startForeground(NOTIFICATION_ID, notification)
 
-        if (BuildConfig.DEBUG) {
-            Log.d(TAG, "Notification posted + startForeground called")
-        }
-
-        // 5. Start ringtone + vibration
+        // 3. Start ringtone + vibration
         startRinging()
 
-        // 6. Schedule timeout
+        // 4. Schedule timeout
         handler.postDelayed(timeoutRunnable, TIMEOUT_MS)
 
-        // 7. Notify TwilioManager so the UI can show the ringing state
+        // 5. Notify TwilioManager so the call UI shows the ringing state
         activeCallInvite?.let { twilioManager.handleIncomingCallInvite(it) }
 
-        // 8. After a short delay (giving system time to process foreground promotion),
-        //    try to launch IncomingCallActivity directly. Now that we're a foreground
-        //    service, we should have background activity start privileges.
-        handler.postDelayed({
+        // 6. Launch IncomingCallActivity directly.
+        //    After startForeground(), we have background-activity-start privileges.
+        //    Post to handler so the system has time to process foreground promotion.
+        //    This is the ONLY mechanism for screen-on cases (both foreground and background).
+        //    For screen-off, the fullScreenIntent above already handled it, and
+        //    IncomingCallActivity's singleTop mode will just onNewIntent() - not duplicate.
+        handler.post {
             try {
                 val activityIntent = Intent(this, IncomingCallActivity::class.java).apply {
                     this.flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                 Intent.FLAG_ACTIVITY_SINGLE_TOP or
                                  Intent.FLAG_ACTIVITY_NO_USER_ACTION
                     action = IncomingCallActivity.ACTION_INCOMING_CALL
                     putExtra("CALL_SID", callSid)
@@ -237,15 +233,15 @@ class IncomingCallService : Service() {
                 }
                 startActivity(activityIntent)
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Direct activity start succeeded")
+                    Log.d(TAG, "startActivity() succeeded")
                 }
             } catch (e: Exception) {
-                // fullScreenIntent on the notification handles this case
+                // fullScreenIntent on the notification is the fallback
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "Direct activity start failed: ${e.message}")
+                    Log.d(TAG, "startActivity() failed (fullScreenIntent is fallback): ${e.message}")
                 }
             }
-        }, 200) // 200ms delay for foreground promotion to take effect
+        }
     }
 
     private fun handleAccept() {
@@ -255,12 +251,13 @@ class IncomingCallService : Service() {
         handler.removeCallbacks(timeoutRunnable)
         stopRinging()
 
-        // Start the ongoing-call foreground service
         val invite = activeCallInvite
         if (invite != null) {
             CallService.startForIncomingAccepted(this, invite.from ?: "Unknown")
         }
 
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        cancelNotification()
         stopSelf()
     }
 
@@ -269,11 +266,12 @@ class IncomingCallService : Service() {
             Log.d(TAG, "Call declined")
         }
         handler.removeCallbacks(timeoutRunnable)
+        // activeCallInvite was already rejected in companion decline()
+        // but reject again in case service got the intent via another path
         activeCallInvite?.reject(applicationContext)
         activeCallInvite = null
         twilioManager.handleCallCancelled()
-        stopRinging()
-        stopSelf()
+        stopAndCleanup()
     }
 
     private fun handleCancelled() {
@@ -283,16 +281,32 @@ class IncomingCallService : Service() {
         handler.removeCallbacks(timeoutRunnable)
         activeCallInvite = null
         twilioManager.handleCallCancelled()
+        stopAndCleanup()
+    }
+
+    /** Stop ringing, remove notification, and stop the service. */
+    private fun stopAndCleanup() {
         stopRinging()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        cancelNotification()
         stopSelf()
+    }
+
+    private fun cancelNotification() {
+        try {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(NOTIFICATION_ID)
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     // ─── Notification ──────────────────────────────────────────────
 
     private fun buildCallNotification(callerDisplay: String, callerRaw: String): Notification {
-        // Full-screen intent → IncomingCallActivity
+        // Full-screen intent → IncomingCallActivity (screen-off/locked only)
         val fullScreenIntent = Intent(this, IncomingCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             action = IncomingCallActivity.ACTION_INCOMING_CALL
             putExtra("CALLER_NUMBER", callerRaw)
         }
@@ -304,7 +318,7 @@ class IncomingCallService : Service() {
 
         // Answer action → opens IncomingCallActivity with auto-answer
         val answerIntent = Intent(this, IncomingCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             action = IncomingCallActivity.ACTION_ANSWER_CALL
             putExtra("CALLER_NUMBER", callerRaw)
         }
@@ -345,10 +359,7 @@ class IncomingCallService : Service() {
             .setFullScreenIntent(fullScreenPi, true)
             .setContentIntent(fullScreenPi)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            // Vibration pattern on the notification so the system sees it as high-priority.
-            // (Ringtone is handled by MediaPlayer; continuous vibration by the Vibrator service.)
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
-            // Show foreground service notification immediately (Android 12+ delays by ~10s otherwise)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
@@ -359,7 +370,6 @@ class IncomingCallService : Service() {
         if (isRinging) return
         isRinging = true
 
-        // Ringtone via MediaPlayer (loops)
         try {
             val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
             mediaPlayer = MediaPlayer().apply {
@@ -380,7 +390,6 @@ class IncomingCallService : Service() {
             }
         }
 
-        // Vibration (repeating pattern)
         try {
             vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
@@ -393,7 +402,7 @@ class IncomingCallService : Service() {
             val pattern = longArrayOf(0, 1000, 500, 1000, 500, 1000)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator?.vibrate(
-                    VibrationEffect.createWaveform(pattern, 0) // repeat from index 0
+                    VibrationEffect.createWaveform(pattern, 0)
                 )
             } else {
                 @Suppress("DEPRECATION")
@@ -434,8 +443,6 @@ class IncomingCallService : Service() {
     private fun acquireWakeLock() {
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            // Always acquire — even when screen is on, this ensures the device stays
-            // awake and ACQUIRE_CAUSES_WAKEUP turns the screen on when it's off.
             @Suppress("DEPRECATION")
             wakeLock = pm.newWakeLock(
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
@@ -443,7 +450,7 @@ class IncomingCallService : Service() {
                 PowerManager.ON_AFTER_RELEASE,
                 "rhenti:incoming_call"
             )
-            wakeLock?.acquire(TIMEOUT_MS + 5_000) // auto-release slightly after timeout
+            wakeLock?.acquire(TIMEOUT_MS + 5_000)
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Wake lock acquired (screen interactive=${pm.isInteractive})")
             }
